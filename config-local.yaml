@@ -1,0 +1,17 @@
+pyxis_url: https://pyxis.dev.engineering.redhat.com/v1
+icons_dir: out/icons/
+icons_uri: https://flatpaks.redhat.com/icons/
+daemon:
+        update_interval: 3
+indexes:
+        amd64:
+                output: out/flatpak-amd64.json
+                architectures: ['amd64']
+                registry: registry.access.redhat.com
+                tag: latest
+                extract_icons: True
+registries:
+        registry.access.redhat.com:
+                public_url: 'https://registry.access.redhat.com/v2/'
+                repositories:
+                - ubi8
