@@ -1,4 +1,5 @@
 pyxis_url: https://pyxis.dev.engineering.redhat.com/v1
+pyxis_cert: RH-IT-Root-CA.crt
 icons_dir: out/icons/
 icons_uri: https://flatpaks.local.fishsoup.net.com/app-icons/
 daemon:

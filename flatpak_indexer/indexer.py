@@ -181,7 +181,19 @@ class Indexer(object):
                        page=page)
             logger.info("Requesting {}".format(url))
 
-            response = requests.get(url, headers={'Accept': 'application/json'})
+            if self.conf.pyxis_cert is None:
+                verify = True
+            else:
+                if os.path.isabs(self.conf.pyxis_cert):
+                    verify = self.conf.pyxis_cert
+                else:
+                    cert_dir = os.path.join(os.path.dirname(__file__), 'certs')
+                    verify = os.path.join(cert_dir, self.conf.pyxis_cert)
+
+                if not os.path.exists(verify):
+                    raise RuntimeError("Certificate {} does not exist".format(verify))
+
+            response = requests.get(url, headers={'Accept': 'application/json'}, verify=verify)
             response.raise_for_status()
 
             response_json = response.json()

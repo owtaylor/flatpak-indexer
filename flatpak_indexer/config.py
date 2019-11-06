@@ -38,6 +38,7 @@ class Config:
             self.pyxis_url = yml['pyxis_url']
             if not self.pyxis_url.endswith('/'):
                 self.pyxis_url += '/'
+            self.pyxis_cert = yml.get('pyxis_cert')
             self.icons_dir = yml.get('icons_dir', None)
             self.icons_uri = yml.get('icons_uri', None)
             if self.icons_uri and not self.icons_uri.endswith('/'):

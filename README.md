@@ -24,6 +24,8 @@ config map). Example:
 
 ``` yaml
 pyxis_url: https://pyxis.dev.engineering.redhat.com/v1
+# if missing, system trust root is used; if relative, looked up in included certs
+pyxis_cert: RH-IT-Root-CA.crt
 # When extract_icons is set for an index, icons are saved to icons_dir and labels are
 # rewritten in the index from a data: URL to an URL formed from icons_uri
 icons_dir: icons/
@@ -54,6 +56,8 @@ Development setup
 
 ``` sh
 # DO ONCE
+# Download the Red Hat IT root certificate
+./tools/download-cert.sh
 pipenv --three
 pipenv install --dev
 # To enter development environmnet

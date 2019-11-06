@@ -1,4 +1,6 @@
 /Pipfile.lock
+/dist
 /out/*
 /tls-secrets/*
+/flatpak_indexer/certs/RH-IT-Root-CA.crt
 /flatpak_indexer.egg-info/

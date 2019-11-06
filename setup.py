@@ -7,7 +7,13 @@ setup(name='flatpak-indexer',
       author_email='otaylor@redhat.com',
       license='MIT',
       packages=['flatpak_indexer'],
-      include_package_data=True,
+      package_data={
+          'flatpak_indexer': [
+              'certs/*.cert',
+              'certs/*.crt',
+              'certs/.dummy'
+          ],
+      },
       install_requires=[
           'click',
           'requests',
