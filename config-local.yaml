@@ -1,14 +1,19 @@
 pyxis_url: https://pyxis.dev.engineering.redhat.com/v1
 icons_dir: out/icons/
-icons_uri: https://flatpaks.redhat.com/icons/
+icons_uri: https://flatpaks.local.fishsoup.net.com/app-icons/
 daemon:
         update_interval: 3
 indexes:
-        amd64:
-                output: out/flatpak-amd64.json
-                architectures: ['amd64']
+        all:
+                output: out/index/flatpak.json
                 registry: registry.access.redhat.com
                 tag: latest
+                extract_icons: True
+        amd64:
+                output: out/index/flatpak-amd64.json
+                architecture: amd64
+                tag: latest
+                registry: registry.access.redhat.com
                 extract_icons: True
 registries:
         registry.access.redhat.com:
