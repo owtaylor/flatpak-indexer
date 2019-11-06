@@ -1,9 +1,27 @@
 from enum import Enum
+import os
+import re
 import yaml
 
 
 class Defaults(Enum):
     REQUIRED = 1
+
+
+ENV_VARIABLE_RE = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)(?::([^\}]*))?\}')
+
+def _substitute_env_var(m):
+    val = os.getenv(m.group(1))
+    if val is None:
+        if m.group(2) is None:
+            raise RuntimeError("Referenced environment variable {} is not set".format(m.group(1)))
+        else:
+            return m.group(2)
+
+    return val
+
+def _substitute_env_vars(val):
+    return ENV_VARIABLE_RE.sub(_substitute_env_var, val)
 
 
 class RegistryConfig:
@@ -64,10 +82,13 @@ class Lookup:
 
     def get_str(self, key, default=Defaults.REQUIRED):
         val = self._get(key, default)
-        if not (isinstance(val, str) or (default is None and val is None)):
+        if default is None and val is None:
+            return None
+
+        if not isinstance(val, str):
             raise RuntimeError("{} must be a string".format(self._get_path(key)))
 
-        return val
+        return _substitute_env_vars(val)
 
     def get_bool(self, key, default=Defaults.REQUIRED):
         val = self._get(key, default)
@@ -88,7 +109,7 @@ class Lookup:
         if not isinstance(val, list) or not all(isinstance(v, str) for v in val):
             raise RuntimeError("{} must be a list of strings".format(self._get_path(key)))
 
-        return val
+        return [_substitute_env_vars(v) for v in val]
 
 
 class Config:

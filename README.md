@@ -46,8 +46,9 @@ indexes:
                 registry: registry.access.redhat.com
                 architecture: amd64
                 tag: latest
-                # Full path to the output location
-                output: flatpak-amd64.json
+                # path to the output location - environment variable substitions
+                # are possible for all strings
+                output: ${OUTPUT_DIR:out}/index/flatpak-amd64.json
                 extract_icons: True
 ```
 
