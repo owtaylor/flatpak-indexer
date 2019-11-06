@@ -27,9 +27,11 @@ class IconStore(object):
             os.mkdir(icons_dir)
 
         self.old_icons = {}
-        for subdir in os.listdir(icons_dir):
-            for filename in os.listdir(os.path.join(icons_dir, subdir)):
-                self.old_icons[(subdir, filename)] = True
+        for f in os.listdir(icons_dir):
+            fullpath = os.path.join(icons_dir, f)
+            if os.path.isdir(fullpath):
+                for filename in os.listdir(fullpath):
+                    self.old_icons[(f, filename)] = True
 
         self.icons = {}
 
