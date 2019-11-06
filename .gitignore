@@ -1,3 +1,4 @@
 /Pipfile.lock
 /out/*
+/tls-secrets/*
 /flatpak_indexer.egg-info/

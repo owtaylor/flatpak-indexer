@@ -53,16 +53,45 @@ Development setup
 -----------------
 
 ``` sh
-# Once
+# DO ONCE
 pipenv --three
 pipenv install --dev
 # To enter development environmnet
 pipenv shell
+
+# DO EVERY TIME
+
 # To try a test run
 flatpak-indexer -v -c config-local.yaml
 # To check style
 flake8
 ```
+
+Testing frontend image locally
+------------------------------
+
+You'll need to have [s2i](https://github.com/openshift/source-to-image) installed on
+your system and have run the indexer with `config-local.yaml` as above.
+
+``` sh
+# DO ONCE:
+
+# Generate a certificate for flatpaks.local.fishsoup.net
+./tools/generate-certs.sh
+# And install a hostname and CA cert for that on your system
+./tools/trust-local.sh
+
+# DO EVERY TIME
+
+# Build the container
+./tools/build-frontend.sh
+# Run the container
+./tools/run-container.sh
+```
+
+You can then go to
+[https://flatpaks.local.fishsoup.net:8443/index/static?label:org.flatpak.ref:exists=1&architecture=amd64]
+in your browser and should see the JSON output of the indexer.
 
 License
 -------
