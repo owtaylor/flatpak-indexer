@@ -75,8 +75,29 @@ flake8
 Testing frontend image locally
 ------------------------------
 
+It's also possible to build and run the indexer as an image generated with
+s2i, to test it closer to the production setup. You'll need to have
+[s2i](https://github.com/openshift/source-to-image) installed on your system.
+
+``` sh
+# DO ONCE
+# Download the Red Hat IT root certificate
+./tools/download-cert.sh
+
+# DO EVERY TIME
+
+# Build the container
+./tools/build-indexer.sh
+# Run the container
+./tools/run-indexer.sh
+```
+
+Testing frontend image locally
+------------------------------
+
+The frontend configuration can only be tested as a s2i image.
 You'll need to have [s2i](https://github.com/openshift/source-to-image) installed on
-your system and have run the indexer with `config-local.yaml` as above.
+your system and have run the indexer either with the development setup or as an image.
 
 ``` sh
 # DO ONCE:
