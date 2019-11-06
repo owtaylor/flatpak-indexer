@@ -28,8 +28,8 @@ pyxis_url: https://pyxis.dev.engineering.redhat.com/v1
 pyxis_cert: RH-IT-Root-CA.crt
 # When extract_icons is set for an index, icons are saved to icons_dir and labels are
 # rewritten in the index from a data: URL to an URL formed from icons_uri
-icons_dir: icons/
-icons_uri: https://flatpaks.redhat.com/icons/
+icons_dir: ${OUTPUT_DIR:out}/icons/
+icons_uri: https://flatpaks.local.fishsoup.net.com/app-icons/
 daemon:
         # How often to query Pyxis
         update_interval: 1800
@@ -37,18 +37,22 @@ registries:
         # key must match registry ID in Pyxis
         registry.access.redhat.com:
                 # Written into the index
-                public_url: 'https://registry.access.redhat.com/v2/'
-                # Manual list of Flatpak repositories - will eventually extract from Pyxis
+                public_url: https://registry.access.redhat.com/v2/
                 repositories:
                 - ubi8
 indexes:
-        amd64:
-                registry: registry.access.redhat.com
-                architecture: amd64
-                tag: latest
+        all:
                 # path to the output location - environment variable substitions
                 # are possible for all strings
+                output: ${OUTPUT_DIR:out}/index/flatpak.json
+                registry: registry.access.redhat.com
+                tag: latest
+                extract_icons: True
+        amd64:
                 output: ${OUTPUT_DIR:out}/index/flatpak-amd64.json
+                architecture: amd64
+                tag: latest
+                registry: registry.access.redhat.com
                 extract_icons: True
 ```
 
