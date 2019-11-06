@@ -99,7 +99,7 @@ class Index:
         os = image_info['parsed_data']['os']
 
         if self.config.architecture:
-            if arch != self.config.architectures:
+            if arch != self.config.architecture:
                 return None
 
         labels = {label['name']: label['value']
