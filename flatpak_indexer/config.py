@@ -4,21 +4,27 @@ import re
 import yaml
 
 
+class ConfigError(Exception):
+    pass
+
+
 class Defaults(Enum):
     REQUIRED = 1
 
 
 ENV_VARIABLE_RE = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)(?::([^\}]*))?\}')
 
+
 def _substitute_env_var(m):
     val = os.getenv(m.group(1))
     if val is None:
         if m.group(2) is None:
-            raise RuntimeError("Referenced environment variable {} is not set".format(m.group(1)))
+            raise ConfigError("Referenced environment variable {} is not set".format(m.group(1)))
         else:
             return m.group(2)
 
     return val
+
 
 def _substitute_env_vars(val):
     return ENV_VARIABLE_RE.sub(_substitute_env_var, val)
@@ -28,10 +34,7 @@ class RegistryConfig:
     def __init__(self, name, attrs):
         self.name = name
         self.public_url = attrs.get_str('public_url', None)
-        self.repositories = attrs.get_str_list('repositories', None)
-
-    def __repr__(self):
-        return 'IndexConfig(%r)' % self.__dict__
+        self.repositories = attrs.get_str_list('repositories', [])
 
 
 class IndexConfig:
@@ -42,9 +45,6 @@ class IndexConfig:
         self.tag = lookup.get_str('tag')
         self.architecture = lookup.get_str('architecture', None)
         self.extract_icons = lookup.get_bool('extract_icons', False)
-
-    def __repr__(self):
-        return 'IndexConfig(%r)' % self.__dict__
 
 
 class DaemonConfig:
@@ -76,7 +76,7 @@ class Lookup:
             try:
                 return self.attrs[key]
             except KeyError:
-                raise RuntimeError("A value is required for {}".format(self._get_path(key)))
+                raise ConfigError("A value is required for {}".format(self._get_path(key)))
         else:
             return self.attrs.get(key, default)
 
@@ -86,28 +86,28 @@ class Lookup:
             return None
 
         if not isinstance(val, str):
-            raise RuntimeError("{} must be a string".format(self._get_path(key)))
+            raise ConfigError("{} must be a string".format(self._get_path(key)))
 
         return _substitute_env_vars(val)
 
     def get_bool(self, key, default=Defaults.REQUIRED):
         val = self._get(key, default)
         if not isinstance(val, bool):
-            raise RuntimeError("{} must be a boolean".format(self._get_path(key)))
+            raise ConfigError("{} must be a boolean".format(self._get_path(key)))
 
         return val
 
     def get_int(self, key, default=Defaults.REQUIRED):
         val = self._get(key, default)
         if not isinstance(val, int):
-            raise RuntimeError("{} must be an integer".format(self._get_path(key)))
+            raise ConfigError("{} must be an integer".format(self._get_path(key)))
 
         return val
 
     def get_str_list(self, key, default=Defaults.REQUIRED):
         val = self._get(key, default)
         if not isinstance(val, list) or not all(isinstance(v, str) for v in val):
-            raise RuntimeError("{} must be a list of strings".format(self._get_path(key)))
+            raise ConfigError("{} must be a list of strings".format(self._get_path(key)))
 
         return [_substitute_env_vars(v) for v in val]
 
@@ -118,19 +118,44 @@ class Config:
         self.registries = {}
         with open(path, 'r') as f:
             yml = yaml.safe_load(f)
-            lookup = Lookup(yml)
 
-            self.pyxis_url = lookup.get_str('pyxis_url')
-            if not self.pyxis_url.endswith('/'):
-                self.pyxis_url += '/'
-            self.pyxis_cert = lookup.get_str('pyxis_cert', None)
-            self.icons_dir = lookup.get_str('icons_dir', None)
-            self.icons_uri = lookup.get_str('icons_uri', None)
-            if self.icons_uri and not self.icons_uri.endswith('/'):
-                self.icons_uri += '/'
-            for name, sublookup in lookup.iterate_objects('registries'):
-                self.registries[name] = RegistryConfig(name, sublookup)
-            for name, sublookup in lookup.iterate_objects('indexes'):
-                self.indexes.append(IndexConfig(name, sublookup))
+        if not isinstance(yml, dict):
+            raise ConfigError("Top level of config.yaml must be an object with keys")
+
+        lookup = Lookup(yml)
+
+        self.pyxis_url = lookup.get_str('pyxis_url')
+        if not self.pyxis_url.endswith('/'):
+            self.pyxis_url += '/'
+        self.pyxis_cert = lookup.get_str('pyxis_cert', None)
+        if self.pyxis_cert is not None:
+            if not os.path.isabs(self.pyxis_cert):
+                cert_dir = os.path.join(os.path.dirname(__file__), 'certs')
+                self.pyxis_cert = os.path.join(cert_dir, self.pyxis_cert)
+
+            if not os.path.exists(self.pyxis_cert):
+                raise ConfigError("pyxis_cert: {} does not exist".format(self.pyxis_cert))
+
+        self.icons_dir = lookup.get_str('icons_dir', None)
+        self.icons_uri = lookup.get_str('icons_uri', None)
+        if self.icons_uri and not self.icons_uri.endswith('/'):
+            self.icons_uri += '/'
+
+        if self.icons_dir is not None and self.icons_uri is None:
+            raise ConfigError("icons_dir is configured, but not icons_uri")
+
+        for name, sublookup in lookup.iterate_objects('registries'):
+            self.registries[name] = RegistryConfig(name, sublookup)
+
+        for name, sublookup in lookup.iterate_objects('indexes'):
+            index_config = IndexConfig(name, sublookup)
+            self.indexes.append(index_config)
+            if index_config.registry not in self.registries:
+                raise ConfigError("indexes/{}: No registry config found for {}"
+                                  .format(index_config.name, index_config.registry))
+
+            if index_config.extract_icons and self.icons_dir is None:
+                raise ConfigError("indexes/{}: extract_icons is set, but no icons_dir is configured"
+                                  .format(index_config.name))
 
         self.daemon = DaemonConfig(Lookup(yml.get('daemon', {}), 'daemon'))

@@ -74,9 +74,6 @@ class IconStore(object):
 
 class Index:
     def __init__(self, conf, registry_public_url, icon_store=None):
-        if conf.extract_icons and icon_store is None:
-            raise RuntimeError("extract_icons is set, but no icons_dir is configured")
-
         self.registry_public_url = registry_public_url
         self.config = conf
         self.icon_store = icon_store
@@ -184,14 +181,8 @@ class Indexer(object):
             if self.conf.pyxis_cert is None:
                 verify = True
             else:
-                if os.path.isabs(self.conf.pyxis_cert):
-                    verify = self.conf.pyxis_cert
-                else:
-                    cert_dir = os.path.join(os.path.dirname(__file__), 'certs')
-                    verify = os.path.join(cert_dir, self.conf.pyxis_cert)
+                verify = self.conf.pyxis_cert
 
-                if not os.path.exists(verify):
-                    raise RuntimeError("Certificate {} does not exist".format(verify))
 
             response = requests.get(url, headers={'Accept': 'application/json'}, verify=verify)
             response.raise_for_status()
@@ -207,15 +198,8 @@ class Indexer(object):
             page += 1
 
     def index(self):
-        if not self.conf.indexes:
-            logger.warning("No indexes configured")
-            return
-
         icon_store = None
         if self.conf.icons_dir is not None:
-            if self.conf.icons_uri is None:
-                raise RuntimeError("icons_dir is configured, but not icons_uri")
-
             icon_store = IconStore(self.conf.icons_dir, self.conf.icons_uri)
 
         indexes_by_registry = {}
@@ -227,9 +211,6 @@ class Indexer(object):
 
         for registry, indexes in indexes_by_registry.items():
             registry_config = self.conf.registries.get(registry)
-            if not registry_config:
-                raise RuntimeError("No registry config found for {}".format(registry))
-
             for repository in registry_config.repositories:
                 desired_tags = {index.config.tag for index in indexes}
                 image_by_tag = {}
