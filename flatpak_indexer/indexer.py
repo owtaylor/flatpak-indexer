@@ -92,7 +92,7 @@ class Index:
         os = image_info['parsed_data']['os']
 
         labels = {label['name']: label['value']
-                  for label in image_info['parsed_data'].get('labels', {})}
+                  for label in image_info['parsed_data'].get('labels', [])}
 #        if not 'org.flatpak.ref' in labels:
 #            return None
 
