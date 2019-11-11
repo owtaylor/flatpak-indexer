@@ -22,10 +22,6 @@ class IconStore(object):
         self.icons_dir = icons_dir
         self.icons_uri = icons_uri
 
-        if not os.path.exists(icons_dir):
-            # Create only one level
-            os.mkdir(icons_dir)
-
         self.old_icons = {}
         for f in os.listdir(icons_dir):
             fullpath = os.path.join(icons_dir, f)
@@ -94,10 +90,6 @@ class Index:
     def make_image(self, name, image_info, repository_info):
         arch = image_info['architecture']
         os = image_info['parsed_data']['os']
-
-        if self.config.architecture:
-            if arch != self.config.architecture:
-                return None
 
         labels = {label['name']: label['value']
                   for label in image_info['parsed_data'].get('labels', {})}
