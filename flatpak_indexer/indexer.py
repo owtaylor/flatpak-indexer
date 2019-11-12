@@ -5,6 +5,7 @@ import hashlib
 import logging
 import json
 import os
+from tempfile import NamedTemporaryFile
 from urllib.parse import urljoin
 
 from .utils import get_retrying_requests_session
@@ -126,20 +127,53 @@ class Index:
             repo["Images"].append(image)
 
     def write(self):
-        with open(self.config.output, 'wb') as f:
+        tmpfile = NamedTemporaryFile(delete=False,
+                                     dir=os.path.dirname(self.config.output),
+                                     prefix=os.path.basename(self.config.output))
+        success = False
+        try:
             filtered_repos = (v for v in self.repos.values() if v['Images'] or v['Lists'])
             sorted_repos = sorted(filtered_repos, key=lambda r: r['Name'])
             for repo in sorted_repos:
                 repo["Images"].sort(key=lambda x: x["Tags"])
                 repo["Lists"].sort(key=lambda x: x["Tags"])
 
-            writer = codecs.getwriter("utf-8")(f)
+            writer = codecs.getwriter("utf-8")(tmpfile)
             json.dump({
                 'Registry': self.registry_public_url,
                 'Results': sorted_repos,
             }, writer, sort_keys=True, indent=4, ensure_ascii=False)
             writer.close()
-        logger.info("Wrote %s", self.config.output)
+            tmpfile.close()
+
+            # We don't overwrite unchanged files, so that the modtime and
+            # httpd-computed ETag stay the same.
+
+            changed = True
+            if os.path.exists(self.config.output):
+                h1 = hashlib.sha256()
+                with open(self.config.output, "rb") as f:
+                    h1.update(f.read())
+                h2 = hashlib.sha256()
+                with open(tmpfile.name, "rb") as f:
+                    h2.update(f.read())
+
+                if h1.digest() == h2.digest():
+                    changed = False
+
+            if changed:
+                # Atomically write over result
+                os.rename(tmpfile.name, self.config.output)
+                logger.info("Wrote %s", self.config.output)
+            else:
+                logger.info("%s is unchanged", self.config.output)
+                os.unlink(tmpfile.name)
+
+            success = True
+        finally:
+            if not success:
+                tmpfile.close()
+                os.unlink(tmpfile.name)
 
 
 def parse_date(date_str):

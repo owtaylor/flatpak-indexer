@@ -1,5 +1,6 @@
 import json
 import os
+from unittest.mock import patch
 
 import pytest
 import responses
@@ -74,3 +75,21 @@ def test_indexer(tmp_path, pyxis_cert):
     assert (tmp_path / 'icons' / icon_subpath[0] / icon_subpath[1]).exists()
 
     assert not (tmp_path / "icons" / "ba" / "bbled.png").exists()
+
+
+@responses.activate
+def test_indexer_write_failure(tmp_path):
+    mock_pyxis()
+
+    os.mkdir(tmp_path / "index")
+    os.makedirs(tmp_path / "icons")
+
+    os.environ["OUTPUT_DIR"] = str(tmp_path)
+    config = get_config(tmp_path, CONFIG)
+    indexer = Indexer(config, page_size=1)
+
+    with patch('json.dump', side_effect=IOError):
+        with pytest.raises(IOError):
+            indexer.index()
+
+    assert os.listdir(tmp_path / "index") == []
