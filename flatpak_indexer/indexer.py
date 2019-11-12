@@ -6,7 +6,6 @@ import logging
 import json
 import requests
 import os
-import re
 from urllib.parse import urljoin
 
 
@@ -143,10 +142,7 @@ class Index:
 
 
 def parse_date(date_str):
-    if re.match(r'\.\d+Z', date_str):
-        dt = datetime.strptime("2014-01-01T00:00:00Z", '%Y-%m-%dT%H:%M:%S.%fZ')
-    else:
-        dt = datetime.strptime("2014-01-01T00:00:00Z", '%Y-%m-%dT%H:%M:%SZ')
+    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%f+00:00')
     dt.replace(tzinfo=timezone.utc)
 
     return dt
@@ -174,7 +170,6 @@ class Indexer(object):
                 verify = True
             else:
                 verify = self.conf.pyxis_cert
-
 
             response = requests.get(url, headers={'Accept': 'application/json'}, verify=verify)
             response.raise_for_status()
