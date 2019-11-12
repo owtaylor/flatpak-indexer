@@ -207,10 +207,11 @@ class Indexer(object):
                     image_by_tag_arch = image_by_tag.setdefault(arch, {})
 
                     repository_info = None
-                    for repository_info in image_info['repositories']:
-                        if repository_info['repository'] != repository or \
-                           repository_info['registry'] != registry:
-                            continue
+                    for ri in image_info['repositories']:
+                        if ri['repository'] == repository and \
+                           ri['registry'] == registry:
+                            repository_info = ri
+                            break
 
                     if repository_info:
                         for tag in repository_info['tags']:
