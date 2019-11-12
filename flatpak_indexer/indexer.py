@@ -149,12 +149,13 @@ def parse_date(date_str):
 
 
 class Indexer(object):
-    def __init__(self, config):
+    def __init__(self, config, page_size=50):
         self.conf = config
+        self.page_size = page_size
 
     def iterate_images(self, registry, repository):
         logger.info("Getting all images for {}/{}".format(registry, repository))
-        page_size = 50
+        page_size = self.page_size
         page = 0
         while True:
             url = ('{api_url}repositories/registry/{registry}/repository/{repository}/images' +
