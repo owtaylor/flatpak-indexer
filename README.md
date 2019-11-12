@@ -70,11 +70,30 @@ pipenv shell
 
 # DO EVERY TIME
 
-# To try a test run
+# To run tests and check style
+./tools/test.sh
+# To run a specific test
+pytest tests -k test_config_basic
+# To try a test run against dev Pyxis
 flatpak-indexer -v -c config-local.yaml
-# To check style
-flake8
 ```
+
+Development standards
+---------------------
+All commits must:
+ * Test cleanly with flake8 as configured for this project in [.flake8]
+ * Contain changes to the test suite so that coverage stays at 100%
+
+Requiring 100% coverage can at times seem onerous, but keeps the criteria
+simple, and most cases in Python, untested code is broken code.
+
+Some hints:
+ * For wrong user input in the config file, try to check it upfront in
+   [flatpak_indexer/config.py], rather than at point of use.
+ * For: "this code can never be hit unless something is wrong elsewhere",
+   try to just delete the code - especially if there will be a reasonably
+   clear Python backtrace.
+
 
 Testing frontend image locally
 ------------------------------
@@ -90,7 +109,7 @@ s2i, to test it closer to the production setup. You'll need to have
 
 # DO EVERY TIME
 
-# Build the container
+# Build the container and run tests
 ./tools/build-indexer.sh
 # Run the container
 ./tools/run-indexer.sh

@@ -4,7 +4,6 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-flake8 = "*"
 flatpak-indexer = {editable = true,path = "."}
 
 [packages]

@@ -18,6 +18,12 @@ setup(name='flatpak-indexer',
           'click',
           'requests',
           'PyYAML',
+          # Dev requirements - listed in main requirements to make the image
+          # image self-contained for testing.
+          'flake8',
+          'pytest',
+          'pytest-cov',
+          'responses',
       ],
       entry_points={
           'console_scripts': [
