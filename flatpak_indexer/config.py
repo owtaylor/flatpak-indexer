@@ -33,7 +33,7 @@ def _substitute_env_vars(val):
 class RegistryConfig:
     def __init__(self, name, attrs):
         self.name = name
-        self.public_url = attrs.get_str('public_url', None)
+        self.public_url = attrs.get_str('public_url')
         self.repositories = attrs.get_str_list('repositories', [])
 
 

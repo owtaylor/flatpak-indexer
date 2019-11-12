@@ -18,6 +18,7 @@ icons_uri: https://flatpaks.example.com/icons
 registries:
     registry.example.com:
         repositories: ['aisleriot']
+        public_url: https://registry.example.com/
 indexes:
     amd64:
         registry: registry.example.com

@@ -16,6 +16,7 @@ daemon:
 registries:
     registry.example.com:
         repositories: ['repo1', 'repo2']
+        public_url: https://registry.example.com/
 indexes:
     amd64:
         architecture: amd64
