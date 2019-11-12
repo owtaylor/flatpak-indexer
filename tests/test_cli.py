@@ -46,6 +46,7 @@ def test_daemon(tmp_path):
         sleep_count += 1
         if sleep_count == 2:
             sys.exit(42)
+
     with patch('time.sleep', side_effect=mock_sleep):
         result = runner.invoke(cli, ['--config-file', config_path, 'daemon'],
                                catch_exceptions=False)
@@ -69,11 +70,13 @@ def test_daemon_exception(tmp_path):
         nonlocal exception_count
         exception_count += 1
         raise RuntimeError("Didn't work!")
+
     def mock_sleep(secs):
         nonlocal sleep_count
         sleep_count += 1
         if sleep_count == 2:
             sys.exit(42)
+
     with patch('time.sleep', side_effect=mock_sleep):
         with patch('flatpak_indexer.indexer.Indexer.index', side_effect=mock_index):
             result = runner.invoke(cli, ['--config-file', config_path, 'daemon'],

@@ -4,9 +4,10 @@ from datetime import datetime, timezone
 import hashlib
 import logging
 import json
-import requests
 import os
 from urllib.parse import urljoin
+
+from .utils import get_retrying_requests_session
 
 
 logger = logging.getLogger(__name__)
@@ -154,6 +155,8 @@ class Indexer(object):
         self.page_size = page_size
 
     def iterate_images(self, registry, repository):
+        session = get_retrying_requests_session()
+
         logger.info("Getting all images for {}/{}".format(registry, repository))
         page_size = self.page_size
         page = 0
@@ -172,7 +175,7 @@ class Indexer(object):
             else:
                 verify = self.conf.pyxis_cert
 
-            response = requests.get(url, headers={'Accept': 'application/json'}, verify=verify)
+            response = session.get(url, headers={'Accept': 'application/json'}, verify=verify)
             response.raise_for_status()
 
             response_json = response.json()
