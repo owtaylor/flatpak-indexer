@@ -12,7 +12,7 @@ registries:
         # key must match registry ID in Pyxis
         registry.access.redhat.com:
                 # Written into the index
-                public_url: https://registry.access.redhat.com/v2/
+                public_url: https://registry.access.redhat.com/
                 repositories:
                 - ubi8
 indexes:
