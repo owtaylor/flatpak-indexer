@@ -54,6 +54,36 @@ def test_daemon(tmp_path):
 
 
 @responses.activate
+def test_daemon_exception(tmp_path):
+    mock_pyxis()
+    config_path = write_config(tmp_path, CONFIG)
+
+    data = {
+        'exception_count': 0,
+        'sleep_count': 0,
+    }
+
+    os.mkdir(tmp_path / "index")
+    os.mkdir(tmp_path / "icons")
+    os.environ["OUTPUT_DIR"] = str(tmp_path)
+    runner = CliRunner()
+
+    def mock_sleep(secs):
+        data['sleep_count'] += 1
+        if data['sleep_count'] == 2:
+            sys.exit(42)
+    def mock_index():
+        data['exception_count'] += 1
+        raise RuntimeError("Didn't work!")
+    with patch('time.sleep', side_effect=mock_sleep):
+        with patch('flatpak_indexer.indexer.Indexer.index', side_effect=mock_index):
+            result = runner.invoke(cli, ['--config-file', config_path, 'daemon'],
+                                   catch_exceptions=False)
+            assert result.exit_code == 42
+            assert data['exception_count'] == 2
+
+
+@responses.activate
 @pytest.mark.parametrize('verbose', [False, True])
 def test_index(tmp_path, caplog, verbose):
     mock_pyxis()

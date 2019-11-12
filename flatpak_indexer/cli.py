@@ -42,7 +42,10 @@ def daemon(ctx):
             time.sleep(max(0, cfg.daemon.update_interval - (time.time() - last_update_time)))
         last_update_time = time.time()
 
-        indexer.index()
+        try:
+            indexer.index()
+        except Exception:
+            logger.exception("Failed to create index")
 
 
 @cli.command(name="index")
