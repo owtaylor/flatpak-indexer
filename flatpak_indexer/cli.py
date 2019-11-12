@@ -22,11 +22,11 @@ def cli(ctx, config_file, verbose):
         'config': cfg,
     }
 
+
+    FORMAT = "%(asctime)s:%(levelname)s:%(name)s:%(message)s"
+    logging.basicConfig(level=logging.WARNING, format=FORMAT)
     if verbose:
-        logging.basicConfig(level=logging.WARNING)
         logging.getLogger('flatpak_indexer').setLevel(logging.INFO)
-    else:
-        logging.basicConfig(level=logging.WARNING)
 
 
 @cli.command(name="daemon")
