@@ -34,9 +34,7 @@ def test_daemon(tmp_path):
     mock_pyxis()
     config_path = write_config(tmp_path, CONFIG)
 
-    data = {
-        'sleep_count': 0
-    }
+    sleep_count = 0
 
     os.mkdir(tmp_path / "index")
     os.mkdir(tmp_path / "icons")
@@ -44,8 +42,9 @@ def test_daemon(tmp_path):
     runner = CliRunner()
 
     def mock_sleep(secs):
-        data['sleep_count'] += 1
-        if data['sleep_count'] == 2:
+        nonlocal sleep_count
+        sleep_count += 1
+        if sleep_count == 2:
             sys.exit(42)
     with patch('time.sleep', side_effect=mock_sleep):
         result = runner.invoke(cli, ['--config-file', config_path, 'daemon'],
@@ -58,29 +57,29 @@ def test_daemon_exception(tmp_path):
     mock_pyxis()
     config_path = write_config(tmp_path, CONFIG)
 
-    data = {
-        'exception_count': 0,
-        'sleep_count': 0,
-    }
-
     os.mkdir(tmp_path / "index")
     os.mkdir(tmp_path / "icons")
     os.environ["OUTPUT_DIR"] = str(tmp_path)
     runner = CliRunner()
 
-    def mock_sleep(secs):
-        data['sleep_count'] += 1
-        if data['sleep_count'] == 2:
-            sys.exit(42)
+    exception_count = 0
+    sleep_count = 0
+
     def mock_index():
-        data['exception_count'] += 1
+        nonlocal exception_count
+        exception_count += 1
         raise RuntimeError("Didn't work!")
+    def mock_sleep(secs):
+        nonlocal sleep_count
+        sleep_count += 1
+        if sleep_count == 2:
+            sys.exit(42)
     with patch('time.sleep', side_effect=mock_sleep):
         with patch('flatpak_indexer.indexer.Indexer.index', side_effect=mock_index):
             result = runner.invoke(cli, ['--config-file', config_path, 'daemon'],
                                    catch_exceptions=False)
             assert result.exit_code == 42
-            assert data['exception_count'] == 2
+            assert exception_count == 2
 
 
 @responses.activate
