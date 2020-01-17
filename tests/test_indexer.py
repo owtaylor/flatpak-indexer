@@ -22,12 +22,12 @@ indexes:
     amd64:
         architecture: amd64
         registry: registry.example.com
-        output: ${OUTPUT_DIR}/test/index/flatpak-amd64.json
+        output: ${OUTPUT_DIR}/test/flatpak-amd64.json
         tag: latest
         extract_icons: true
     all:
         registry: registry.example.com
-        output: ${OUTPUT_DIR}/test/index/flatpak.json
+        output: ${OUTPUT_DIR}/test/flatpak.json
         tag: latest
         extract_icons: false
 """)
@@ -53,7 +53,7 @@ def test_indexer(tmp_path, pyxis_cert):
     indexer.index()
     indexer.index()
 
-    with open(tmp_path / "test/index/flatpak-amd64.json") as f:
+    with open(tmp_path / "test/flatpak-amd64.json") as f:
         amd64_data = json.load(f)
 
     assert amd64_data['Registry'] == 'https://registry.example.com/'
@@ -90,4 +90,4 @@ def test_indexer_write_failure(tmp_path):
         with pytest.raises(IOError):
             indexer.index()
 
-    assert os.listdir(tmp_path / "test/index") == []
+    assert os.listdir(tmp_path / "test") == []
