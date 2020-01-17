@@ -75,7 +75,7 @@ pipenv shell
 # To run a specific test
 pytest tests -k test_config_basic
 # To try a test run against dev Pyxis
-flatpak-indexer -v -c config-local.yaml
+flatpak-indexer -v -c config-local.yaml index
 ```
 
 Development standards
@@ -135,7 +135,7 @@ your system and have run the indexer either with the development setup or as an 
 # Build the container
 ./tools/build-frontend.sh
 # Run the container
-./tools/run-container.sh
+./tools/run-frontend.sh
 ```
 
 You can then go to
