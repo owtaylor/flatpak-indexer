@@ -169,6 +169,7 @@ class Index:
 
             if changed:
                 # Atomically write over result
+                os.chmod(tmpfile.name, 0o644)
                 os.rename(tmpfile.name, self.config.output)
                 logger.info("Wrote %s", self.config.output)
             else:
