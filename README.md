@@ -23,7 +23,8 @@ The indexer service is configured via a YAML file (typically provided as a kuber
 config map). Example:
 
 ``` yaml
-pyxis_url: https://pyxis.dev.engineering.redhat.com/v1
+pyxis_url: https://catalog.redhat.com/api/containers/v1
+# pyxis_url: https://pyxis.dev.engineering.redhat.com/v1
 # if missing, system trust root is used; if relative, looked up in included certs
 pyxis_cert: RH-IT-Root-CA.crt
 # When extract_icons is set for an index, icons are saved to icons_dir and labels are
