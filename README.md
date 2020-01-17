@@ -44,12 +44,12 @@ indexes:
         all:
                 # path to the output location - environment variable substitions
                 # are possible for all strings
-                output: ${OUTPUT_DIR:out}/index/flatpak.json
+                output: ${OUTPUT_DIR:out}/test/flatpak.json
                 registry: registry.access.redhat.com
                 tag: latest
                 extract_icons: True
         amd64:
-                output: ${OUTPUT_DIR:out}/index/flatpak-amd64.json
+                output: ${OUTPUT_DIR:out}/test/flatpak-amd64.json
                 architecture: amd64
                 tag: latest
                 registry: registry.access.redhat.com
@@ -139,7 +139,7 @@ your system and have run the indexer either with the development setup or as an 
 ```
 
 You can then go to
-[https://flatpaks.local.fishsoup.net:8443/index/static?label:org.flatpak.ref:exists=1&architecture=amd64]
+[https://flatpaks.local.fishsoup.net:8443/test/index/static?label:org.flatpak.ref:exists=1&architecture=amd64]
 in your browser and should see the JSON output of the indexer.
 
 License

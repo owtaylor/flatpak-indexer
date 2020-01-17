@@ -19,12 +19,12 @@ indexes:
         all:
                 # path to the output location - environment variable substitions
                 # are possible for all strings
-                output: ${OUTPUT_DIR:out}/index/flatpak.json
+                output: ${OUTPUT_DIR:out}/test/flatpak.json
                 registry: registry.access.redhat.com
                 tag: latest
                 extract_icons: True
         amd64:
-                output: ${OUTPUT_DIR:out}/index/flatpak-amd64.json
+                output: ${OUTPUT_DIR:out}/test/flatpak-amd64.json
                 architecture: amd64
                 tag: latest
                 registry: registry.access.redhat.com
