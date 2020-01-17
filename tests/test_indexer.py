@@ -22,12 +22,12 @@ indexes:
     amd64:
         architecture: amd64
         registry: registry.example.com
-        output: ${OUTPUT_DIR}/index/flatpak-amd64.json
+        output: ${OUTPUT_DIR}/test/index/flatpak-amd64.json
         tag: latest
         extract_icons: true
     all:
         registry: registry.example.com
-        output: ${OUTPUT_DIR}/index/flatpak.json
+        output: ${OUTPUT_DIR}/test/index/flatpak.json
         tag: latest
         extract_icons: false
 """)
@@ -42,7 +42,6 @@ def test_indexer(tmp_path, pyxis_cert):
 
     os.environ["OUTPUT_DIR"] = str(tmp_path)
 
-    os.mkdir(tmp_path / "index")
     os.makedirs(tmp_path / "icons" / "ba")
     with open(tmp_path / "icons" / "ba" / "bbled.png", "w"):
         pass
@@ -54,7 +53,7 @@ def test_indexer(tmp_path, pyxis_cert):
     indexer.index()
     indexer.index()
 
-    with open(tmp_path / "index/flatpak-amd64.json") as f:
+    with open(tmp_path / "test/index/flatpak-amd64.json") as f:
         amd64_data = json.load(f)
 
     assert amd64_data['Registry'] == 'https://registry.example.com/'
@@ -81,7 +80,6 @@ def test_indexer(tmp_path, pyxis_cert):
 def test_indexer_write_failure(tmp_path):
     mock_pyxis()
 
-    os.mkdir(tmp_path / "index")
     os.makedirs(tmp_path / "icons")
 
     os.environ["OUTPUT_DIR"] = str(tmp_path)
@@ -92,4 +90,4 @@ def test_indexer_write_failure(tmp_path):
         with pytest.raises(IOError):
             indexer.index()
 
-    assert os.listdir(tmp_path / "index") == []
+    assert os.listdir(tmp_path / "test/index") == []

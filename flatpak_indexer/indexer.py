@@ -127,8 +127,14 @@ class Index:
             repo["Images"].append(image)
 
     def write(self):
+        # We auto-create only one level and don't use os.makedirs,
+        # to better catch configuration mistakes
+        output_dir = os.path.dirname(self.config.output)
+        if not os.path.isdir(output_dir):
+            os.mkdir(output_dir)
+
         tmpfile = NamedTemporaryFile(delete=False,
-                                     dir=os.path.dirname(self.config.output),
+                                     dir=output_dir,
                                      prefix=os.path.basename(self.config.output))
         success = False
         try:
