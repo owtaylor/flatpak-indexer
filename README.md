@@ -23,10 +23,14 @@ The indexer service is configured via a YAML file (typically provided as a kuber
 config map). Example:
 
 ``` yaml
-pyxis_url: https://catalog.redhat.com/api/containers/v1
-# pyxis_url: https://pyxis.dev.engineering.redhat.com/v1
+#pyxis_url: https://catalog.redhat.com/api/containers/v1
+pyxis_url: https://pyxis.engineering.redhat.com/v1
 # if missing, system trust root is used; if relative, looked up in included certs
 pyxis_cert: RH-IT-Root-CA.crt
+# these define a client certificate/key pair to authenticate to pyxis; this
+# shows environment variable substitution with a fallback
+pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
+pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
 # When extract_icons is set for an index, icons are saved to icons_dir and labels are
 # rewritten in the index from a data: URL to an URL formed from icons_uri
 icons_dir: ${OUTPUT_DIR:out}/icons/
@@ -60,8 +64,19 @@ indexes:
 Development setup
 -----------------
 
+To develop against the internal Pyxis instance, you'll need a client certificate that
+authenticates you as a Red Hat user. See https://mojo.redhat.com/docs/DOC-1210484 -
+once you have the container working, you'll need the specific instructions under the
+"caDirUserCert" section.
+
 ``` sh
 # DO ONCE
+
+# Put your client certificate/key into place
+mkdir -p ~/.config/flatpak-indexer
+cp myuser.crt ~/.config/flatpak-indexer/client.crt
+cp myuser.key ~/.config/flatpak-indexer/client.key
+
 # Download the Red Hat IT root certificate
 ./tools/download-cert.sh
 pipenv --three
@@ -96,15 +111,24 @@ Some hints:
    clear Python backtrace.
 
 
-Testing frontend image locally
-------------------------------
+Testing indexer image locally
+-----------------------------
 
 It's also possible to build and run the indexer as an image generated with
 s2i, to test it closer to the production setup. You'll need to have
 [s2i](https://github.com/openshift/source-to-image) installed on your system.
 
+See the instructions in the "Development setup" above section for obtaining a
+client certificate.
+
 ``` sh
 # DO ONCE
+
+# Put your client certificate/key into place
+mkdir -p ~/.config/flatpak-indexer
+cp myuser.crt ~/.config/flatpak-indexer/client.crt
+cp myuser.key ~/.config/flatpak-indexer/client.key
+
 # Download the Red Hat IT root certificate
 ./tools/download-cert.sh
 

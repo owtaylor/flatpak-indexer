@@ -211,12 +211,19 @@ class Indexer(object):
                        page=page)
             logger.info("Requesting {}".format(url))
 
-            if self.conf.pyxis_cert is None:
-                verify = True
-            else:
-                verify = self.conf.pyxis_cert
+            kwargs = {
+            }
 
-            response = session.get(url, headers={'Accept': 'application/json'}, verify=verify)
+            if self.conf.pyxis_cert is None:
+                kwargs['verify'] = True
+            else:
+                kwargs['verify'] = self.conf.pyxis_cert
+
+            if self.conf.pyxis_client_cert:
+                kwargs['cert'] = (self.conf.pyxis_client_cert,
+                                  self.conf.pyxis_client_key)
+
+            response = session.get(url, headers={'Accept': 'application/json'}, **kwargs)
             response.raise_for_status()
 
             response_json = response.json()

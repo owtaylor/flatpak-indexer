@@ -24,6 +24,20 @@ def get_config(tmp_path, content):
     return conf
 
 
+def setup_client_cert(tmp_path, create_cert=True, create_key=True):
+    cert_path = str(tmp_path / "client.crt")
+    if create_cert:
+        with open(cert_path, 'w'):
+            pass
+
+    key_path = str(tmp_path / "client.key")
+    if create_key:
+        with open(key_path, 'w'):
+            pass
+
+    return cert_path, key_path
+
+
 _TEST_ICON_DATA = \
     """iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAABeklEQVRo3t3ay3KEMAxEUdH//8/O
     JplMgDGy3JLb8YqCBfdQPAqXD/sZrTXbZxzH8b3xvncXw6v+DNjC8F5vZjgVnw6L17fWcL3qsoZr

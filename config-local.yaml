@@ -1,7 +1,11 @@
-pyxis_url: https://catalog.redhat.com/api/containers/v1
-# pyxis_url: https://pyxis.dev.engineering.redhat.com/v1
+#pyxis_url: https://catalog.redhat.com/api/containers/v1
+pyxis_url: https://pyxis.engineering.redhat.com/v1
 # if missing, system trust root is used; if relative, looked up in included certs
-# pyxis_cert: RH-IT-Root-CA.crt
+pyxis_cert: RH-IT-Root-CA.crt
+# these define a client certificate/key pair to authenticate to pyxis; this
+# shows environment variable substitution with a fallback
+pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
+pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
 # When extract_icons is set for an index, icons are saved to icons_dir and labels are
 # rewritten in the index from a data: URL to an URL formed from icons_uri
 icons_dir: ${OUTPUT_DIR:out}/icons/

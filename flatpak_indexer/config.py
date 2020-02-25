@@ -119,6 +119,19 @@ class Config:
 
             if not os.path.exists(self.pyxis_cert):
                 raise ConfigError("pyxis_cert: {} does not exist".format(self.pyxis_cert))
+        self.pyxis_client_cert = lookup.get_str('pyxis_client_cert', None)
+        self.pyxis_client_key = lookup.get_str('pyxis_client_key', None)
+
+        if (not self.pyxis_client_cert) != (not self.pyxis_client_key):
+            raise ConfigError("pyxis_client_cert and pyxis_client_key must be set together")
+
+        if self.pyxis_client_cert:
+            if not os.path.exists(self.pyxis_client_cert):
+                raise ConfigError(
+                    "pyxis_client_cert: {} does not exist".format(self.pyxis_client_cert))
+            if not os.path.exists(self.pyxis_client_key):
+                raise ConfigError(
+                    "pyxis_client_key: {} does not exist".format(self.pyxis_client_key))
 
         self.icons_dir = lookup.get_str('icons_dir', None)
         self.icons_uri = lookup.get_str('icons_uri', None)

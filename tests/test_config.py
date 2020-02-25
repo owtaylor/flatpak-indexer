@@ -6,7 +6,7 @@ import yaml
 
 from flatpak_indexer.config import ConfigError
 from flatpak_indexer.utils import SubstitutionError
-from .utils import get_config
+from .utils import get_config, setup_client_cert
 
 BASIC_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
@@ -115,6 +115,48 @@ def test_cert_missing(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
     config_data['pyxis_cert'] = str(tmp_path / "nothere.crt")
     with raises(ConfigError, match="nothere.crt does not exist"):
+        get_config(tmp_path, config_data)
+
+
+def test_client_cert(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    config_data['pyxis_client_cert'], config_data['pyxis_client_key'] = \
+        setup_client_cert(tmp_path)
+
+    config = get_config(tmp_path, config_data)
+    assert config.pyxis_client_cert == str(tmp_path / "client.crt")
+    assert config.pyxis_client_key == str(tmp_path / "client.key")
+
+
+def test_client_cert_missing(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    config_data['pyxis_client_cert'], config_data['pyxis_client_key'] = \
+        setup_client_cert(tmp_path, create_cert=False)
+
+    with raises(ConfigError,
+                match="client.crt does not exist"):
+        get_config(tmp_path, config_data)
+
+
+def test_client_key_missing(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    config_data['pyxis_client_cert'], config_data['pyxis_client_key'] = \
+        setup_client_cert(tmp_path, create_key=False)
+
+    with raises(ConfigError,
+                match="client.key does not exist"):
+        get_config(tmp_path, config_data)
+
+
+def test_client_key_mismatch(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    config_data['pyxis_client_cert'], config_data['pyxis_client_key'] = \
+        setup_client_cert(tmp_path)
+
+    del config_data['pyxis_client_cert']
+
+    with raises(ConfigError,
+                match="pyxis_client_cert and pyxis_client_key must be set together"):
         get_config(tmp_path, config_data)
 
 

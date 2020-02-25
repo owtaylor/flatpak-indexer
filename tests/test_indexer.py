@@ -7,7 +7,7 @@ import responses
 import yaml
 
 from flatpak_indexer.indexer import Indexer
-from .utils import get_config, mock_pyxis
+from .utils import get_config, mock_pyxis, setup_client_cert
 
 
 CONFIG = yaml.safe_load("""
@@ -33,11 +33,12 @@ indexes:
 """)
 
 
-@pytest.mark.parametrize("pyxis_cert",
-                         ["test.crt",
-                          None])
+@pytest.mark.parametrize("server_cert,client_cert",
+                         [(False, False),
+                          (True,  False),
+                          (False, True)])
 @responses.activate
-def test_indexer(tmp_path, pyxis_cert):
+def test_indexer(tmp_path, server_cert, client_cert):
     mock_pyxis()
 
     os.environ["OUTPUT_DIR"] = str(tmp_path)
@@ -47,7 +48,11 @@ def test_indexer(tmp_path, pyxis_cert):
         pass
 
     config = get_config(tmp_path, CONFIG)
-    config.pyxis_cert = pyxis_cert
+    if server_cert:
+        config.pyxis_cert = 'test.crt'
+    if client_cert:
+        config.pyxis_client_cert, config.pyxis_client_key = setup_client_cert(tmp_path)
+
     indexer = Indexer(config, page_size=1)
 
     indexer.index()
