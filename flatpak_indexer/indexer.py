@@ -88,7 +88,7 @@ class Index:
         if uri is not None:
             labels[key] = uri
 
-    def make_image(self, name, image_info, repository_info):
+    def make_image(self, name, image_info, all_tags):
         arch = image_info['architecture']
         os = image_info['parsed_data']['os']
 
@@ -108,11 +108,11 @@ class Index:
             'Labels': labels,
         }
 
-        image['Tags'] = sorted({tag["name"] for tag in repository_info['tags']})
+        image['Tags'] = all_tags
 
         return image
 
-    def add_image(self, name, image_info, repository_info):
+    def add_image(self, name, image_info, all_tags):
         if name not in self.repos:
             self.repos[name] = {
                 "Name": name,
@@ -122,7 +122,7 @@ class Index:
 
         repo = self.repos[name]
 
-        image = self.make_image(name, image_info, repository_info)
+        image = self.make_image(name, image_info, all_tags)
         if image:
             repo["Images"].append(image)
 
@@ -183,29 +183,24 @@ class Index:
                 os.unlink(tmpfile.name)
 
 
-def parse_date(date_str):
-    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%f+00:00')
-    dt.replace(tzinfo=timezone.utc)
-
-    return dt
-
-
-class Indexer(object):
-    def __init__(self, config, page_size=50):
-        self.conf = config
+class Registry:
+    def __init__(self, name, global_config, page_size):
+        self.name = name
+        self.global_config = global_config
+        self.config = global_config.registries[name]
         self.page_size = page_size
 
-    def iterate_images(self, registry, repository):
+    def _iterate_all_images(self, repository):
         session = get_retrying_requests_session()
 
-        logger.info("Getting all images for {}/{}".format(registry, repository))
+        logger.info("Getting all images for {}/{}".format(self.name, repository))
         page_size = self.page_size
         page = 0
         while True:
             url = ('{api_url}repositories/registry/{registry}/repository/{repository}/images' +
                    '?page_size={page_size}&page={page}').format(
-                       api_url=self.conf.pyxis_url,
-                       registry=registry,
+                       api_url=self.global_config.pyxis_url,
+                       registry=self.name,
                        repository=repository,
                        page_size=page_size,
                        page=page)
@@ -214,14 +209,14 @@ class Indexer(object):
             kwargs = {
             }
 
-            if self.conf.pyxis_cert is None:
+            if self.global_config.pyxis_cert is None:
                 kwargs['verify'] = True
             else:
-                kwargs['verify'] = self.conf.pyxis_cert
+                kwargs['verify'] = self.global_config.pyxis_cert
 
-            if self.conf.pyxis_client_cert:
-                kwargs['cert'] = (self.conf.pyxis_client_cert,
-                                  self.conf.pyxis_client_key)
+            if self.global_config.pyxis_client_cert:
+                kwargs['cert'] = (self.global_config.pyxis_client_cert,
+                                  self.global_config.pyxis_client_key)
 
             response = session.get(url, headers={'Accept': 'application/json'}, **kwargs)
             response.raise_for_status()
@@ -236,52 +231,89 @@ class Indexer(object):
 
             page += 1
 
+    def _iterate_repository_images(self, repository, desired_tags):
+        image_by_tag_arch = {}
+
+        for image_info in self._iterate_all_images(repository):
+            arch = image_info['architecture']
+
+            repository_info = None
+            for ri in image_info['repositories']:
+                if ri['repository'] == repository and \
+                   ri['registry'] == self.name:
+                    repository_info = ri
+                    break
+
+            if repository_info:
+                for tag in repository_info['tags']:
+                    tag_name = tag['name']
+                    tag_date = parse_date(tag['added_date'])
+                    if tag_name in desired_tags:
+                        key = tag_name, arch
+                        info = image_by_tag_arch.get(key)
+                        if info is None or tag_date > info[0]:
+                            image_by_tag_arch[key] = (tag_date,
+                                                      image_info,
+                                                      repository_info)
+
+        for (tag_name, arch), (_, image_info, repository_info) in image_by_tag_arch.items():
+            all_tags = sorted({tag["name"] for tag in repository_info['tags']})
+
+            yield tag_name, arch, image_info, all_tags
+
+    def iterate_images(self, desired_tags):
+        for repository in self.config.repositories:
+            for tag_name, arch, image_info, all_tags in \
+                self._iterate_repository_images(repository, desired_tags):
+
+                yield repository, tag_name, arch, image_info, all_tags
+
+
+def parse_date(date_str):
+    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%f+00:00')
+    dt.replace(tzinfo=timezone.utc)
+
+    return dt
+
+
+class Indexer(object):
+    def __init__(self, config, page_size=50):
+        self.conf = config
+        self.page_size = page_size
+
     def index(self):
         icon_store = None
         if self.conf.icons_dir is not None:
             icon_store = IconStore(self.conf.icons_dir, self.conf.icons_uri)
 
+        registries = {}
         indexes_by_registry = {}
         for index_config in self.conf.indexes:
-            indexes = indexes_by_registry.setdefault(index_config.registry, [])
+            registry_name = index_config.registry
+            if registry_name not in registries:
+                registries[registry_name] = Registry(registry_name,
+                                                     self.conf,
+                                                     self.page_size)
+            registry = registries[registry_name]
+
+            indexes = indexes_by_registry.setdefault(registry_name, [])
             indexes.append(Index(index_config,
                                  self.conf.registries[index_config.registry].public_url,
                                  icon_store=icon_store))
 
-        for registry, indexes in indexes_by_registry.items():
-            registry_config = self.conf.registries.get(registry)
-            for repository in registry_config.repositories:
-                desired_tags = {index.config.tag for index in indexes}
-                image_by_tag = {}
+        for registry_name, indexes in indexes_by_registry.items():
+            registry = registries[registry_name]
+            desired_tags = {index.config.tag for index in indexes}
 
-                for image_info in self.iterate_images(registry, repository):
-                    arch = image_info['architecture']
-                    image_by_tag_arch = image_by_tag.setdefault(arch, {})
-
-                    repository_info = None
-                    for ri in image_info['repositories']:
-                        if ri['repository'] == repository and \
-                           ri['registry'] == registry:
-                            repository_info = ri
-                            break
-
-                    if repository_info:
-                        for tag in repository_info['tags']:
-                            tag_name = tag['name']
-                            tag_date = parse_date(tag['added_date'])
-                            if tag_name in desired_tags:
-                                if tag_name not in image_by_tag_arch or \
-                                   tag_date > image_by_tag_arch[tag_name][0]:
-                                    image_by_tag_arch[tag_name] = (tag_date,
-                                                                   image_info,
-                                                                   repository_info)
+            for repository, tag_name, arch, image_info, all_tags in \
+                registry.iterate_images(desired_tags):
 
                 for index in indexes:
-                    for arch in image_by_tag:
-                        if index.config.architecture is None or arch == index.config.architecture:
-                            info = image_by_tag[arch].get(index.config.tag)
-                            if info:
-                                index.add_image(repository, info[1], info[2])
+                    if (tag_name == index.config.tag and
+                        (index.config.architecture is None or
+                         arch == index.config.architecture)):
+
+                        index.add_image(repository, image_info, all_tags)
 
             for index in indexes:
                 index.write()
