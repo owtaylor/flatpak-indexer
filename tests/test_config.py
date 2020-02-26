@@ -5,6 +5,7 @@ from pytest import raises
 import yaml
 
 from flatpak_indexer.config import ConfigError
+from flatpak_indexer.utils import SubstitutionError
 from .utils import get_config
 
 BASIC_CONFIG = yaml.safe_load("""
@@ -98,7 +99,7 @@ def test_environment_variable_missing(tmp_path):
     CONFIG = {
         'pyxis_url': 'https://${DOMAIN_NAME}/v1'
     }
-    with raises(ConfigError, match=r'environment variable DOMAIN_NAME is not set'):
+    with raises(SubstitutionError, match=r'environment variable DOMAIN_NAME is not set'):
         get_config(tmp_path, CONFIG)
 
 
