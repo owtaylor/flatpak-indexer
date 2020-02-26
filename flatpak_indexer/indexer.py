@@ -96,8 +96,6 @@ class Index:
 
         labels = {label['name']: label['value']
                   for label in image_info['parsed_data'].get('labels', [])}
-#        if not 'org.flatpak.ref' in labels:
-#            return None
 
         self.extract_icon(labels, 'org.freedesktop.appstream.icon-64')
         self.extract_icon(labels, 'org.freedesktop.appstream.icon-128')
