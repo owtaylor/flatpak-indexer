@@ -17,4 +17,6 @@ exec podman run \
        -v $topdir/out:/var/www/flatpaks:z \
        -v $topdir/config-local.yaml:/etc/flatpak-indexer/config.yaml:z \
        -v $HOME/.config/flatpak-indexer:/etc/pki/flatpak-indexer:z \
+       -v $topdir/flatpak_indexer/certs:/etc/pki/brew:z \
+       -v $topdir/brew.conf:/etc/koji.conf:z \
        flatpak-indexer

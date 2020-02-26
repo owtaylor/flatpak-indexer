@@ -16,6 +16,7 @@ setup(name='flatpak-indexer',
       },
       install_requires=[
           'click',
+          'koji',
           'requests',
           'PyYAML',
           # Dev requirements - listed in main requirements to make the image

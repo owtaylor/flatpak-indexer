@@ -7,7 +7,7 @@ import responses
 import yaml
 
 from flatpak_indexer.indexer import Indexer
-from .utils import get_config, mock_pyxis, setup_client_cert
+from .utils import get_config, mock_koji, mock_pyxis, setup_client_cert
 
 
 CONFIG = yaml.safe_load("""
@@ -96,3 +96,44 @@ def test_indexer_write_failure(tmp_path):
             indexer.index()
 
     assert os.listdir(tmp_path / "test") == []
+
+
+KOJI_CONFIG = yaml.safe_load("""
+pyxis_url: https://pyxis.example.com/v1
+registries:
+    brew:
+        public_url: https://internal.example.com/
+        koji_config: brew
+indexes:
+    brew-rc:
+        registry: brew
+        architecture: amd64
+        output: ${OUTPUT_DIR}/test/brew.json
+        koji_tag: release-candidate
+""")
+
+
+@mock_koji
+@responses.activate
+def test_indexer_koji(tmp_path):
+    mock_pyxis()
+
+    os.environ["OUTPUT_DIR"] = str(tmp_path)
+
+    config = get_config(tmp_path, KOJI_CONFIG)
+    indexer = Indexer(config)
+
+    indexer.index()
+
+    with open(tmp_path / "test/brew.json") as f:
+        data = json.load(f)
+
+    assert data['Registry'] == 'https://internal.example.com/'
+    assert len(data['Results']) == 1
+    aisleriot_repository = data['Results'][0]
+    assert aisleriot_repository['Name'] == 'rh-osbs/aisleriot'
+    print([i['Architecture'] for i in aisleriot_repository['Images']])
+    assert len(aisleriot_repository['Images']) == 1
+    aisleriot_image = aisleriot_repository['Images'][0]
+    assert aisleriot_image['Digest'] == \
+        'sha256:527dda0ec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'

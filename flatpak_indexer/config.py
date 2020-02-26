@@ -19,6 +19,7 @@ class RegistryConfig:
         self.name = name
         self.public_url = attrs.get_str('public_url')
         self.repositories = attrs.get_str_list('repositories', [])
+        self.koji_config = attrs.get_str('koji_config', None)
 
 
 class IndexConfig:
@@ -26,7 +27,8 @@ class IndexConfig:
         self.name = name
         self.output = lookup.get_str('output')
         self.registry = lookup.get_str('registry')
-        self.tag = lookup.get_str('tag')
+        self.tag = lookup.get_str('tag', None)
+        self.koji_tag = lookup.get_str('koji_tag', None)
         self.architecture = lookup.get_str('architecture', None)
         self.extract_icons = lookup.get_bool('extract_icons', False)
 
@@ -142,14 +144,34 @@ class Config:
             raise ConfigError("icons_dir is configured, but not icons_uri")
 
         for name, sublookup in lookup.iterate_objects('registries'):
-            self.registries[name] = RegistryConfig(name, sublookup)
+            registry_config = RegistryConfig(name, sublookup)
+            self.registries[name] = registry_config
+
+            if registry_config.koji_config and registry_config.repositories:
+                raise ConfigError("registries/{}: koji_config and repositories cannot both be set"
+                                  .format(registry_config.name))
 
         for name, sublookup in lookup.iterate_objects('indexes'):
             index_config = IndexConfig(name, sublookup)
             self.indexes.append(index_config)
-            if index_config.registry not in self.registries:
+
+            registry_config = self.registries.get(index_config.registry)
+            if not registry_config:
                 raise ConfigError("indexes/{}: No registry config found for {}"
                                   .format(index_config.name, index_config.registry))
+
+            if index_config.koji_tag and not registry_config.koji_config:
+                raise ConfigError(
+                    "indexes/{}: koji_tag is set, but koji_config missing for registry"
+                    .format(index_config.name))
+
+            if index_config.tag and index_config.koji_tag:
+                raise ConfigError("indexes/{}: tag and koji_tag cannot both be set"
+                                  .format(index_config.name))
+
+            if not (index_config.tag or index_config.koji_tag):
+                raise ConfigError("indexes/{}: One of tag or koji_tag must be set"
+                                  .format(index_config.name))
 
             if index_config.extract_icons and self.icons_dir is None:
                 raise ConfigError("indexes/{}: extract_icons is set, but no icons_dir is configured"

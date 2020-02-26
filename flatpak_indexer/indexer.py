@@ -2,9 +2,11 @@ import codecs
 import base64
 from datetime import datetime, timezone
 import hashlib
+import koji
 import logging
 import json
 import os
+import re
 from tempfile import NamedTemporaryFile
 from urllib.parse import urljoin
 
@@ -189,22 +191,24 @@ class Registry:
         self.global_config = global_config
         self.config = global_config.registries[name]
         self.page_size = page_size
+        self.tag_indexes = []
+        self.koji_indexes = {}
 
-    def _iterate_all_images(self, repository):
-        session = get_retrying_requests_session()
+    def add_index(self, index):
+        if index.config.koji_tag:
+            indexes = self.koji_indexes.setdefault(index.config.koji_tag, [])
+            indexes.append(index)
+        else:
+            self.tag_indexes.append(index)
 
-        logger.info("Getting all images for {}/{}".format(self.name, repository))
+    def _do_iterate_images(self, session, url):
         page_size = self.page_size
         page = 0
         while True:
-            url = ('{api_url}repositories/registry/{registry}/repository/{repository}/images' +
-                   '?page_size={page_size}&page={page}').format(
-                       api_url=self.global_config.pyxis_url,
-                       registry=self.name,
-                       repository=repository,
-                       page_size=page_size,
-                       page=page)
-            logger.info("Requesting {}".format(url))
+            paginated_url = url + '?page_size={page_size}&page={page}'.format(
+                page_size=page_size,
+                page=page)
+            logger.info("Requesting {}".format(paginated_url))
 
             kwargs = {
             }
@@ -218,7 +222,7 @@ class Registry:
                 kwargs['cert'] = (self.global_config.pyxis_client_cert,
                                   self.global_config.pyxis_client_key)
 
-            response = session.get(url, headers={'Accept': 'application/json'}, **kwargs)
+            response = session.get(paginated_url, headers={'Accept': 'application/json'}, **kwargs)
             response.raise_for_status()
 
             response_json = response.json()
@@ -231,10 +235,22 @@ class Registry:
 
             page += 1
 
+    def _iterate_all_repository_images(self, repository):
+        logger.info("Getting all images for {}/{}".format(self.name, repository))
+
+        session = get_retrying_requests_session()
+
+        url = '{api_url}repositories/registry/{registry}/repository/{repository}/images'.format(
+            api_url=self.global_config.pyxis_url,
+            registry=self.name,
+            repository=repository)
+
+        yield from self._do_iterate_images(session, url)
+
     def _iterate_repository_images(self, repository, desired_tags):
         image_by_tag_arch = {}
 
-        for image_info in self._iterate_all_images(repository):
+        for image_info in self._iterate_all_repository_images(repository):
             arch = image_info['architecture']
 
             repository_info = None
@@ -264,9 +280,45 @@ class Registry:
     def iterate_images(self, desired_tags):
         for repository in self.config.repositories:
             for tag_name, arch, image_info, all_tags in \
-                self._iterate_repository_images(repository, desired_tags):
+                    self._iterate_repository_images(repository, desired_tags):
 
                 yield repository, tag_name, arch, image_info, all_tags
+
+    def _iterate_images_for_nvr(self, session, nvr):
+        logger.info("Getting images for {}".format(nvr))
+
+        url = '{api_url}images/nvr/{nvr}'.format(api_url=self.global_config.pyxis_url,
+                                                 nvr=nvr)
+
+        yield from self._do_iterate_images(session, url)
+
+    def _iterate_nvrs(self, koji_tag):
+        options = koji.read_config(profile_name=self.config.koji_config)
+        koji_session_opts = koji.grab_session_options(options)
+        koji_session = koji.ClientSession(options['server'], koji_session_opts)
+
+        tagged_builds = koji_session.listTagged(koji_tag, type='image', latest=True)
+        for tagged_build in tagged_builds:
+            build_id = tagged_build['build_id']
+            build = koji_session.getBuild(build_id)
+            image_extra = build['extra']['image']
+            is_flatpak = image_extra.get('flatpak', False)
+            if is_flatpak:
+                pull_specs = image_extra['index']['pull']
+                # All the pull specs should have the same repository,
+                # so which one we use is arbitrary
+                base, tag = re.compile(r'[:@]').split(pull_specs[0], 1)
+                _, repository = base.split('/', 1)
+
+                all_tags = [tag['name'] for tag in koji_session.listTags(build_id)]
+                yield build['nvr'], repository, all_tags
+
+    def iterate_koji_images(self, koji_tag):
+        session = get_retrying_requests_session()
+
+        for nvr, repository, all_tags in self._iterate_nvrs(koji_tag):
+            for image_info in self._iterate_images_for_nvr(session, nvr):
+                yield repository, koji_tag, image_info['architecture'], image_info, all_tags
 
 
 def parse_date(date_str):
@@ -287,36 +339,45 @@ class Indexer(object):
             icon_store = IconStore(self.conf.icons_dir, self.conf.icons_uri)
 
         registries = {}
-        indexes_by_registry = {}
         for index_config in self.conf.indexes:
             registry_name = index_config.registry
             if registry_name not in registries:
                 registries[registry_name] = Registry(registry_name,
                                                      self.conf,
                                                      self.page_size)
-            registry = registries[registry_name]
 
-            indexes = indexes_by_registry.setdefault(registry_name, [])
-            indexes.append(Index(index_config,
-                                 self.conf.registries[index_config.registry].public_url,
-                                 icon_store=icon_store))
+            index = Index(index_config,
+                          self.conf.registries[index_config.registry].public_url,
+                          icon_store=icon_store)
+            registries[registry_name].add_index(index)
 
-        for registry_name, indexes in indexes_by_registry.items():
-            registry = registries[registry_name]
-            desired_tags = {index.config.tag for index in indexes}
+        for registry in registries.values():
+            desired_tags = {index.config.tag for index in registry.tag_indexes}
 
             for repository, tag_name, arch, image_info, all_tags in \
-                registry.iterate_images(desired_tags):
+                    registry.iterate_images(desired_tags):
 
-                for index in indexes:
+                for index in registry.tag_indexes:
                     if (tag_name == index.config.tag and
                         (index.config.architecture is None or
                          arch == index.config.architecture)):
 
                         index.add_image(repository, image_info, all_tags)
 
-            for index in indexes:
+            for index in registry.tag_indexes:
                 index.write()
+
+            for koji_tag, indexes in registry.koji_indexes.items():
+                for repository, tag_name, arch, image_info, all_tags in \
+                        registry.iterate_koji_images(koji_tag):
+
+                    for index in indexes:
+                        if index.config.architecture is None or \
+                               arch == index.config.architecture:
+                            index.add_image(repository, image_info, all_tags)
+
+                for index in indexes:
+                    index.write()
 
         if icon_store is not None:
             icon_store.clean()

@@ -43,8 +43,15 @@ registries:
         registry.access.redhat.com:
                 # Written into the index
                 public_url: https://registry.access.redhat.com/
+                # Manually set list (will replace with Pyxis query)
                 repositories:
                 - ubi8
+        # You can also define a pseudo-registry based on koji/brew builds
+        brew:
+                # internal registry where builds are pushed
+                public_url: https://registry-proxy.engineering.redhat.com/
+                # name of a Koji config section
+                koji_config: brew
 indexes:
         all:
                 # path to the output location - environment variable substitions
@@ -55,9 +62,21 @@ indexes:
                 extract_icons: True
         amd64:
                 output: ${OUTPUT_DIR:out}/test/flatpak-amd64.json
+                registry: registry.access.redhat.com
                 architecture: amd64
                 tag: latest
-                registry: registry.access.redhat.com
+                extract_icons: True
+        # These indexes index all Flatpaks found in the rhel-8.2.0-gate tag
+        brew:
+                output: ${OUTPUT_DIR:out}/brew/flatpak.json
+                registry: brew
+                koji_tag: rhel-8.2.0-gate
+                extract_icons: True
+        brew-amd64:
+                output: ${OUTPUT_DIR:out}/brew/flatpak-amd64.json
+                registry: brew
+                architecture: amd64
+                koji_tag: rhel-8.2.0-gate
                 extract_icons: True
 ```
 

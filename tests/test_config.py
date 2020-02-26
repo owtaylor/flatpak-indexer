@@ -18,6 +18,9 @@ registries:
     registry.example.com:
         repositories: ['repo1', 'repo2']
         public_url: https://registry.example.com/
+    brew:
+        public_url: https://private.example.com/
+        koji_config: brew
 indexes:
     amd64:
         architecture: amd64
@@ -25,6 +28,10 @@ indexes:
         output: /flatpaks/flatpak-amd64.json
         tag: latest
         extract_icons: true
+    brew-rc:
+        registry: brew
+        output: /flatpaks/rc-amd64.json
+        koji_tag: release-candidate
 """)
 
 
@@ -165,6 +172,38 @@ def test_registry_missing(tmp_path):
     del config_data['registries']['registry.example.com']
     with raises(ConfigError,
                 match="indexes/amd64: No registry config found for registry.example.com"):
+        get_config(tmp_path, config_data)
+
+
+def test_koji_config_and_repositories(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    config_data['registries']['brew']['repositories'] = ['FOO', 'BAR']
+    with raises(ConfigError,
+                match="registries/brew: koji_config and repositories cannot both be set"):
+        get_config(tmp_path, config_data)
+
+
+def test_koji_config_missing(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    del config_data['registries']['brew']['koji_config']
+    with raises(ConfigError,
+                match="indexes/brew-rc: koji_tag is set, but koji_config missing for registry"):
+        get_config(tmp_path, config_data)
+
+
+def test_koji_tag_and_tag(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    config_data['indexes']['brew-rc']['tag'] = 'FOO'
+    with raises(ConfigError,
+                match="indexes/brew-rc: tag and koji_tag cannot both be set"):
+        get_config(tmp_path, config_data)
+
+
+def test_no_koji_tag_or_tag(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    del config_data['indexes']['brew-rc']['koji_tag']
+    with raises(ConfigError,
+                match="indexes/brew-rc: One of tag or koji_tag must be set"):
         get_config(tmp_path, config_data)
 
 
