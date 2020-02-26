@@ -3,14 +3,15 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util import Retry
 
 
-_RETRY_MAX_TIMES=3
+_RETRY_MAX_TIMES = 3
 _RETRY_STATUSES = (
-    408, # Request Timeout
-    500, # Internal Server Error
-    502, # Bad Gateway
-    503, # Service Unavailable
-    504  # Gateway Timeout
+    408,  # Request Timeout
+    500,  # Internal Server Error
+    502,  # Bad Gateway
+    503,  # Service Unavailable
+    504   # Gateway Timeout
 )
+
 
 # If we want to retry POST, etc, need to set method_whitelist here
 def get_retrying_requests_session(backoff_factor=3):

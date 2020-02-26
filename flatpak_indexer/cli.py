@@ -22,7 +22,6 @@ def cli(ctx, config_file, verbose):
         'config': cfg,
     }
 
-
     FORMAT = "%(asctime)s:%(levelname)s:%(name)s:%(message)s"
     logging.basicConfig(level=logging.WARNING, format=FORMAT)
     if verbose:

@@ -4,7 +4,7 @@ set +e -x
 
 pytest --cov=flatpak_indexer --cov-report=term-missing --cov-fail-under=100 tests
 [ $? == 0 ] || failed="$failed pytest"
-flake8 flatpak_status tests
+flake8 flatpak_indexer tests
 [ $? == 0 ] || failed="$failed flake8"
 
 set -e +x
