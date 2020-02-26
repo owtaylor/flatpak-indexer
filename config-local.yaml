@@ -31,24 +31,24 @@ indexes:
         all:
                 # path to the output location - environment variable substitions
                 # are possible for all strings
-                output: ${OUTPUT_DIR:out}/test/flatpak.json
+                output: ${OUTPUT_DIR:out}/test/flatpak-latest.json
                 registry: registry.access.redhat.com
                 tag: latest
                 extract_icons: True
         amd64:
-                output: ${OUTPUT_DIR:out}/test/flatpak-amd64.json
+                output: ${OUTPUT_DIR:out}/test/flatpak-latest-amd64.json
                 registry: registry.access.redhat.com
                 architecture: amd64
                 tag: latest
                 extract_icons: True
         # These indexes index all Flatpaks found in the rhel-8.2.0-gate tag
         brew:
-                output: ${OUTPUT_DIR:out}/brew/flatpak.json
+                output: ${OUTPUT_DIR:out}/brew/flatpak-rhel-8.2.0-gate.json
                 registry: brew
                 koji_tag: rhel-8.2.0-gate
                 extract_icons: True
         brew-amd64:
-                output: ${OUTPUT_DIR:out}/brew/flatpak-amd64.json
+                output: ${OUTPUT_DIR:out}/brew/flatpak-rhel-8.2.0-gate-amd64.json
                 registry: brew
                 architecture: amd64
                 koji_tag: rhel-8.2.0-gate
