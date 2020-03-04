@@ -18,9 +18,7 @@ registries:
         registry.access.redhat.com:
                 # Written into the index
                 public_url: https://registry.access.redhat.com/
-                # Manually set list (will replace with Pyxis query)
-                repositories:
-                - ubi8
+                # repositories: ['repo1', 'repo2'] overrides querying Pyxis for the list
         # You can also define a pseudo-registry based on koji/brew builds
         brew:
                 # internal registry where builds are pushed

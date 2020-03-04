@@ -17,7 +17,6 @@ icons_uri: https://flatpaks.example.com/icons
 registries:
     registry.example.com:
         public_url: https://registry.example.com/
-        repositories: ['aisleriot', 'aisleriot2', 'testrepo']
 indexes:
     amd64:
         architecture: amd64
@@ -62,7 +61,7 @@ def test_indexer(tmp_path, server_cert, client_cert):
         amd64_data = json.load(f)
 
     assert amd64_data['Registry'] == 'https://registry.example.com/'
-    assert len(amd64_data['Results']) == 3
+    assert len(amd64_data['Results']) == 2
     aisleriot_repository = [r for r in amd64_data['Results'] if r['Name'] == 'aisleriot'][0]
     assert len(aisleriot_repository['Images']) == 1
     aisleriot_image = aisleriot_repository['Images'][0]
@@ -96,6 +95,43 @@ def test_indexer_write_failure(tmp_path):
             indexer.index()
 
     assert os.listdir(tmp_path / "test") == []
+
+
+REPOSITORY_OVERRIDE_CONFIG = yaml.safe_load("""
+pyxis_url: https://pyxis.example.com/v1
+registries:
+    registry.example.com:
+        public_url: https://registry.example.com/
+        repositories: ['testrepo']
+indexes:
+    amd64:
+        architecture: amd64
+        registry: registry.example.com
+        output: ${OUTPUT_DIR}/test/flatpak-amd64.json
+        tag: latest
+""")
+
+
+@mock_koji
+@responses.activate
+def test_indexer_repository_override(tmp_path):
+    mock_pyxis()
+
+    os.environ["OUTPUT_DIR"] = str(tmp_path)
+
+    config = get_config(tmp_path, REPOSITORY_OVERRIDE_CONFIG)
+    indexer = Indexer(config)
+
+    indexer.index()
+
+    with open(tmp_path / "test/flatpak-amd64.json") as f:
+        amd64_data = json.load(f)
+
+    assert amd64_data['Registry'] == 'https://registry.example.com/'
+    assert len(amd64_data['Results']) == 1
+    testrepo_repository = amd64_data['Results'][0]
+    assert testrepo_repository['Name'] == 'testrepo'
+
 
 
 KOJI_CONFIG = yaml.safe_load("""

@@ -78,6 +78,30 @@ _KOJI_BUILDS = [
 ]
 
 
+_REPOSITORIES = [
+    {
+        'registry': 'registry2.example.com',
+        'repository': 'testrepo',
+        'image_usage_type': 'Standalone Image',
+    },
+    {
+        'registry': 'registry.example.com',
+        'repository': 'testrepo',
+        'image_usage_type': 'Standalone Image',
+    },
+    {
+        'registry': 'registry.example.com',
+        'repository': 'aisleriot',
+        'image_usage_type': 'Flatpak',
+    },
+    {
+        'registry': 'registry.example.com',
+        'repository': 'aisleriot2',
+        'image_usage_type': 'Flatpak',
+    }
+]
+
+
 _REPO_IMAGES = [
     {
         'architecture': 'amd64',
@@ -260,6 +284,26 @@ def _get_images_nvr(request):
     return _paged_result(params, images)
 
 
+_GET_REPOSITORIES_RE = re.compile(
+    r'^https://pyxis.example.com/v1/repositories(\?|$)')
+
+
+def _get_repositories(request):
+    parsed = urlparse(request.url)
+    params = parse_qs(parsed.query)
+
+    m = _GET_REPOSITORIES_RE.match('https://pyxis.example.com' + parsed.path)
+    assert m is not None
+
+    if 'image_usage_type' in params:
+        image_usage_type = params['image_usage_type'][0]
+        repos = [r for r in _REPOSITORIES if r['image_usage_type'] == image_usage_type]
+    else:
+        repos = _REPOSITORIES
+
+    return _paged_result(params, repos)
+
+
 def mock_pyxis():
     responses.add_callback(responses.GET,
                            _GET_IMAGES_RE,
@@ -269,6 +313,11 @@ def mock_pyxis():
     responses.add_callback(responses.GET,
                            _GET_IMAGES_NVR_RE,
                            callback=_get_images_nvr,
+                           content_type='application/json',
+                           match_querystring=False)
+    responses.add_callback(responses.GET,
+                           _GET_REPOSITORIES_RE,
+                           callback=_get_repositories,
                            content_type='application/json',
                            match_querystring=False)
 

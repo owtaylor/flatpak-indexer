@@ -199,11 +199,12 @@ class Registry:
         else:
             self.tag_indexes.append(index)
 
-    def _do_iterate_images(self, session, url):
+    def _do_iterate_pyxis_results(self, session, url):
         page_size = self.page_size
         page = 0
         while True:
-            paginated_url = url + '?page_size={page_size}&page={page}'.format(
+            sep = '&' if '?' in url else '?'
+            paginated_url = url + sep + 'page_size={page_size}&page={page}'.format(
                 page_size=page_size,
                 page=page)
             logger.info("Requesting {}".format(paginated_url))
@@ -225,8 +226,8 @@ class Registry:
 
             response_json = response.json()
 
-            for image in response_json['data']:
-                yield image
+            for item in response_json['data']:
+                yield item
 
             if response_json['total'] <= page_size * page + len(response_json['data']):
                 break
@@ -243,7 +244,7 @@ class Registry:
             registry=self.name,
             repository=repository)
 
-        yield from self._do_iterate_images(session, url)
+        yield from self._do_iterate_pyxis_results(session, url)
 
     def _iterate_repository_images(self, repository, desired_tags):
         image_by_tag_arch = {}
@@ -275,8 +276,21 @@ class Registry:
 
             yield tag_name, arch, image_info, all_tags
 
+    def _iterate_repositories(self):
+        if self.config.repositories:
+            yield from self.config.repositories
+            return
+
+        session = get_retrying_requests_session()
+        url = '{api_url}repositories?image_usage_type=Flatpak'.format(
+            api_url=self.global_config.pyxis_url)
+
+        for item in self._do_iterate_pyxis_results(session, url):
+            if item['registry'] == self.name:
+                yield item['repository']
+
     def iterate_images(self, desired_tags):
-        for repository in self.config.repositories:
+        for repository in self._iterate_repositories():
             for tag_name, arch, image_info, all_tags in \
                     self._iterate_repository_images(repository, desired_tags):
 
@@ -288,7 +302,7 @@ class Registry:
         url = '{api_url}images/nvr/{nvr}'.format(api_url=self.global_config.pyxis_url,
                                                  nvr=nvr)
 
-        yield from self._do_iterate_images(session, url)
+        yield from self._do_iterate_pyxis_results(session, url)
 
     def _iterate_nvrs(self, koji_tag):
         options = koji.read_config(profile_name=self.config.koji_config)
@@ -352,15 +366,16 @@ class Indexer(object):
         for registry in registries.values():
             desired_tags = {index.config.tag for index in registry.tag_indexes}
 
-            for repository, tag_name, arch, image_info, all_tags in \
-                    registry.iterate_images(desired_tags):
+            if len(registry.tag_indexes) > 0:
+                for repository, tag_name, arch, image_info, all_tags in \
+                        registry.iterate_images(desired_tags):
 
-                for index in registry.tag_indexes:
-                    if (tag_name == index.config.tag and
-                        (index.config.architecture is None or
-                         arch == index.config.architecture)):
+                    for index in registry.tag_indexes:
+                        if (tag_name == index.config.tag and
+                            (index.config.architecture is None or
+                             arch == index.config.architecture)):
 
-                        index.add_image(repository, image_info, all_tags)
+                            index.add_image(repository, image_info, all_tags)
 
             for index in registry.tag_indexes:
                 index.write()
