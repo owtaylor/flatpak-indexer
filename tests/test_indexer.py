@@ -133,7 +133,6 @@ def test_indexer_repository_override(tmp_path):
     assert testrepo_repository['Name'] == 'testrepo'
 
 
-
 KOJI_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 registries:
