@@ -10,6 +10,16 @@ flake8 flatpak_indexer tests
 set -e +x
 
 if [ "$failed" != "" ] ; then
-    echo "FAILED:$failed"
+    if [[ -t 1 ]] ; then
+        echo -e "\e[31m\e[1mFAILED:\e[0m$failed"
+    else
+        echo -e "FAILED:$failed"
+    fi
     exit 1
+else
+    if [[ -t 1 ]] ; then
+        echo -e "\e[32m\e[1mSUCCESS\e[0m"
+    else
+        echo -e "SUCCESS"
+    fi
 fi
