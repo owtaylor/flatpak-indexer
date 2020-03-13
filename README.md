@@ -64,17 +64,17 @@ indexes:
                 architecture: amd64
                 tag: latest
                 extract_icons: True
-        # These indexes index all Flatpaks found in the rhel-8.2.0-gate tag
+        # These indexes index all Flatpaks found in the rhel-8.2.0-candidate tag
         brew:
-                output: ${OUTPUT_DIR:out}/brew/flatpak-rhel-8.2.0-gate.json
+                output: ${OUTPUT_DIR:out}/brew/flatpak-rhel-8.2.0-candidate.json
                 registry: brew
-                koji_tag: rhel-8.2.0-gate
+                koji_tag: rhel-8.2.0-candidate
                 extract_icons: True
         brew-amd64:
-                output: ${OUTPUT_DIR:out}/brew/flatpak-rhel-8.2.0-gate-amd64.json
+                output: ${OUTPUT_DIR:out}/brew/flatpak-rhel-8.2.0-candidate-amd64.json
                 registry: brew
                 architecture: amd64
-                koji_tag: rhel-8.2.0-gate
+                koji_tag: rhel-8.2.0-candidate
                 extract_icons: True
 ```
 
