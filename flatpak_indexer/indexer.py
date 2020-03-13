@@ -90,7 +90,7 @@ class Index:
         if uri is not None:
             labels[key] = uri
 
-    def make_image(self, name, image_info, all_tags):
+    def make_image(self, name, image_info, all_tags, digest):
         arch = image_info['architecture']
         os = image_info['parsed_data']['os']
 
@@ -100,8 +100,11 @@ class Index:
         self.extract_icon(labels, 'org.freedesktop.appstream.icon-64')
         self.extract_icon(labels, 'org.freedesktop.appstream.icon-128')
 
+        if digest is None:
+            digest = image_info['docker_image_id']
+
         image = {
-            'Digest': image_info['docker_image_id'],
+            'Digest': digest,
             'MediaType': MEDIA_TYPE_MANIFEST_V2,
             'OS': os,
             'Architecture':  arch,
@@ -112,7 +115,7 @@ class Index:
 
         return image
 
-    def add_image(self, name, image_info, all_tags):
+    def add_image(self, name, image_info, all_tags, digest=None):
         if name not in self.repos:
             self.repos[name] = {
                 "Name": name,
@@ -122,7 +125,7 @@ class Index:
 
         repo = self.repos[name]
 
-        image = self.make_image(name, image_info, all_tags)
+        image = self.make_image(name, image_info, all_tags, digest)
         if image:
             repo["Images"].append(image)
 
@@ -304,6 +307,29 @@ class Registry:
 
         yield from self._do_iterate_pyxis_results(session, url)
 
+    def _get_arch_digest_map(self, koji_session, build_id):
+        # This is a workaround for an atomic-reactor bug where, when an image is
+        # converted from OCI to Docker at upload, the 'id' in the Koji metadata
+        # refers to the hash of the original image, not the converted hash.
+        # The digest gets imported that way into Pyxis, but at least when we
+        # are reading data from koji, we can find the right digest for each
+        # architecture.
+        arch_digest_map = {}
+
+        for archive_info in koji_session.listArchives(build_id):
+            docker_info = archive_info.get('extra', {}).get('docker')
+            if docker_info:
+                arch = docker_info['config']['architecture']
+                digests = docker_info['digests']
+
+                digest = digests.get('application/vnd.oci.image.manifest.v1+json')
+                if digest is None:
+                    digest = digests['application/vnd.docker.distribution.manifest.v2+json']
+
+                arch_digest_map[arch] = digest
+
+        return arch_digest_map
+
     def _iterate_nvrs(self, koji_tag):
         options = koji.read_config(profile_name=self.config.koji_config)
         koji_session_opts = koji.grab_session_options(options)
@@ -322,15 +348,18 @@ class Registry:
                 base, tag = re.compile(r'[:@]').split(pull_specs[0], 1)
                 _, repository = base.split('/', 1)
 
+                arch_digest_map = self._get_arch_digest_map(koji_session, build_id)
                 all_tags = [tag['name'] for tag in koji_session.listTags(build_id)]
-                yield build['nvr'], repository, all_tags
+
+                yield build['nvr'], repository, all_tags, arch_digest_map
 
     def iterate_koji_images(self, koji_tag):
         session = get_retrying_requests_session()
 
-        for nvr, repository, all_tags in self._iterate_nvrs(koji_tag):
+        for nvr, repository, all_tags, arch_digest_map in self._iterate_nvrs(koji_tag):
             for image_info in self._iterate_images_for_nvr(session, nvr):
-                yield repository, koji_tag, image_info['architecture'], image_info, all_tags
+                arch = image_info['architecture']
+                yield repository, koji_tag, arch, image_info, all_tags, arch_digest_map[arch]
 
 
 def parse_date(date_str):
@@ -381,13 +410,13 @@ class Indexer(object):
                 index.write()
 
             for koji_tag, indexes in registry.koji_indexes.items():
-                for repository, tag_name, arch, image_info, all_tags in \
+                for repository, tag_name, arch, image_info, all_tags, digest in \
                         registry.iterate_koji_images(koji_tag):
 
                     for index in indexes:
                         if index.config.architecture is None or \
                                arch == index.config.architecture:
-                            index.add_image(repository, image_info, all_tags)
+                            index.add_image(repository, image_info, all_tags, digest=digest)
 
                 for index in indexes:
                     index.write()
