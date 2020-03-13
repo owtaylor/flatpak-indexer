@@ -11,7 +11,7 @@ out_dir=$(cd $(dirname $0)/.. && pwd)/out
 setsid podman run \
        --name=flatpak-indexer-frontend --rm \
        -e SERVER_NAME=flatpaks.local.fishoup.net \
-       -e TOPLEVEL_REDIRECT=https://catalog.redhat.com \
+       -e TOPLEVEL_REDIRECT=https://catalog.redhat.com/software/containers/explore \
        -p 8443:8443 \
        -v $tls_secrets_dir:/etc/tls-secrets:ro,z \
        -v $out_dir:/var/www/flatpaks:ro,z \
