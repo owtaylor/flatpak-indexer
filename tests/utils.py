@@ -73,7 +73,23 @@ _KOJI_BUILDS = [
             }
         },
         'nvr': 'aisleriot-container-el8-8020020200121102609.1',
-        '_TAGS': 'release-candidate',
+        '_TAGS': ['release-candidate'],
+        '_ARCHIVES': [
+            {
+                'extra': {
+                    'docker': {
+                        'config': {
+                            'architecture': 'amd64',
+                        },
+                        'digests': {
+                            'application/vnd.docker.distribution.manifest.v2+json':
+                            'sha256:' +
+                                'bo1dfacec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb',
+                        }
+                    }
+                }
+            }
+        ]
     }
 ]
 
@@ -353,6 +369,14 @@ def _koji_list_tags(build_id):
     raise RuntimeError("Build {} not found".format(build_id))
 
 
+def _koji_list_archives(build_id):
+    for build in _KOJI_BUILDS:
+        if build['build_id'] == build_id:
+            return build['_ARCHIVES']
+
+    raise RuntimeError("Build {} not found".format(build_id))
+
+
 def mock_koji(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -368,6 +392,7 @@ def mock_koji(f):
             session.listTagged.side_effect = _koji_list_tagged
             session.getBuild.side_effect = _koji_get_build
             session.listTags.side_effect = _koji_list_tags
+            session.listArchives.side_effect = _koji_list_archives
 
             return f(*args, **kwargs)
 

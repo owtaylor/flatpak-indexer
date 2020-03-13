@@ -139,6 +139,7 @@ registries:
     brew:
         public_url: https://internal.example.com/
         koji_config: brew
+        force_flatpak_token: true
 indexes:
     brew-rc:
         registry: brew
@@ -171,4 +172,6 @@ def test_indexer_koji(tmp_path):
     assert len(aisleriot_repository['Images']) == 1
     aisleriot_image = aisleriot_repository['Images'][0]
     assert aisleriot_image['Digest'] == \
-        'sha256:527dda0ec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
+        'sha256:bo1dfacec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
+    assert aisleriot_image['Labels']['org.flatpak.commit-metadata.xa.token-type'] == \
+        'AQAAAABp'
