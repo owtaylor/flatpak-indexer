@@ -72,8 +72,8 @@ class IconStore(object):
 
 
 class Index:
-    def __init__(self, conf, registry_public_url, icon_store=None):
-        self.registry_public_url = registry_public_url
+    def __init__(self, conf, registry_config, icon_store=None):
+        self.registry_config = registry_config
         self.config = conf
         self.icon_store = icon_store
         self.repos = {}
@@ -96,6 +96,11 @@ class Index:
 
         labels = {label['name']: label['value']
                   for label in image_info['parsed_data'].get('labels', [])}
+
+        if self.registry_config.force_flatpak_token:
+            # This string the base64-encoding GVariant holding a variant
+            # holding the int32 1.
+            labels['org.flatpak.commit-metadata.xa.token-type'] = 'AQAAAABp'
 
         self.extract_icon(labels, 'org.freedesktop.appstream.icon-64')
         self.extract_icon(labels, 'org.freedesktop.appstream.icon-128')
@@ -149,7 +154,7 @@ class Index:
 
             writer = codecs.getwriter("utf-8")(tmpfile)
             json.dump({
-                'Registry': self.registry_public_url,
+                'Registry': self.registry_config.public_url,
                 'Results': sorted_repos,
             }, writer, sort_keys=True, indent=4, ensure_ascii=False)
             writer.close()
@@ -387,10 +392,12 @@ class Indexer(object):
                                                      self.conf,
                                                      self.page_size)
 
+            registry = registries[registry_name]
+
             index = Index(index_config,
-                          self.conf.registries[index_config.registry].public_url,
+                          registry.config,
                           icon_store=icon_store)
-            registries[registry_name].add_index(index)
+            registry.add_index(index)
 
         for registry in registries.values():
             desired_tags = {index.config.tag for index in registry.tag_indexes}

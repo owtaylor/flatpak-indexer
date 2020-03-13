@@ -50,6 +50,9 @@ registries:
                 public_url: https://registry-proxy.engineering.redhat.com/
                 # name of a Koji config section
                 koji_config: brew
+                # Set to insert org.flatpak.commit-metadata.xa.token-type into labels
+                # This causes Flatpak to get a bearer token before downloading images
+                force_flatpak_token: true
 indexes:
         all:
                 # path to the output location - environment variable substitions

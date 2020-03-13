@@ -20,6 +20,7 @@ class RegistryConfig:
         self.public_url = attrs.get_str('public_url')
         self.repositories = attrs.get_str_list('repositories', [])
         self.koji_config = attrs.get_str('koji_config', None)
+        self.force_flatpak_token = attrs.get_bool('force_flatpak_token', False)
 
 
 class IndexConfig:
