@@ -19,7 +19,6 @@ class RegistryConfig:
         self.name = name
         self.public_url = attrs.get_str('public_url')
         self.repositories = attrs.get_str_list('repositories', [])
-        self.koji_config = attrs.get_str('koji_config', None)
         self.force_flatpak_token = attrs.get_bool('force_flatpak_token', False)
 
 
@@ -136,6 +135,8 @@ class Config:
                 raise ConfigError(
                     "pyxis_client_key: {} does not exist".format(self.pyxis_client_key))
 
+        self.koji_config = lookup.get_str('koji_config')
+
         self.icons_dir = lookup.get_str('icons_dir', None)
         self.icons_uri = lookup.get_str('icons_uri', None)
         if self.icons_uri and not self.icons_uri.endswith('/'):
@@ -148,10 +149,6 @@ class Config:
             registry_config = RegistryConfig(name, sublookup)
             self.registries[name] = registry_config
 
-            if registry_config.koji_config and registry_config.repositories:
-                raise ConfigError("registries/{}: koji_config and repositories cannot both be set"
-                                  .format(registry_config.name))
-
         for name, sublookup in lookup.iterate_objects('indexes'):
             index_config = IndexConfig(name, sublookup)
             self.indexes.append(index_config)
@@ -160,11 +157,6 @@ class Config:
             if not registry_config:
                 raise ConfigError("indexes/{}: No registry config found for {}"
                                   .format(index_config.name, index_config.registry))
-
-            if index_config.koji_tag and not registry_config.koji_config:
-                raise ConfigError(
-                    "indexes/{}: koji_tag is set, but koji_config missing for registry"
-                    .format(index_config.name))
 
             if index_config.tag and index_config.koji_tag:
                 raise ConfigError("indexes/{}: tag and koji_tag cannot both be set"

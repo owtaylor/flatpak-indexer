@@ -31,6 +31,8 @@ pyxis_cert: RH-IT-Root-CA.crt
 # shows environment variable substitution with a fallback
 pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
 pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
+# name of a Koji config section
+koji_config: brew
 # When extract_icons is set for an index, icons are saved to icons_dir and labels are
 # rewritten in the index from a data: URL to an URL formed from icons_uri
 icons_dir: ${OUTPUT_DIR:out}/icons/
@@ -48,8 +50,6 @@ registries:
         brew:
                 # internal registry where builds are pushed
                 public_url: https://registry-proxy.engineering.redhat.com/
-                # name of a Koji config section
-                koji_config: brew
                 # Set to insert org.flatpak.commit-metadata.xa.token-type into labels
                 # This causes Flatpak to get a bearer token before downloading images
                 force_flatpak_token: true

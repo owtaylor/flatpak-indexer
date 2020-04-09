@@ -12,6 +12,7 @@ from .utils import get_config, mock_koji, mock_pyxis, setup_client_cert
 
 CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
+koji_config: brew
 icons_dir: ${OUTPUT_DIR}/icons/
 icons_uri: https://flatpaks.example.com/icons
 registries:
@@ -36,6 +37,7 @@ indexes:
                          [(False, False),
                           (True,  False),
                           (False, True)])
+@mock_koji
 @responses.activate
 def test_indexer(tmp_path, server_cert, client_cert):
     mock_pyxis()
@@ -66,7 +68,7 @@ def test_indexer(tmp_path, server_cert, client_cert):
     assert len(aisleriot_repository['Images']) == 1
     aisleriot_image = aisleriot_repository['Images'][0]
     assert aisleriot_image['Digest'] == \
-        'sha256:527dda0ec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
+        'sha256:bo1dfacec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
     assert aisleriot_image['Labels']['org.flatpak.ref'] == \
         'app/org.gnome.Aisleriot/x86_64/stable'
     assert aisleriot_image['Labels']['org.freedesktop.appstream.icon-128'] == \
@@ -80,6 +82,7 @@ def test_indexer(tmp_path, server_cert, client_cert):
     assert not (tmp_path / "icons" / "ba" / "bbled.png").exists()
 
 
+@mock_koji
 @responses.activate
 def test_indexer_write_failure(tmp_path):
     mock_pyxis()
@@ -99,6 +102,7 @@ def test_indexer_write_failure(tmp_path):
 
 REPOSITORY_OVERRIDE_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
+koji_config: brew
 registries:
     registry.example.com:
         public_url: https://registry.example.com/
@@ -135,10 +139,10 @@ def test_indexer_repository_override(tmp_path):
 
 KOJI_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
+koji_config: brew
 registries:
     brew:
         public_url: https://internal.example.com/
-        koji_config: brew
         force_flatpak_token: true
 indexes:
     brew-rc:

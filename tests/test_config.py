@@ -10,6 +10,7 @@ from .utils import get_config, setup_client_cert
 
 BASIC_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
+koji_config: brew
 icons_dir: /flatpaks/icons/
 icons_uri: https://flatpaks.example.com/icons
 daemon:
@@ -20,7 +21,6 @@ registries:
         public_url: https://registry.example.com/
     brew:
         public_url: https://private.example.com/
-        koji_config: brew
 indexes:
     amd64:
         architecture: amd64
@@ -84,7 +84,8 @@ def test_str_list_type(tmp_path):
 def test_environment_variable(tmp_path):
     os.environ["DOMAIN_NAME"] = 'pyxis.example.com'
     CONFIG = {
-        'pyxis_url': 'https://${DOMAIN_NAME}/v1'
+        'pyxis_url': 'https://${DOMAIN_NAME}/v1',
+        'koji_config': 'brew',
     }
     conf = get_config(tmp_path, CONFIG)
     assert conf.pyxis_url == "https://pyxis.example.com/v1/"
@@ -94,7 +95,8 @@ def test_environment_variable_default(tmp_path):
     if "DOMAIN_NAME" in os.environ:
         del os.environ["DOMAIN_NAME"]
     CONFIG = {
-        'pyxis_url': 'https://${DOMAIN_NAME:pyxis.example.com}/v1'
+        'pyxis_url': 'https://${DOMAIN_NAME:pyxis.example.com}/v1',
+        'koji_config': 'brew',
     }
     conf = get_config(tmp_path, CONFIG)
     assert conf.pyxis_url == "https://pyxis.example.com/v1/"
@@ -104,7 +106,8 @@ def test_environment_variable_missing(tmp_path):
     if "DOMAIN_NAME" in os.environ:
         del os.environ["DOMAIN_NAME"]
     CONFIG = {
-        'pyxis_url': 'https://${DOMAIN_NAME}/v1'
+        'pyxis_url': 'https://${DOMAIN_NAME}/v1',
+        'koji_config': 'brew',
     }
     with raises(SubstitutionError, match=r'environment variable DOMAIN_NAME is not set'):
         get_config(tmp_path, CONFIG)
@@ -172,22 +175,6 @@ def test_registry_missing(tmp_path):
     del config_data['registries']['registry.example.com']
     with raises(ConfigError,
                 match="indexes/amd64: No registry config found for registry.example.com"):
-        get_config(tmp_path, config_data)
-
-
-def test_koji_config_and_repositories(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['registries']['brew']['repositories'] = ['FOO', 'BAR']
-    with raises(ConfigError,
-                match="registries/brew: koji_config and repositories cannot both be set"):
-        get_config(tmp_path, config_data)
-
-
-def test_koji_config_missing(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    del config_data['registries']['brew']['koji_config']
-    with raises(ConfigError,
-                match="indexes/brew-rc: koji_tag is set, but koji_config missing for registry"):
         get_config(tmp_path, config_data)
 
 

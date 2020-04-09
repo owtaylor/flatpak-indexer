@@ -90,6 +90,62 @@ _KOJI_BUILDS = [
                 }
             }
         ]
+    },
+    {
+        'build_id': 1063043,
+        'nvr': 'aisleriot2-container-el8-8020020200121102609.1',
+        '_TAGS': [],
+        '_ARCHIVES': [
+            {
+                'extra': {
+                    'docker': {
+                        'config': {
+                            'architecture': 'amd64',
+                        },
+                        'digests': {
+                            'application/vnd.docker.distribution.manifest.v2+json':
+                            'sha256:' +
+                                '5eaf00d1c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb',
+                        }
+                    }
+                }
+            }
+        ]
+    },
+    {
+        'build_id': 1063044,
+        'nvr': 'testrepo-container-1.2.3-1',
+        '_TAGS': [],
+        '_ARCHIVES': [
+            {
+                'extra': {
+                    'docker': {
+                        'config': {
+                            'architecture': 'amd64',
+                        },
+                        'digests': {
+                            'application/vnd.docker.distribution.manifest.v2+json':
+                            'sha256:' +
+                                'babb1ed1c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb',
+                        }
+                    }
+                }
+            },
+            {
+                'extra': {
+                    'docker': {
+                        'config': {
+                            'architecture': 'ppc64le',
+                        },
+                        'digests': {
+                            'application/vnd.docker.distribution.manifest.v2+json':
+                            'sha256:' +
+                                'fl055ed1c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb',
+                        }
+                    }
+                }
+            },
+        ]
     }
 ]
 
@@ -354,8 +410,13 @@ def _koji_list_tagged(tag, type, latest):
 
 
 def _koji_get_build(build_id):
+    if isinstance(build_id, int):
+        key = 'build_id'
+    else:
+        key = 'nvr'
+
     for build in _KOJI_BUILDS:
-        if build['build_id'] == build_id:
+        if build[key] == build_id:
             return build
 
     raise RuntimeError("Build {} not found".format(build_id))
