@@ -61,4 +61,3 @@ openssl x509 -req -in tls_cert.csr -days 365 -extfile cert.config -extensions v3
 cp tls.crt ca.crt tls.key $tls_secrets_dir
 # Needs to be world-readable to be read by the apache process
 sudo chmod 0644 $tls_secrets_dir/tls.key
-cp $tls_secrets_dir/ca.crt $tls_secrets_dir/tls.chain
