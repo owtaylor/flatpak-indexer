@@ -1,3 +1,4 @@
+import datetime
 import os
 from socket import error as SocketError
 from unittest.mock import patch
@@ -6,7 +7,9 @@ import pytest
 from pytest import raises
 
 from flatpak_indexer.utils import (atomic_writer,
+                                   format_date,
                                    get_retrying_requests_session,
+                                   parse_date,
                                    substitute_env_vars,
                                    SubstitutionError)
 
@@ -81,3 +84,30 @@ def test_atomic_writer_write_failure(tmp_path):
             raise IOError()
 
     assert os.listdir(tmp_path) == []
+
+
+def test_format_date():
+    dt = datetime.datetime.fromtimestamp(1596212782,
+                                         datetime.timezone.utc)
+    assert format_date(dt) == '2020-07-31T16:26:22.000000+00:00'
+
+    dt = datetime.datetime.fromtimestamp(1596212782,
+                                         datetime.timezone(datetime.timedelta(hours=-4)))
+    assert format_date(dt) == '2020-07-31T16:26:22.000000+00:00'
+
+    # Naive timestamps are assumed to represent local time (this test will blindly succeed
+    # if TZ=utc)
+    dt = datetime.datetime.fromtimestamp(1596212782)
+    assert format_date(dt) == '2020-07-31T16:26:22.000000+00:00'
+
+
+def test_parse_date():
+    dt = parse_date('2020-07-31T16:26:22.000000+00:00')
+    assert dt.timestamp() == 1596212782
+    assert dt.year == 2020
+    assert dt.month == 7
+    assert dt.day == 31
+    assert dt.hour == 16
+    assert dt.minute == 26
+    assert dt.second == 22
+    assert dt.tzinfo.utcoffset(None) == datetime.timedelta(0)

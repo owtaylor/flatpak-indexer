@@ -1,5 +1,4 @@
 import base64
-from datetime import datetime, timezone
 import hashlib
 import koji
 import logging
@@ -8,7 +7,7 @@ import os
 import re
 from urllib.parse import urljoin
 
-from .utils import atomic_writer, get_retrying_requests_session
+from .utils import atomic_writer, get_retrying_requests_session, parse_date
 
 
 logger = logging.getLogger(__name__)
@@ -334,13 +333,6 @@ class Registry:
             for image_info in self._iterate_images_for_nvr(session, nvr):
                 arch = image_info['architecture']
                 yield repository, koji_tag, arch, image_info, all_tags, arch_digest_map[arch]
-
-
-def parse_date(date_str):
-    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%f+00:00')
-    dt.replace(tzinfo=timezone.utc)
-
-    return dt
 
 
 class Indexer(object):

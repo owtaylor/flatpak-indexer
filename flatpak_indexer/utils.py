@@ -1,5 +1,6 @@
 import codecs
 from contextlib import contextmanager
+from datetime import datetime, timezone
 import hashlib
 import logging
 import os
@@ -129,3 +130,22 @@ def atomic_writer(output_path):
 
 def substitute_env_vars(val):
     return _substitute_env_vars(_ENV_VAR_TOKEN_RE.finditer(val))
+
+
+def format_date(dt):
+    """Format date into the format that parse_date() understands.
+
+    Naive (no-timezone) dates are interpreted as the local timezone
+    """
+    utc_dt = dt.astimezone(timezone.utc)
+    return utc_dt.strftime('%Y-%m-%dT%H:%M:%S.%f+00:00')
+
+
+def parse_date(date_str):
+    """Parse date from a fixed format.
+
+    This format is the format that Pyxis writes, but we also use it for
+    storing dates into JSON ourselves.
+    """
+    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%f+00:00')
+    return dt.replace(tzinfo=timezone.utc)
