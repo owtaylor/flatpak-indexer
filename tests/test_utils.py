@@ -5,7 +5,8 @@ from unittest.mock import patch
 import pytest
 from pytest import raises
 
-from flatpak_indexer.utils import (get_retrying_requests_session,
+from flatpak_indexer.utils import (atomic_writer,
+                                   get_retrying_requests_session,
                                    substitute_env_vars,
                                    SubstitutionError)
 
@@ -47,3 +48,36 @@ def test_substitute_env_vars(val, expected, exception):
     else:
         with raises(SubstitutionError, match=exception):
             substitute_env_vars(val)
+
+
+def test_atomic_writer_basic(tmp_path):
+    output_path = str(tmp_path / 'out.json')
+
+    def expect(val):
+        with open(output_path, "rb") as f:
+            assert f.read() == val
+
+    with atomic_writer(output_path) as writer:
+        writer.write("HELLO")
+    os.utime(output_path, (42, 42))
+    expect(b"HELLO")
+
+    with atomic_writer(output_path) as writer:
+        writer.write("HELLO")
+    expect(b"HELLO")
+    assert os.stat(output_path).st_mtime == 42
+
+    with atomic_writer(output_path) as writer:
+        writer.write("GOODBYE")
+    expect(b"GOODBYE")
+
+
+def test_atomic_writer_write_failure(tmp_path):
+    output_path = str(tmp_path / 'out.json')
+
+    with pytest.raises(IOError):
+        with atomic_writer(output_path) as writer:
+            writer.write("HELLO")
+            raise IOError()
+
+    assert os.listdir(tmp_path) == []
