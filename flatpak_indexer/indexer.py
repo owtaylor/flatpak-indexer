@@ -8,6 +8,7 @@ import re
 from urllib.parse import urljoin
 
 from .utils import atomic_writer, get_retrying_requests_session, parse_date
+from .models import ImageModel, RegistryModel
 
 
 logger = logging.getLogger(__name__)
@@ -68,12 +69,12 @@ class IconStore(object):
                 logger.info("Removing icon: %s", fullpath)
 
 
-class Index:
+class IndexWriter:
     def __init__(self, conf, registry_config, icon_store=None):
         self.registry_config = registry_config
         self.config = conf
         self.icon_store = icon_store
-        self.repos = {}
+        self.registry = RegistryModel()
 
     def extract_icon(self, labels, key):
         if not self.config.extract_icons:
@@ -87,7 +88,7 @@ class Index:
         if uri is not None:
             labels[key] = uri
 
-    def make_image(self, name, image_info, all_tags, digest):
+    def make_image(self, image_info, all_tags, digest):
         arch = image_info['architecture']
         os = image_info['parsed_data']['os']
 
@@ -102,31 +103,17 @@ class Index:
         self.extract_icon(labels, 'org.freedesktop.appstream.icon-64')
         self.extract_icon(labels, 'org.freedesktop.appstream.icon-128')
 
-        image = {
-            'Digest': digest,
-            'MediaType': MEDIA_TYPE_MANIFEST_V2,
-            'OS': os,
-            'Architecture':  arch,
-            'Labels': labels,
-        }
-
-        image['Tags'] = all_tags
-
-        return image
+        return ImageModel(digest=digest,
+                          media_type=MEDIA_TYPE_MANIFEST_V2,
+                          os=os,
+                          architecture=arch,
+                          annotations={},
+                          labels=labels,
+                          tags=all_tags)
 
     def add_image(self, name, image_info, all_tags, digest=None):
-        if name not in self.repos:
-            self.repos[name] = {
-                "Name": name,
-                "Images": [],
-                "Lists": [],
-            }
-
-        repo = self.repos[name]
-
-        image = self.make_image(name, image_info, all_tags, digest)
-        if image:
-            repo["Images"].append(image)
+        image = self.make_image(image_info, all_tags, digest)
+        self.registry.add_image(name, image)
 
     def write(self):
         # We auto-create only one level and don't use os.makedirs,
@@ -135,20 +122,17 @@ class Index:
         if not os.path.isdir(output_dir):
             os.mkdir(output_dir)
 
-        filtered_repos = (v for v in self.repos.values() if v['Images'] or v['Lists'])
-        sorted_repos = sorted(filtered_repos, key=lambda r: r['Name'])
-        for repo in sorted_repos:
-            repo["Images"].sort(key=lambda x: x["Tags"])
-            repo["Lists"].sort(key=lambda x: x["Tags"])
+        filtered_repos = (v for v in self.registry.repositories.values() if v.images or v.lists)
+        sorted_repos = sorted(filtered_repos, key=lambda r: r.name)
 
         with atomic_writer(self.config.output) as writer:
             json.dump({
                 'Registry': self.registry_config.public_url,
-                'Results': sorted_repos,
+                'Results': [r.to_json() for r in sorted_repos],
             }, writer, sort_keys=True, indent=4, ensure_ascii=False)
 
 
-class Registry:
+class RegistryIndexer:
     def __init__(self, name, global_config, page_size):
         self.name = name
         self.global_config = global_config
@@ -349,16 +333,16 @@ class Indexer(object):
         for index_config in self.conf.indexes:
             registry_name = index_config.registry
             if registry_name not in registries:
-                registries[registry_name] = Registry(registry_name,
-                                                     self.conf,
-                                                     self.page_size)
+                registries[registry_name] = RegistryIndexer(registry_name,
+                                                            self.conf,
+                                                            self.page_size)
 
             registry = registries[registry_name]
 
-            index = Index(index_config,
-                          registry.config,
-                          icon_store=icon_store)
-            registry.add_index(index)
+            index_writer = IndexWriter(index_config,
+                                       registry.config,
+                                       icon_store=icon_store)
+            registry.add_index(index_writer)
 
         for registry in registries.values():
             desired_tags = {index.config.tag for index in registry.tag_indexes}
