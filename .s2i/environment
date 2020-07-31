@@ -1,1 +1,2 @@
 OUTPUT_DIR=/var/www/flatpaks
+WORK_DIR=/var/lib/flatpak-indexer

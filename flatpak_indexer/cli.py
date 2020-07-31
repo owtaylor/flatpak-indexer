@@ -3,6 +3,7 @@ import logging
 import time
 
 from .config import Config
+from .datasource.pyxis import PyxisUpdater
 from .indexer import Indexer
 
 
@@ -33,6 +34,7 @@ def cli(ctx, config_file, verbose):
 def daemon(ctx):
     cfg = ctx.obj['config']
 
+    updater = PyxisUpdater(cfg)
     indexer = Indexer(cfg)
 
     last_update_time = None
@@ -42,6 +44,7 @@ def daemon(ctx):
         last_update_time = time.time()
 
         try:
+            updater.update()
             indexer.index()
         except Exception:
             logger.exception("Failed to create index")
@@ -52,5 +55,8 @@ def daemon(ctx):
 def index(ctx):
     cfg = ctx.obj['config']
 
+    updater = PyxisUpdater(cfg)
     indexer = Indexer(cfg)
+
+    updater.update()
     indexer.index()

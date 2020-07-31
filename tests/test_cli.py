@@ -14,6 +14,7 @@ from .utils import write_config, mock_koji, mock_pyxis
 CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 koji_config: brew
+work_dir: ${OUTPUT_DIR}/work/
 icons_dir: ${OUTPUT_DIR}/icons/
 icons_uri: https://flatpaks.example.com/icons
 registries:
@@ -40,6 +41,7 @@ def test_daemon(tmp_path):
 
     os.mkdir(tmp_path / "index")
     os.mkdir(tmp_path / "icons")
+    os.mkdir(tmp_path / "work")
     os.environ["OUTPUT_DIR"] = str(tmp_path)
     runner = CliRunner()
 
@@ -63,6 +65,7 @@ def test_daemon_exception(tmp_path):
 
     os.mkdir(tmp_path / "index")
     os.mkdir(tmp_path / "icons")
+    os.mkdir(tmp_path / "work")
     os.environ["OUTPUT_DIR"] = str(tmp_path)
     runner = CliRunner()
 
@@ -97,6 +100,7 @@ def test_index(tmp_path, caplog, verbose):
 
     os.mkdir(tmp_path / "index")
     os.mkdir(tmp_path / "icons")
+    os.mkdir(tmp_path / "work")
     os.environ["OUTPUT_DIR"] = str(tmp_path)
     runner = CliRunner()
     args = ['--config-file', config_path, 'index']

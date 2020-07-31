@@ -10,6 +10,7 @@ from .utils import get_config, setup_client_cert
 
 BASIC_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
+work_dir: /flatpak-work
 koji_config: brew
 icons_dir: /flatpaks/icons/
 icons_uri: https://flatpaks.example.com/icons
@@ -85,6 +86,7 @@ def test_environment_variable(tmp_path):
     os.environ["DOMAIN_NAME"] = 'pyxis.example.com'
     CONFIG = {
         'pyxis_url': 'https://${DOMAIN_NAME}/v1',
+        'work_dir': '/flatpak-work',
         'koji_config': 'brew',
     }
     conf = get_config(tmp_path, CONFIG)
@@ -96,6 +98,7 @@ def test_environment_variable_default(tmp_path):
         del os.environ["DOMAIN_NAME"]
     CONFIG = {
         'pyxis_url': 'https://${DOMAIN_NAME:pyxis.example.com}/v1',
+        'work_dir': '/flatpak-work',
         'koji_config': 'brew',
     }
     conf = get_config(tmp_path, CONFIG)
@@ -107,6 +110,7 @@ def test_environment_variable_missing(tmp_path):
         del os.environ["DOMAIN_NAME"]
     CONFIG = {
         'pyxis_url': 'https://${DOMAIN_NAME}/v1',
+        'work_dir': '/flatpak-work',
         'koji_config': 'brew',
     }
     with raises(SubstitutionError, match=r'environment variable DOMAIN_NAME is not set'):

@@ -1,18 +1,18 @@
 import json
 import os
-from unittest.mock import patch
 
-import pytest
 import responses
 import yaml
 
 from flatpak_indexer.indexer import Indexer
-from .utils import get_config, mock_koji, mock_pyxis, setup_client_cert
+from flatpak_indexer.datasource.pyxis import PyxisUpdater
+from .utils import get_config, mock_koji, mock_pyxis
 
 
 CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 koji_config: brew
+work_dir: ${OUTPUT_DIR}/work
 icons_dir: ${OUTPUT_DIR}/icons/
 icons_uri: https://flatpaks.example.com/icons
 registries:
@@ -33,30 +33,36 @@ indexes:
 """)
 
 
-@pytest.mark.parametrize("server_cert,client_cert",
-                         [(False, False),
-                          (True,  False),
-                          (False, True)])
 @mock_koji
 @responses.activate
-def test_indexer(tmp_path, server_cert, client_cert):
+def test_indexer(tmp_path):
     mock_pyxis()
 
     os.environ["OUTPUT_DIR"] = str(tmp_path)
+
+    os.mkdir(tmp_path / "work")
 
     os.makedirs(tmp_path / "icons" / "ba")
     with open(tmp_path / "icons" / "ba" / "bbled.png", "w"):
         pass
 
     config = get_config(tmp_path, CONFIG)
-    if server_cert:
-        config.pyxis_cert = 'test.crt'
-    if client_cert:
-        config.pyxis_client_cert, config.pyxis_client_key = setup_client_cert(tmp_path)
 
-    indexer = Indexer(config, page_size=1)
+    updater = PyxisUpdater(config)
+    updater.update()
 
+    indexer = Indexer(config)
     indexer.index()
+
+    # No-op, datasource hasn't updated
+    indexer.index()
+
+    # Fake an update
+    intermediate = tmp_path / "work" / "registry.example.com.json"
+    modified = os.stat(intermediate).st_mtime
+    os.utime(intermediate, (modified + 1, modified + 1))
+
+    # Now the index will be rewritten
     indexer.index()
 
     with open(tmp_path / "test/flatpak-amd64.json") as f:
@@ -82,64 +88,31 @@ def test_indexer(tmp_path, server_cert, client_cert):
     assert not (tmp_path / "icons" / "ba" / "bbled.png").exists()
 
 
-@mock_koji
-@responses.activate
-def test_indexer_write_failure(tmp_path):
-    mock_pyxis()
-
-    os.makedirs(tmp_path / "icons")
-
+def test_indexer_empty(tmp_path):
     os.environ["OUTPUT_DIR"] = str(tmp_path)
+
     config = get_config(tmp_path, CONFIG)
-    indexer = Indexer(config, page_size=1)
+    config.indexes = []
 
-    with patch('json.dump', side_effect=IOError):
-        with pytest.raises(IOError):
-            indexer.index()
-
-    assert os.listdir(tmp_path / "test") == []
-
-
-REPOSITORY_OVERRIDE_CONFIG = yaml.safe_load("""
-pyxis_url: https://pyxis.example.com/v1
-koji_config: brew
-registries:
-    registry.example.com:
-        public_url: https://registry.example.com/
-        repositories: ['testrepo']
-indexes:
-    amd64:
-        architecture: amd64
-        registry: registry.example.com
-        output: ${OUTPUT_DIR}/test/flatpak-amd64.json
-        tag: latest
-""")
-
-
-@mock_koji
-@responses.activate
-def test_indexer_repository_override(tmp_path):
-    mock_pyxis()
-
-    os.environ["OUTPUT_DIR"] = str(tmp_path)
-
-    config = get_config(tmp_path, REPOSITORY_OVERRIDE_CONFIG)
     indexer = Indexer(config)
-
     indexer.index()
 
-    with open(tmp_path / "test/flatpak-amd64.json") as f:
-        amd64_data = json.load(f)
 
-    assert amd64_data['Registry'] == 'https://registry.example.com/'
-    assert len(amd64_data['Results']) == 1
-    testrepo_repository = amd64_data['Results'][0]
-    assert testrepo_repository['Name'] == 'testrepo'
+def test_indexer_missing_data_source(tmp_path):
+    os.environ["OUTPUT_DIR"] = str(tmp_path)
+    os.mkdir(tmp_path / "work")
+    os.mkdir(tmp_path / "icons")
+
+    config = get_config(tmp_path, CONFIG)
+
+    indexer = Indexer(config)
+    indexer.index()
 
 
 KOJI_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 koji_config: brew
+work_dir: ${OUTPUT_DIR}/work
 registries:
     brew:
         public_url: https://internal.example.com/
@@ -160,9 +133,14 @@ def test_indexer_koji(tmp_path):
 
     os.environ["OUTPUT_DIR"] = str(tmp_path)
 
-    config = get_config(tmp_path, KOJI_CONFIG)
-    indexer = Indexer(config)
+    os.mkdir(tmp_path / "work")
 
+    config = get_config(tmp_path, KOJI_CONFIG)
+
+    updater = PyxisUpdater(config)
+    updater.update()
+
+    indexer = Indexer(config)
     indexer.index()
 
     with open(tmp_path / "test/brew.json") as f:
@@ -172,7 +150,6 @@ def test_indexer_koji(tmp_path):
     assert len(data['Results']) == 1
     aisleriot_repository = data['Results'][0]
     assert aisleriot_repository['Name'] == 'rh-osbs/aisleriot'
-    print([i['Architecture'] for i in aisleriot_repository['Images']])
     assert len(aisleriot_repository['Images']) == 1
     aisleriot_image = aisleriot_repository['Images'][0]
     assert aisleriot_image['Digest'] == \
