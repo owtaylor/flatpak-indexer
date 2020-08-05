@@ -133,6 +133,19 @@ def test_field_names():
     }
 
 
+class InheritedStuff(StringStuff):
+    f2: str
+
+
+def test_inheritance():
+    obj = InheritedStuff(f1="a", f2="b")
+
+    assert obj.to_json() == {
+        "F1": "a",
+        "F2": "b",
+    }
+
+
 def test_unexpected_types():
     with pytest.raises(TypeError, match=r"Only dict\[str\] is supported"):
         class A(BaseModel):

@@ -228,10 +228,21 @@ class BaseModelMeta(type):
     def __new__(cls, name, bases, dct):
         x = super().__new__(cls, name, bases, dct)
         annotations = getattr(x, '__annotations__', None)
+
         if annotations:
             x.__fields__ = {k: _make_model_field(k, v) for k, v in annotations.items()}
         else:
             x.__fields__ = {}
+
+        for superclass in x.__mro__:
+            if superclass is x:
+                continue
+
+            if hasattr(superclass, '__fields__'):
+                for k, v in superclass.__fields__.items():
+                    if k not in x.__fields__:
+                        x.__fields__[k] = v
+
         return x
 
 
