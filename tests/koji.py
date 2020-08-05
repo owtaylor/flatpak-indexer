@@ -54,43 +54,51 @@ def mock_get_package_id(name):
     }.get(name)
 
 
-def mock_list_builds(packageID=None, type=None, state=None, completeAfter=None):
-    result = []
-    for b in _load_builds():
-        extra = b.get('extra')
-        if extra:
-            typeinfo = extra.get('typeinfo')
-        else:
-            typeinfo = None
+def make_mock_list_builds(filter_build):
+    def mock_list_builds(packageID=None, type=None, state=None, completeAfter=None):
+        result = []
+        for b in _load_builds():
+            if filter_build is not None:
+                b = filter_build(b)
+                if b is None:
+                    continue
 
-        if extra and extra.get('image'):
-            btype = 'image'
-        elif typeinfo and typeinfo.get('module'):
-            btype = 'module'
-        else:
-            btype = 'rpm'
+            extra = b.get('extra')
+            if extra:
+                typeinfo = extra.get('typeinfo')
+            else:
+                typeinfo = None
 
-        if btype != type:
-            continue
-        if b['package_id'] != packageID:
-            continue
-        if state is not None and b['state'] != state:
-            continue
+            if extra and extra.get('image'):
+                btype = 'image'
+            elif typeinfo and typeinfo.get('module'):
+                btype = 'module'
+            else:
+                btype = 'rpm'
 
-        if completeAfter is not None and b['completion_ts'] <= completeAfter:
-            continue
+            if type is not None and btype != type:
+                continue
+            if packageID is not None and b['package_id'] != packageID:
+                continue
+            if state is not None and b['state'] != state:
+                continue
 
-        b2 = deepcopy(b)
-        if 'archives' in b:
-            del b2['archives']
+            if completeAfter is not None and b['completion_ts'] <= completeAfter:
+                continue
 
-        result.append(b)
+            b2 = deepcopy(b)
+            if 'archives' in b:
+                del b2['archives']
 
-    # Descending order by build_id seems to match what koji does, in any case
-    # we don't want to order in readdir order
-    result.sort(key=lambda x: x['build_id'], reverse=True)
+            result.append(b)
 
-    return result
+        # Descending order by build_id seems to match what koji does, in any case
+        # we don't want to order in readdir order
+        result.sort(key=lambda x: x['build_id'], reverse=True)
+
+        return result
+
+    return mock_list_builds
 
 
 def mock_get_build(nvr):
@@ -163,12 +171,12 @@ def make_mock_query_history(tagQueryTimestamp):
     return mock_query_history
 
 
-def make_koji_session(tagQueryTimestamp=None):
+def make_koji_session(tagQueryTimestamp=None, filter_build=None):
     session = create_autospec(koji.ClientSession)
     session.getPackageID = Mock()
     session.getPackageID.side_effect = mock_get_package_id
     session.listBuilds = Mock()
-    session.listBuilds.side_effect = mock_list_builds
+    session.listBuilds.side_effect = make_mock_list_builds(filter_build)
     session.getBuild = Mock()
     session.getBuild.side_effect = mock_get_build
     session.listArchives = Mock()
