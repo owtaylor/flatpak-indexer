@@ -1,5 +1,11 @@
 #!/usr/bin/python
 
+from datetime import datetime
+import json
+
+from .utils import format_date, parse_date
+
+
 class RenameAlias:
     def __init__(self, origin, json_name):
         self.origin = origin
@@ -48,6 +54,27 @@ class StringField(ModelField):
 
     def python_value(self, data):
         return str(data[self.json_name])
+
+
+class DateTimeField(ModelField):
+    # We need to be able to represent null dates for Bodhi's date_testing/date_stable
+    # We do this by making all dates able to be null but not missing. This probably
+    # should be made more similar to the the handling of empty lists/sets where
+    # empty is the same as missing.
+
+    def json_value(self, instance):
+        v = getattr(instance, self.python_name)
+        if v:
+            return format_date(getattr(instance, self.python_name))
+        else:
+            return None
+
+    def python_value(self, data):
+        v = data[self.json_name]
+        if v:
+            return parse_date(data[self.json_name])
+        else:
+            return None
 
 
 class ListField(ModelField):
@@ -191,6 +218,8 @@ def _make_model_field(name, type_):
     elif origin is None:
         if type_ == str:
             return StringField(name, json_name)
+        elif type_ == datetime:
+            return DateTimeField(name, json_name)
 
     raise TypeError(f"{name}: Unsupported type {type_}")
 

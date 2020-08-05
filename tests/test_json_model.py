@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import pytest
 from typing import List, Dict
 
@@ -16,6 +17,32 @@ def test_string_field():
 
     from_json = StringStuff.from_json(JSON)
     assert from_json.f1 == "foo"
+
+
+class DateTimeStuff(BaseModel):
+    f1: datetime
+
+
+def test_datetime_field():
+    obj = DateTimeStuff(f1=datetime(year=2020, month=8, day=13,
+                                    hour=1, minute=2, second=3,
+                                    tzinfo=timezone.utc))
+    JSON = {"F1": "2020-08-13T01:02:03.000000+00:00"}
+
+    assert obj.to_json() == JSON
+
+    from_json = DateTimeStuff.from_json(JSON)
+    assert from_json.f1 == obj.f1
+
+
+def test_datetime_field_null():
+    obj = DateTimeStuff(f1=None)
+    JSON = {"F1": None}
+
+    assert obj.to_json() == JSON
+
+    from_json = DateTimeStuff.from_json(JSON)
+    assert from_json.f1 is None
 
 
 class ListStuff(BaseModel):
