@@ -331,6 +331,10 @@ def main(output, base):
     downloader.download_updates('flatpak', 'quadrapassel')
     downloader.download_build(nvr='eog-master-20180821163756.2')
 
+    # Module with multiple contexts
+    downloader.download_build(nvr='django-1.6-20180828135711.9c690d0e')
+    downloader.download_build(nvr='django-1.6-20180828135711.a5b0195c')
+
     downloader.download_tag_data()
 
     downloader.download_package_details()

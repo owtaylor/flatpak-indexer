@@ -41,6 +41,7 @@ def _load_tags():
 def mock_get_package_id(name):
     return {
         'bubblewrap': 22617,
+        'django': 26201,
         'eog': 303,
         'exempi': 4845,
         'feedreader': 20956,
