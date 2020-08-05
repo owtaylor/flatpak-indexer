@@ -51,7 +51,7 @@ def mock_get_package_id(name):
         'gnome-desktop3': 10518,
         'libpeas': 10531,
         'quadrapassel': 16135,
-    }[name]
+    }.get(name)
 
 
 def mock_list_builds(packageID=None, type=None, state=None, completeAfter=None):
