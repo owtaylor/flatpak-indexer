@@ -15,3 +15,26 @@ class BodhiUpdateModel(BaseModel):
     date_stable: datetime
     user_name: str
     builds: List[str]
+
+
+class KojiBuildModel(BaseModel):
+    build_id: str
+    nvr: str
+    source: str
+    completion_time: datetime
+    user_name: str
+
+
+class FlatpakBuildModel(KojiBuildModel):
+    module_builds: List[str]
+    package_builds: List[str]
+
+
+class ModuleBuildModel(KojiBuildModel):
+    modulemd: str
+
+    package_builds: List[str]
+
+
+class PackageBuildModel(KojiBuildModel):
+    pass
