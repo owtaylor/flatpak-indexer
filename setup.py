@@ -17,11 +17,14 @@ setup(name='flatpak-indexer',
       install_requires=[
           'click',
           'koji',
+          'redis',
           'requests',
           'PyYAML',
           # Dev requirements - listed in main requirements to make the image
           # image self-contained for testing.
+          'fakeredis',
           'flake8',
+          'iso8601',
           'pytest',
           'pytest-cov',
           'responses',

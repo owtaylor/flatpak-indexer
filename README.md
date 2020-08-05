@@ -187,6 +187,24 @@ You can then go to
 [https://flatpaks.local.fishsoup.net:8443/test/index/static?label:org.flatpak.ref:exists=1&architecture=amd64]
 in your browser and should see the JSON output of the indexer.
 
+Test Data
+---------
+The tests for the Fedora datasource use a subset of Fedora package data.
+
+`tools/create-test-data.py` can either download the test data from scratch,
+or more usually, update it based on an existing download. This script
+is not used directly, instead you run:
+
+`tools/update-test-data.sh` - this updates the test data based either
+on the test-data/ directory, if it exists, or from the test-data-cache
+git branch.
+
+`tools/update-test-data-cache.sh` - this updates the cache of test data
+that is stored in a separate branch of the repository.
+
+Caching a recent version of the test-data in a git branch allows for efficient
+continous integration tests.
+
 License
 -------
 flagstate is distributed is distributed under the [MIT license](LICENSE) .
