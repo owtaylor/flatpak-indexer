@@ -247,8 +247,15 @@ class BaseModel(metaclass=BaseModelMeta):
             if field.json_include(self)
         }
 
+    def to_json_text(self):
+        return json.dumps(self.to_json())
+
     @classmethod
     def from_json(cls, data):
         return cls(**{
             field.python_name: field.python_value(data) for field in cls.__fields__.values()
         })
+
+    @classmethod
+    def from_json_text(self, text):
+        return self.from_json(json.loads(text))

@@ -141,3 +141,9 @@ def test_unexpected_types():
     with pytest.raises(TypeError, match=r"Unsupported type"):
         class B(BaseModel):
             f: set
+
+
+def test_to_json_text():
+    obj = StringStuff(f1="foo")
+    new_obj = obj.from_json_text(obj.to_json_text())
+    assert obj.f1 == new_obj.f1
