@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List
 
 from ...json_model import BaseModel
+from ...models import ImageModel
 
 
 class BodhiUpdateModel(BaseModel):
@@ -26,8 +27,12 @@ class KojiBuildModel(BaseModel):
 
 
 class FlatpakBuildModel(KojiBuildModel):
+    repository: str
+
     module_builds: List[str]
     package_builds: List[str]
+
+    images: List[ImageModel]
 
 
 class ModuleBuildModel(KojiBuildModel):

@@ -92,14 +92,36 @@ def test_query_flatpak_build(caplog):
     redis_client = make_redis_client()
 
     caplog.clear()
-    build = query_flatpak_build(koji_session, redis_client, 'eog-master-20181128204005.1')
+    build = query_flatpak_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
     assert "Calling koji.getBuild" in caplog.text
 
-    assert build.nvr == 'eog-master-20181128204005.1'
+    assert build.nvr == 'baobab-master-3220200331145937.2'
+    assert build.repository == 'baobab'
+
+    assert len(build.images) == 1
+    image = build.images[0]
+    assert image.digest == 'sha256:358650781c10de5983b46303b6accbd411c1177990d1e036ee905f15ed60e65a'
+    assert image.media_type == 'application/vnd.oci.image.manifest.v1+json'
+    assert image.labels['org.flatpak.ref'] == 'app/org.gnome.Baobab/x86_64/stable'
 
     caplog.clear()
-    query_flatpak_build(koji_session, redis_client, 'eog-master-20181128204005.1')
+    query_flatpak_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
     assert "Calling koji.getBuild" not in caplog.text
+
+
+def test_query_flatpak_build_missing_digest():
+    def filter_archives(build, archives):
+        archives = copy.deepcopy(archives)
+        for a in archives:
+            a['extra']['docker']['digests'] = {}
+
+        return archives
+
+    koji_session = make_koji_session(filter_archives=filter_archives)
+    redis_client = make_redis_client()
+
+    with raises(RuntimeError, match=r"Can't find OCI or docker digest in image"):
+        query_flatpak_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
 
 
 def test_query_module_build(caplog):

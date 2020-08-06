@@ -1,10 +1,13 @@
 from datetime import datetime, timedelta, timezone
 from functools import partial
 import logging
+import re
 
 import koji
 
 from ...utils import format_date, parse_date
+from ...models import ImageModel
+
 from .models import FlatpakBuildModel, ModuleBuildModel, PackageBuildModel
 
 
@@ -22,6 +25,29 @@ ALL_IMAGES_MAX_INTERVAL = timedelta(days=1)
 TIMESTAMP_FUZZ = timedelta(minutes=1)
 
 
+# From https://github.com/fedora-infra/bodhi/blob/develop/bodhi/server/util.py
+# (authored by Owen Taylor and relicensed)
+def _get_build_repository(build_info):
+    """
+    Return the registry repository name for the given Build from the container's pull string.
+
+    Examples -
+    'candidate-registry.fedoraproject.org/f29/cockpit:176-5.fc28' => 'f29/cockpit'.
+    'candidate-registry.fedoraproject.org/myrepo@sha256:<hash>' => 'myrepo'.
+
+    Args:
+        build_info: result from koji
+    Returns:
+        str: The registry repository name for the build.
+    """
+    pull_specs = build_info['extra']['image']['index']['pull']
+    # All the pull specs should have the same repository, so which one we use is arbitrary
+    base, tag = re.compile(r'[:@]').split(pull_specs[0], 1)
+    server, repository = base.split('/', 1)
+
+    return repository
+
+
 def _get_build(koji_session, redis_client, build_info, build_cls):
     completion_time = datetime.fromtimestamp(build_info['completion_ts'], tz=timezone.utc)
 
@@ -31,6 +57,9 @@ def _get_build(koji_session, redis_client, build_info, build_cls):
                   source=build_info['source'],
                   user_name=build_info['owner_name'],
                   completion_time=completion_time)
+
+    if build_cls == FlatpakBuildModel:
+        kwargs['repository'] = _get_build_repository(build_info)
     if build_cls == ModuleBuildModel:
         kwargs['modulemd'] = build_info['extra']['typeinfo']['module']['modulemd_str']
 
@@ -40,20 +69,42 @@ def _get_build(koji_session, redis_client, build_info, build_cls):
         logger.info("Calling koji.listArchives(%s); nvr=%s",
                     build_info['build_id'], build_info['nvr'])
         archives = koji_session.listArchives(build_info['build_id'])
-        # Archives should differ only in architecture
-        archive = [a for a in archives if a['extra']['image']['arch'] == 'x86_64'][0]
-        logger.info("Calling koji.listRPMs(%s)", archive['id'])
-        components = koji_session.listRPMs(imageID=archive['id'])
 
-        seen = set()
-        for c in components:
-            if c['build_id'] in seen:
-                continue
-            seen.add(c['build_id'])
+        for archive in archives:
+            if archive['extra']['image']['arch'] == 'x86_64':
+                # Archives should differ only in architecture,
+                # use the x86 build to get the package list
+                logger.info("Calling koji.listRPMs(%s)", archive['id'])
+                components = koji_session.listRPMs(imageID=archive['id'])
 
-            build.package_builds.append(c['nvr'])
+                seen = set()
+                for c in components:
+                    if c['build_id'] in seen:
+                        continue
+                    seen.add(c['build_id'])
 
-            _query_package_build_by_id(koji_session, redis_client, c['build_id'])
+                    build.package_builds.append(c['nvr'])
+
+                    _query_package_build_by_id(koji_session, redis_client, c['build_id'])
+
+            docker_info = archive['extra']['docker']
+            config = docker_info['config']
+            digests = docker_info['digests']
+
+            for media_type in ('application/vnd.oci.image.manifest.v1+json',
+                               'application/vnd.docker.distribution.manifest.v2+json'):
+                digest = digests.get('application/vnd.oci.image.manifest.v1+json')
+                if digest:
+                    break
+            else:
+                raise RuntimeError("Can't find OCI or docker digest in image")
+
+            # Now make the image
+            build.images.append(ImageModel(digest=digest,
+                                           media_type=media_type,
+                                           os=config['os'],
+                                           architecture=config['architecture'],
+                                           labels=config['config'].get('Labels', {})))
 
         for m in build_info['extra']['image']['modules']:
             module_build = query_module_build(koji_session, redis_client, m)
