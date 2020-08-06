@@ -40,6 +40,7 @@ def _load_tags():
 
 def mock_get_package_id(name):
     return {
+        'baobab': 1369,
         'bubblewrap': 22617,
         'django': 26201,
         'eog': 303,
