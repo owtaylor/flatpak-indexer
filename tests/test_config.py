@@ -10,6 +10,7 @@ from .utils import get_config, setup_client_cert
 
 BASIC_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
+redis_url: redis://localhost
 work_dir: /flatpak-work
 koji_config: brew
 icons_dir: /flatpaks/icons/
@@ -20,8 +21,13 @@ registries:
     registry.example.com:
         repositories: ['repo1', 'repo2']
         public_url: https://registry.example.com/
+        datasource: pyxis
     brew:
         public_url: https://private.example.com/
+        datasource: pyxis
+    fedora:
+        public_url: https://registry.fedoraproject.org/
+        datasource: fedora
 indexes:
     amd64:
         architecture: amd64
@@ -33,6 +39,11 @@ indexes:
         registry: brew
         output: /flatpaks/rc-amd64.json
         koji_tag: release-candidate
+    fedora-testing:
+        registry: fedora
+        output: /fedora/flatpak-testing.json
+        bodhi_status: testing
+        tag: testing
 """)
 
 
@@ -48,8 +59,8 @@ def test_config_basic(tmp_path):
 
 def test_key_missing(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
-    del config_data['pyxis_url']
-    with raises(ConfigError, match="A value is required for pyxis_url"):
+    del config_data['work_dir']
+    with raises(ConfigError, match="A value is required for work_dir"):
         get_config(tmp_path, config_data)
 
 
@@ -174,6 +185,30 @@ def test_client_key_mismatch(tmp_path):
         get_config(tmp_path, config_data)
 
 
+def test_pyxis_url_missing(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    del config_data['pyxis_url']
+    with raises(ConfigError,
+                match=r'registry/[a-z].*: pyxis_url must be configured for the pyxis datasource'):
+        get_config(tmp_path, config_data)
+
+
+def test_redis_url_missing(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    del config_data['redis_url']
+    with raises(ConfigError,
+                match='registry/fedora: redis_url must be configured for the fedora datasource'):
+        get_config(tmp_path, config_data)
+
+
+def test_datasource_invalid(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    config_data['registries']['registry.example.com']['datasource'] = 'INVALID'
+    with raises(ConfigError,
+                match="registry/registry.example.com: datasource must be 'pyxis' or 'fedora'"):
+        get_config(tmp_path, config_data)
+
+
 def test_registry_missing(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
     del config_data['registries']['registry.example.com']
@@ -195,6 +230,31 @@ def test_no_koji_tag_or_tag(tmp_path):
     del config_data['indexes']['brew-rc']['koji_tag']
     with raises(ConfigError,
                 match="indexes/brew-rc: One of tag or koji_tag must be set"):
+        get_config(tmp_path, config_data)
+
+
+def test_koji_tag_extra(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    del config_data['indexes']['fedora-testing']['tag']
+    config_data['indexes']['fedora-testing']['koji_tag'] = 'f30'
+    with raises(ConfigError,
+                match="indexes/fedora-testing: koji_tag can only be set for the pyxis datasource"):
+        get_config(tmp_path, config_data)
+
+
+def test_bodhi_status_extra(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    config_data['indexes']['amd64']['bodhi_status'] = 'stable'
+    with raises(ConfigError,
+                match="indexes/amd64: bodhi_status can only be set for the fedora datasource"):
+        get_config(tmp_path, config_data)
+
+
+def test_bodhi_status_invalid(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    config_data['indexes']['fedora-testing']['bodhi_status'] = 'INVALID'
+    with raises(ConfigError,
+                match="indexes/fedora-testing: bodhi_status must be set to 'testing' or 'stable'"):
         get_config(tmp_path, config_data)
 
 

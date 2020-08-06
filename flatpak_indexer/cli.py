@@ -3,7 +3,7 @@ import logging
 import time
 
 from .config import Config
-from .datasource.pyxis import PyxisUpdater
+from .datasource import load_updaters
 from .indexer import Indexer
 
 
@@ -34,7 +34,7 @@ def cli(ctx, config_file, verbose):
 def daemon(ctx):
     cfg = ctx.obj['config']
 
-    updater = PyxisUpdater(cfg)
+    updaters = load_updaters(cfg)
     indexer = Indexer(cfg)
 
     last_update_time = None
@@ -43,8 +43,13 @@ def daemon(ctx):
             time.sleep(max(0, cfg.daemon.update_interval - (time.time() - last_update_time)))
         last_update_time = time.time()
 
+        for updater in updaters:
+            try:
+                updater.update()
+            except Exception:
+                logger.exception("Failed to update data sources")
+
         try:
-            updater.update()
             indexer.index()
         except Exception:
             logger.exception("Failed to create index")
@@ -55,8 +60,9 @@ def daemon(ctx):
 def index(ctx):
     cfg = ctx.obj['config']
 
-    updater = PyxisUpdater(cfg)
+    updaters = load_updaters(cfg)
     indexer = Indexer(cfg)
 
-    updater.update()
+    for updater in updaters:
+        updater.update()
     indexer.index()

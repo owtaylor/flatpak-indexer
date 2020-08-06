@@ -1,12 +1,21 @@
+import copy
 import json
 import os
 
 import responses
 import yaml
 
+from flatpak_indexer.datasource import load_updaters
 from flatpak_indexer.indexer import Indexer
-from flatpak_indexer.datasource.pyxis import PyxisUpdater
+from .bodhi import mock_bodhi
+from .koji import mock_koji
+from .redis import mock_redis
 from .utils import get_config, mock_brew, mock_pyxis
+
+
+def run_update(config):
+    for updater in load_updaters(config):
+        updater.update()
 
 
 CONFIG = yaml.safe_load("""
@@ -18,6 +27,7 @@ icons_uri: https://flatpaks.example.com/icons
 registries:
     registry.example.com:
         public_url: https://registry.example.com/
+        datasource: pyxis
 indexes:
     amd64:
         architecture: amd64
@@ -47,9 +57,7 @@ def test_indexer(tmp_path):
         pass
 
     config = get_config(tmp_path, CONFIG)
-
-    updater = PyxisUpdater(config)
-    updater.update()
+    run_update(config)
 
     indexer = Indexer(config)
     indexer.index()
@@ -117,6 +125,7 @@ registries:
     brew:
         public_url: https://internal.example.com/
         force_flatpak_token: true
+        datasource: pyxis
 indexes:
     brew-rc:
         registry: brew
@@ -136,9 +145,7 @@ def test_indexer_koji(tmp_path):
     os.mkdir(tmp_path / "work")
 
     config = get_config(tmp_path, KOJI_CONFIG)
-
-    updater = PyxisUpdater(config)
-    updater.update()
+    run_update(config)
 
     indexer = Indexer(config)
     indexer.index()
@@ -156,3 +163,66 @@ def test_indexer_koji(tmp_path):
         'sha256:bo1dfacec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
     assert aisleriot_image['Labels']['org.flatpak.commit-metadata.xa.token-type'] == \
         'AQAAAABp'
+
+
+FEDORA_CONFIG = yaml.safe_load("""
+koji_config: brew
+redis_url: redis://localhost
+work_dir: ${OUTPUT_DIR}/work
+registries:
+    fedora:
+        public_url: https://registry.fedoraproject.org/
+        datasource: fedora
+        force_flatpak_token: true
+indexes:
+    latest:
+        registry: fedora
+        output: ${OUTPUT_DIR}/test/flatpak-latest.json
+        tag: latest
+        bodhi_status: stable
+    testing:
+        registry: fedora
+        output: ${OUTPUT_DIR}/test/flatpak-testing.json
+        tag: testing
+        bodhi_status: testing
+""")
+
+
+@mock_koji
+@mock_redis
+@responses.activate
+def test_indexer_fedora(tmp_path):
+    def modify_statuses(update):
+        # This build is now obsoleted by a build not in our test date, mark it testing so that
+        # we have a repository with different stable/testing
+        if update['builds'][0]['nvr'] == 'feedreader-master-2920190201081220.1':
+            update = copy.copy(update)
+            update['status'] = 'testing'
+
+        return update
+
+    mock_bodhi(modify=modify_statuses)
+
+    os.environ["OUTPUT_DIR"] = str(tmp_path)
+
+    os.mkdir(tmp_path / "work")
+
+    config = get_config(tmp_path, FEDORA_CONFIG)
+    run_update(config)
+
+    indexer = Indexer(config)
+    indexer.index()
+
+    with open(tmp_path / "test/flatpak-latest.json") as f:
+        data = json.load(f)
+
+    assert data['Registry'] == 'https://registry.fedoraproject.org/'
+    assert len(data['Results']) == 3
+
+    eog_repository = [r for r in data['Results'] if r['Name'] == 'eog'][0]
+    assert len(eog_repository['Images']) == 1
+    assert eog_repository['Images'][0]['Tags'] == ['latest', 'testing']
+
+    feedreader_repository = [r for r in data['Results'] if r['Name'] == 'feedreader'][0]
+    assert len(feedreader_repository['Images']) == 1
+    assert feedreader_repository['Images'][0]['Tags'] == ['latest']

@@ -21,6 +21,7 @@ registries:
     registry.example.com:
         repositories: ['aisleriot']
         public_url: https://registry.example.com/
+        datasource: pyxis
 indexes:
     amd64:
         registry: registry.example.com
@@ -59,7 +60,10 @@ def test_daemon(tmp_path):
 
 @mock_brew
 @responses.activate
-def test_daemon_exception(tmp_path):
+@pytest.mark.parametrize('where',
+                         ['flatpak_indexer.indexer.Indexer.index',
+                          'flatpak_indexer.datasource.pyxis.updater.PyxisUpdater.update'])
+def test_daemon_exception(tmp_path, where):
     mock_pyxis()
     config_path = write_config(tmp_path, CONFIG)
 
@@ -72,7 +76,7 @@ def test_daemon_exception(tmp_path):
     exception_count = 0
     sleep_count = 0
 
-    def mock_index():
+    def mock_failure():
         nonlocal exception_count
         exception_count += 1
         raise RuntimeError("Didn't work!")
@@ -84,7 +88,7 @@ def test_daemon_exception(tmp_path):
             sys.exit(42)
 
     with patch('time.sleep', side_effect=mock_sleep):
-        with patch('flatpak_indexer.indexer.Indexer.index', side_effect=mock_index):
+        with patch(where, side_effect=mock_failure):
             result = runner.invoke(cli, ['--config-file', config_path, 'daemon'],
                                    catch_exceptions=False)
             assert result.exit_code == 42

@@ -235,6 +235,9 @@ class PyxisUpdater(object):
         registries = {}
         for index_config in self.conf.indexes:
             registry_name = index_config.registry
+            if self.conf.registries[registry_name].datasource != 'pyxis':
+                continue
+
             if registry_name not in registries:
                 registries[registry_name] = Registry(registry_name,
                                                      self.conf,

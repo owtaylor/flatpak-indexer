@@ -45,11 +45,14 @@ registries:
         registry.access.redhat.com:
                 # Written into the index
                 public_url: https://registry.access.redhat.com/
+                # Get container data from the Pyxis API
+                datasource: pyxis
                 # repositories: ['repo1', 'repo2'] overrides querying Pyxis for the list
         # You can also define a pseudo-registry based on koji/brew builds
         brew:
                 # internal registry where builds are pushed
                 public_url: https://registry-proxy.engineering.redhat.com/
+                datasource: pyxis
                 # Set to insert org.flatpak.commit-metadata.xa.token-type into labels
                 # This causes Flatpak to get a bearer token before downloading images
                 force_flatpak_token: true

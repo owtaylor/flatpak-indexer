@@ -12,10 +12,15 @@ from .utils import get_config, mock_brew, mock_pyxis, setup_client_cert
 CONFIG = yaml.safe_load("""
 work_dir: ${WORK_DIR}
 pyxis_url: https://pyxis.example.com/v1
+redis_url: redis://localhost
 koji_config: brew
 registries:
     registry.example.com:
         public_url: https://registry.example.com/
+        datasource: pyxis
+    fedora:
+        public_url: https://registry.fedoraproject.org
+        datasource: fedora
 indexes:
     amd64:
         architecture: amd64
@@ -25,6 +30,12 @@ indexes:
     all:
         registry: registry.example.com
         output: out/test/flatpak.json
+        tag: latest
+    # Not a Pyxis-backed index
+    fedora-latest:
+        registry: fedora
+        output: out/fedora/flatpak.json
+        bodhi_status: stable
         tag: latest
 """)
 
@@ -73,6 +84,7 @@ registries:
     registry.example.com:
         public_url: https://registry.example.com/
         repositories: ['testrepo']
+        datasource: pyxis
 indexes:
     amd64:
         architecture: amd64
@@ -109,6 +121,7 @@ koji_config: brew
 registries:
     brew:
         public_url: https://internal.example.com/
+        datasource: pyxis
 indexes:
     brew-rc:
         registry: brew

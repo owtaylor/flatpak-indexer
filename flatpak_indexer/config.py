@@ -17,6 +17,7 @@ class Defaults(Enum):
 class RegistryConfig:
     def __init__(self, name, attrs):
         self.name = name
+        self.datasource = attrs.get_str('datasource')
         self.public_url = attrs.get_str('public_url')
         self.repositories = attrs.get_str_list('repositories', [])
         self.force_flatpak_token = attrs.get_bool('force_flatpak_token', False)
@@ -29,6 +30,7 @@ class IndexConfig:
         self.registry = lookup.get_str('registry')
         self.tag = lookup.get_str('tag', None)
         self.koji_tag = lookup.get_str('koji_tag', None)
+        self.bodhi_status = lookup.get_str('bodhi_status', None)
         self.architecture = lookup.get_str('architecture', None)
         self.extract_icons = lookup.get_bool('extract_icons', False)
 
@@ -110,8 +112,8 @@ class Config:
 
         lookup = Lookup(yml)
 
-        self.pyxis_url = lookup.get_str('pyxis_url')
-        if not self.pyxis_url.endswith('/'):
+        self.pyxis_url = lookup.get_str('pyxis_url', None)
+        if self.pyxis_url is not None and not self.pyxis_url.endswith('/'):
             self.pyxis_url += '/'
         self.pyxis_cert = lookup.get_str('pyxis_cert', None)
         if self.pyxis_cert is not None:
@@ -123,6 +125,8 @@ class Config:
                 raise ConfigError("pyxis_cert: {} does not exist".format(self.pyxis_cert))
         self.pyxis_client_cert = lookup.get_str('pyxis_client_cert', None)
         self.pyxis_client_key = lookup.get_str('pyxis_client_key', None)
+
+        self.redis_url = lookup.get_str('redis_url', None)
 
         if (not self.pyxis_client_cert) != (not self.pyxis_client_key):
             raise ConfigError("pyxis_client_cert and pyxis_client_key must be set together")
@@ -151,6 +155,22 @@ class Config:
             registry_config = RegistryConfig(name, sublookup)
             self.registries[name] = registry_config
 
+            if registry_config.datasource not in ('pyxis', 'fedora'):
+                raise ConfigError("registry/{}: datasource must be 'pyxis' or 'fedora'"
+                                  .format(registry_config.name))
+
+            if registry_config.datasource == 'fedora':
+                if self.redis_url is None:
+                    raise ConfigError(("registry/{}: " +
+                                       "redis_url must be configured for the fedora datasource")
+                                      .format(registry_config.name))
+
+            if registry_config.datasource == 'pyxis':
+                if self.pyxis_url is None:
+                    raise ConfigError(("registry/{}: " +
+                                       "pyxis_url must be configured for the pyxis datasource")
+                                      .format(registry_config.name))
+
         for name, sublookup in lookup.iterate_objects('indexes'):
             index_config = IndexConfig(name, sublookup)
             self.indexes.append(index_config)
@@ -171,5 +191,22 @@ class Config:
             if index_config.extract_icons and self.icons_dir is None:
                 raise ConfigError("indexes/{}: extract_icons is set, but no icons_dir is configured"
                                   .format(index_config.name))
+
+            if registry_config.datasource == 'pyxis':
+                if index_config.bodhi_status is not None:
+                    raise ConfigError(("indexes/{}: bodhi_status can only be set " +
+                                       "for the fedora datasource")
+                                      .format(index_config.name))
+
+            if registry_config.datasource == 'fedora':
+                if index_config.bodhi_status not in ('testing', 'stable'):
+                    raise ConfigError(("indexes/{}: bodhi_status must be set " +
+                                       "to 'testing' or 'stable'")
+                                      .format(index_config.name))
+
+                if index_config.koji_tag is not None:
+                    raise ConfigError(("indexes/{}: koji_tag can only be set " +
+                                       "for the pyxis datasource")
+                                      .format(index_config.name))
 
         self.daemon = DaemonConfig(Lookup(yml.get('daemon', {}), 'daemon'))
