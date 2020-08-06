@@ -115,16 +115,21 @@ def mock_get_build(nvr):
     return None
 
 
-def mock_list_archives(build_id):
-    for b in _load_builds():
-        if b['id'] == build_id:
-            archives = deepcopy(b['archives'])
-            for a in archives:
-                del a['components']
+def make_mock_list_archives(filter_archives=None):
+    def mock_list_archives(build_id):
+        for b in _load_builds():
+            if b['id'] == build_id:
+                archives = deepcopy(b['archives'])
+                for a in archives:
+                    del a['components']
 
-            return archives
+                if filter_archives:
+                    archives = filter_archives(b, archives)
+                return archives
 
-    raise RuntimeError(f"Build id={build_id} not found")
+        raise RuntimeError(f"Build id={build_id} not found")
+
+    return mock_list_archives
 
 
 def mock_list_rpms(imageID=None):
@@ -172,7 +177,7 @@ def make_mock_query_history(tagQueryTimestamp):
     return mock_query_history
 
 
-def make_koji_session(tagQueryTimestamp=None, filter_build=None):
+def make_koji_session(tagQueryTimestamp=None, filter_archives=None, filter_build=None):
     session = create_autospec(koji.ClientSession)
     session.getPackageID = Mock()
     session.getPackageID.side_effect = mock_get_package_id
@@ -181,7 +186,7 @@ def make_koji_session(tagQueryTimestamp=None, filter_build=None):
     session.getBuild = Mock()
     session.getBuild.side_effect = mock_get_build
     session.listArchives = Mock()
-    session.listArchives.side_effect = mock_list_archives
+    session.listArchives.side_effect = make_mock_list_archives(filter_archives)
     session.listRPMs = Mock()
     session.listRPMs.side_effect = mock_list_rpms
     session.queryHistory = Mock()
