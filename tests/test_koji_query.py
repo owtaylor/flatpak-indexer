@@ -203,7 +203,7 @@ def test_query_tag_builds():
 def test_query_tag_builds_incremental():
     # Start off with a koji session that will return tag history
     # mid-way through the f28 development cycle
-    koji_session = make_koji_session(tagQueryTimestamp=1521520000)
+    koji_session = make_koji_session(tag_query_timestamp=1521520000)
     redis_client = make_redis_client()
 
     refresh_tag_builds(koji_session, redis_client, 'f28')

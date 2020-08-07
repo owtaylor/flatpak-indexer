@@ -1,8 +1,9 @@
 from copy import deepcopy
+from functools import wraps
 import gzip
 import json
 import os
-from unittest.mock import create_autospec, Mock
+from unittest.mock import create_autospec, DEFAULT, Mock, patch
 
 import koji
 
@@ -38,29 +39,58 @@ def _load_tags():
     return _tags
 
 
-def mock_get_package_id(name):
-    return {
-        'baobab': 1369,
-        'bubblewrap': 22617,
-        'django': 26201,
-        'eog': 303,
-        'exempi': 4845,
-        'feedreader': 20956,
-        'flatpak-rpm-macros': 24301,
-        'flatpak-common': 27629,
-        'flatpak-runtime': 25428,
-        'gnome-desktop3': 10518,
-        'libpeas': 10531,
-        'quadrapassel': 16135,
-    }.get(name)
+class MockKojiContext():
+    def __init__(self, filter_archives=None, filter_build=None, tag_query_timestamp=None):
+        self.filter_archives = filter_archives
+        self.filter_build = filter_build
+        self.tag_query_timestamp = tag_query_timestamp
 
+    def get_build(self, nvr):
+        if isinstance(nvr, int):
+            for b in _load_builds():
+                if b['id'] == nvr:
+                    return b
+        else:
+            for b in _load_builds():
+                if b['nvr'] == nvr:
+                    return b
 
-def make_mock_list_builds(filter_build):
-    def mock_list_builds(packageID=None, type=None, state=None, completeAfter=None):
+        return None
+
+    def get_package_id(self, name):
+        return {
+            'baobab': 1369,
+            'bubblewrap': 22617,
+            'django': 26201,
+            'eog': 303,
+            'exempi': 4845,
+            'feedreader': 20956,
+            'flatpak-rpm-macros': 24301,
+            'flatpak-common': 27629,
+            'flatpak-runtime': 25428,
+            'gnome-desktop3': 10518,
+            'libpeas': 10531,
+            'quadrapassel': 16135,
+        }.get(name)
+
+    def list_archives(self, build_id):
+        for b in _load_builds():
+            if b['id'] == build_id:
+                archives = deepcopy(b['archives'])
+                for a in archives:
+                    del a['components']
+
+                if self.filter_archives:
+                    archives = self.filter_archives(b, archives)
+                return archives
+
+        raise RuntimeError(f"Build id={build_id} not found")
+
+    def list_builds(self, packageID=None, type=None, state=None, completeAfter=None):
         result = []
         for b in _load_builds():
-            if filter_build is not None:
-                b = filter_build(b)
+            if self.filter_build is not None:
+                b = self.filter_build(b)
                 if b is None:
                     continue
 
@@ -99,66 +129,31 @@ def make_mock_list_builds(filter_build):
 
         return result
 
-    return mock_list_builds
+    def list_rpms(self, imageID=None):
+        if imageID is None:
+            raise RuntimeError("listRPMs - only lookup by imageID is implemented")
 
-
-def mock_get_build(nvr):
-    if isinstance(nvr, int):
         for b in _load_builds():
-            if b['id'] == nvr:
-                return b
-    else:
-        for b in _load_builds():
-            if b['nvr'] == nvr:
-                return b
+            if 'archives' not in b:
+                continue
+            for archive in b['archives']:
+                if archive['id'] == imageID:
+                    return archive['components']
 
-    return None
+        raise RuntimeError(f"Image id={imageID} not found")
 
-
-def make_mock_list_archives(filter_archives=None):
-    def mock_list_archives(build_id):
-        for b in _load_builds():
-            if b['id'] == build_id:
-                archives = deepcopy(b['archives'])
-                for a in archives:
-                    del a['components']
-
-                if filter_archives:
-                    archives = filter_archives(b, archives)
-                return archives
-
-        raise RuntimeError(f"Build id={build_id} not found")
-
-    return mock_list_archives
-
-
-def mock_list_rpms(imageID=None):
-    if imageID is None:
-        raise RuntimeError("listRPMs - only lookup by imageID is implemented")
-
-    for b in _load_builds():
-        if 'archives' not in b:
-            continue
-        for archive in b['archives']:
-            if archive['id'] == imageID:
-                return archive['components']
-
-    raise RuntimeError(f"Image id={imageID} not found")
-
-
-def make_mock_query_history(tagQueryTimestamp):
-    def mock_query_history(tables=None, tag=None, afterEvent=None):
+    def query_history(self, tables=None, tag=None, afterEvent=None):
         assert tables == ['tag_listing']
         assert tag is not None
 
         result = []
         tags = _load_tags()
         for item in tags.get(tag, ()):
-            if tagQueryTimestamp:
-                if item['create_ts'] > tagQueryTimestamp:
+            if self.tag_query_timestamp:
+                if item['create_ts'] > self.tag_query_timestamp:
                     continue
 
-                if item['revoke_ts'] is not None and item['revoke_ts'] > tagQueryTimestamp:
+                if item['revoke_ts'] is not None and item['revoke_ts'] > self.tag_query_timestamp:
                     item = item.copy()
                     item['revoke_ts'] = None
                     item['revoke_event'] = None
@@ -174,22 +169,38 @@ def make_mock_query_history(tagQueryTimestamp):
 
         return {'tag_listing': result}
 
-    return mock_query_history
 
+def make_koji_session(**kwargs):
+    ctx = MockKojiContext(**kwargs)
 
-def make_koji_session(tagQueryTimestamp=None, filter_archives=None, filter_build=None):
     session = create_autospec(koji.ClientSession)
-    session.getPackageID = Mock()
-    session.getPackageID.side_effect = mock_get_package_id
-    session.listBuilds = Mock()
-    session.listBuilds.side_effect = make_mock_list_builds(filter_build)
     session.getBuild = Mock()
-    session.getBuild.side_effect = mock_get_build
+    session.getBuild.side_effect = ctx.get_build
+    session.getPackageID = Mock()
+    session.getPackageID.side_effect = ctx.get_package_id
     session.listArchives = Mock()
-    session.listArchives.side_effect = make_mock_list_archives(filter_archives)
+    session.listArchives.side_effect = ctx.list_archives
+    session.listBuilds = Mock()
+    session.listBuilds.side_effect = ctx.list_builds
     session.listRPMs = Mock()
-    session.listRPMs.side_effect = mock_list_rpms
+    session.listRPMs.side_effect = ctx.list_rpms
     session.queryHistory = Mock()
-    session.queryHistory.side_effect = make_mock_query_history(tagQueryTimestamp)
+    session.queryHistory.side_effect = ctx.query_history
 
     return session
+
+
+def mock_koji(f):
+    session = make_koji_session()
+
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        with patch.multiple('koji',
+                            read_config=DEFAULT,
+                            grab_session_options=DEFAULT,
+                            ClientSession=DEFAULT) as mocks:
+            mocks['ClientSession'].return_value = session
+
+            return f(*args, **kwargs)
+
+    return wrapper
