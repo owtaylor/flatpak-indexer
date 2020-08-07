@@ -9,7 +9,7 @@ import yaml
 
 from flatpak_indexer.cli import cli
 
-from .utils import write_config, mock_koji, mock_pyxis
+from .utils import write_config, mock_brew, mock_pyxis
 
 CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
@@ -31,7 +31,7 @@ indexes:
 """)
 
 
-@mock_koji
+@mock_brew
 @responses.activate
 def test_daemon(tmp_path):
     mock_pyxis()
@@ -57,7 +57,7 @@ def test_daemon(tmp_path):
         assert result.exit_code == 42
 
 
-@mock_koji
+@mock_brew
 @responses.activate
 def test_daemon_exception(tmp_path):
     mock_pyxis()
@@ -91,7 +91,7 @@ def test_daemon_exception(tmp_path):
             assert exception_count == 2
 
 
-@mock_koji
+@mock_brew
 @responses.activate
 @pytest.mark.parametrize('verbose', [False, True])
 def test_index(tmp_path, caplog, verbose):

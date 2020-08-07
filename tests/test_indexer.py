@@ -6,7 +6,7 @@ import yaml
 
 from flatpak_indexer.indexer import Indexer
 from flatpak_indexer.datasource.pyxis import PyxisUpdater
-from .utils import get_config, mock_koji, mock_pyxis
+from .utils import get_config, mock_brew, mock_pyxis
 
 
 CONFIG = yaml.safe_load("""
@@ -33,7 +33,7 @@ indexes:
 """)
 
 
-@mock_koji
+@mock_brew
 @responses.activate
 def test_indexer(tmp_path):
     mock_pyxis()
@@ -126,7 +126,7 @@ indexes:
 """)
 
 
-@mock_koji
+@mock_brew
 @responses.activate
 def test_indexer_koji(tmp_path):
     mock_pyxis()

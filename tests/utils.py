@@ -438,7 +438,7 @@ def _koji_list_archives(build_id):
     raise RuntimeError("Build {} not found".format(build_id))
 
 
-def mock_koji(f):
+def mock_brew(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         with patch.multiple('koji',
