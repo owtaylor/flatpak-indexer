@@ -6,18 +6,25 @@ setup(name='flatpak-indexer',
       author='Owen Taylor',
       author_email='otaylor@redhat.com',
       license='MIT',
-      packages=['flatpak_indexer'],
+      packages=['flatpak_indexer',
+                'flatpak_indexer.datasource',
+                'flatpak_indexer.datasource.fedora',
+                'flatpak_indexer.datasource.pyxis'],
       package_data={
           'flatpak_indexer': [
               'certs/*.cert',
               'certs/*.crt',
               'certs/.dummy'
           ],
+          'flatpak_indexer.datasource.fedora': [
+              'messaging-certs/*.pem'
+          ]
       },
       install_requires=[
           'click',
           'koji',
           'redis',
+          'pika',
           'requests',
           'PyYAML',
           # Dev requirements - listed in main requirements to make the image

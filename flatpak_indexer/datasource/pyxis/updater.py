@@ -231,6 +231,9 @@ class PyxisUpdater(object):
         self.conf = config
         self.page_size = page_size
 
+    def start(self):
+        pass
+
     def update(self):
         registries = {}
         for index_config in self.conf.indexes:
@@ -272,3 +275,6 @@ class PyxisUpdater(object):
                             break
 
             registry.write()
+
+    def stop(self):
+        pass

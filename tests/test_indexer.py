@@ -8,6 +8,7 @@ import yaml
 from flatpak_indexer.datasource import load_updaters
 from flatpak_indexer.indexer import Indexer
 from .bodhi import mock_bodhi
+from .fedora_messaging import mock_fedora_messaging
 from .koji import mock_koji
 from .redis import mock_redis
 from .utils import get_config, mock_brew, mock_pyxis
@@ -15,7 +16,9 @@ from .utils import get_config, mock_brew, mock_pyxis
 
 def run_update(config):
     for updater in load_updaters(config):
+        updater.start()
         updater.update()
+        updater.stop()
 
 
 CONFIG = yaml.safe_load("""
@@ -188,10 +191,13 @@ indexes:
 """)
 
 
+@mock_fedora_messaging
 @mock_koji
 @mock_redis
 @responses.activate
-def test_indexer_fedora(tmp_path):
+def test_indexer_fedora(mock_connection, tmp_path):
+    mock_connection.put_inactivity_timeout()
+
     def modify_statuses(update):
         # This build is now obsoleted by a build not in our test date, mark it testing so that
         # we have a repository with different stable/testing

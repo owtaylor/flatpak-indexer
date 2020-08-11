@@ -37,22 +37,30 @@ def daemon(ctx):
     updaters = load_updaters(cfg)
     indexer = Indexer(cfg)
 
-    last_update_time = None
-    while True:
-        if last_update_time is not None:
-            time.sleep(max(0, cfg.daemon.update_interval - (time.time() - last_update_time)))
-        last_update_time = time.time()
+    for updater in updaters:
+        updater.start()
 
-        for updater in updaters:
+    try:
+        last_update_time = None
+        while True:
+            if last_update_time is not None:
+                time.sleep(max(0, cfg.daemon.update_interval - (time.time() - last_update_time)))
+            last_update_time = time.time()
+
+            for updater in updaters:
+                try:
+                    updater.update()
+                except Exception:
+                    logger.exception("Failed to update data sources")
+
             try:
-                updater.update()
+                indexer.index()
             except Exception:
-                logger.exception("Failed to update data sources")
-
-        try:
-            indexer.index()
-        except Exception:
-            logger.exception("Failed to create index")
+                logger.exception("Failed to create index")
+    finally:
+        # Stopping the updaters (and their worker threads) is needed for the process to exit
+        for updater in updaters:
+            updater.stop()
 
 
 @cli.command(name="index")
@@ -64,5 +72,9 @@ def index(ctx):
     indexer = Indexer(cfg)
 
     for updater in updaters:
-        updater.update()
+        updater.start()
+        try:
+            updater.update()
+        finally:
+            updater.stop()
     indexer.index()

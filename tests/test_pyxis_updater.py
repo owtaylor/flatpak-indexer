@@ -59,7 +59,11 @@ def test_pyxis_updater(tmp_path, server_cert, client_cert):
 
     updater = PyxisUpdater(config, page_size=1)
 
-    updater.update()
+    updater.start()
+    try:
+        updater.update()
+    finally:
+        updater.stop()
 
     with open(tmp_path / "registry.example.com.json") as f:
         data = json.load(f)
@@ -104,7 +108,11 @@ def test_pyxis_updater_repository_override(tmp_path):
     config = get_config(tmp_path, REPOSITORY_OVERRIDE_CONFIG)
     updater = PyxisUpdater(config)
 
-    updater.update()
+    updater.start()
+    try:
+        updater.update()
+    finally:
+        updater.stop()
 
     with open(tmp_path / "registry.example.com.json") as f:
         amd64_data = json.load(f)
@@ -141,7 +149,11 @@ def test_pyxis_updater_koji(tmp_path):
     config = get_config(tmp_path, KOJI_CONFIG)
     updater = PyxisUpdater(config)
 
-    updater.update()
+    updater.start()
+    try:
+        updater.update()
+    finally:
+        updater.stop()
 
     with open(tmp_path / "brew.json") as f:
         data = json.load(f)

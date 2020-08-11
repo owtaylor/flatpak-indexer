@@ -7,8 +7,10 @@ import redis
 from ...utils import atomic_writer
 from ...models import RegistryModel
 
+from .bodhi_change_monitor import BodhiChangeMonitor
 from .koji_query import query_flatpak_build
-from .bodhi_query import refresh_all_updates, list_updates
+from .bodhi_query import (list_updates, refresh_all_updates,
+                          refresh_update_status, reset_update_cache)
 
 
 class RepoInfo:
@@ -29,12 +31,28 @@ class FedoraUpdater(object):
         self.conf = config
 
         self.redis_client = redis.Redis.from_url(self.conf.redis_url)
+        self.change_monitor = None
 
         options = koji.read_config(profile_name=self.conf.koji_config)
         koji_session_opts = koji.grab_session_options(options)
         self.koji_session = koji.ClientSession(options['server'], koji_session_opts)
 
+    def start(self):
+        queue_name_raw = self.redis_client.get('fedora-messaging-queue')
+        queue_name = queue_name_raw.decode('utf-8') if queue_name_raw else None
+        self.change_monitor = BodhiChangeMonitor(queue_name)
+        new_queue_name = self.change_monitor.start()
+        if new_queue_name != queue_name:
+            # If we couldn't connect to an existing update queue, we don't have any
+            # information about the status of cached updates, and need to start over
+            reset_update_cache(self.redis_client)
+
+            self.redis_client.set('fedora-messaging-queue', new_queue_name)
+
     def update(self):
+        for bodhi_update_id in self.change_monitor.get_changed():
+            refresh_update_status(self.koji_session, self.redis_client, bodhi_update_id)
+
         refresh_all_updates(self.koji_session, self.redis_client, content_type='flatpak')
         updates = list_updates(self.redis_client, content_type='flatpak')
         builds = {update.update_id:
@@ -109,3 +127,6 @@ class FedoraUpdater(object):
             with atomic_writer(filename) as writer:
                 json.dump(registry.to_json(),
                           writer, sort_keys=True, indent=4, ensure_ascii=False)
+
+    def stop(self):
+        self.change_monitor.stop()

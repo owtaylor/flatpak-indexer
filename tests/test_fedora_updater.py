@@ -8,6 +8,7 @@ import yaml
 from flatpak_indexer.datasource.fedora import FedoraUpdater
 
 from .bodhi import mock_bodhi
+from .fedora_messaging import mock_fedora_messaging
 from .koji import mock_koji
 from .redis import mock_redis
 from .utils import get_config
@@ -44,10 +45,14 @@ indexes:
 """)
 
 
+@mock_fedora_messaging
 @mock_koji
 @mock_redis
 @responses.activate
-def test_fedora_updater(tmp_path):
+def test_fedora_updater(mock_connection, tmp_path):
+    mock_connection.put_update_message('fedora-2018-12456789')
+    mock_connection.put_inactivity_timeout()
+
     def modify_statuses(update):
         # This build is now obsoleted by a build not in our test date, mark it testing so that
         # we have a repository with different stable/testing
@@ -65,7 +70,11 @@ def test_fedora_updater(tmp_path):
 
     updater = FedoraUpdater(config)
 
-    updater.update()
+    updater.start()
+    try:
+        updater.update()
+    finally:
+        updater.stop()
 
     with open(tmp_path / "registry.example.com.json") as f:
         data = json.load(f)
