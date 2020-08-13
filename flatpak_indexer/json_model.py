@@ -48,6 +48,14 @@ class ModelField:
         return True
 
 
+class IntegerField(ModelField):
+    def json_value(self, instance):
+        return int(getattr(instance, self.python_name))
+
+    def python_value(self, data):
+        return int(data[self.json_name])
+
+
 class StringField(ModelField):
     def json_value(self, instance):
         return str(getattr(instance, self.python_name))
@@ -218,6 +226,8 @@ def _make_model_field(name, type_):
     elif origin is None:
         if type_ == str:
             return StringField(name, json_name)
+        elif type_ == int:
+            return IntegerField(name, json_name)
         elif type_ == datetime:
             return DateTimeField(name, json_name)
 

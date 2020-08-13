@@ -19,6 +19,20 @@ def test_string_field():
     assert from_json.f1 == "foo"
 
 
+class IntegerStuff(BaseModel):
+    f1: int
+
+
+def test_integer_field():
+    obj = IntegerStuff(f1=42)
+    JSON = {"F1": 42}
+
+    assert obj.to_json() == JSON
+
+    from_json = IntegerStuff.from_json(JSON)
+    assert from_json.f1 == 42
+
+
 class DateTimeStuff(BaseModel):
     f1: datetime
 
