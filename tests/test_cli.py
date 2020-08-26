@@ -9,6 +9,7 @@ import yaml
 
 from flatpak_indexer.cli import cli
 
+from .redis import mock_redis
 from .utils import write_config, mock_brew, mock_pyxis
 
 CONFIG = yaml.safe_load("""
@@ -117,3 +118,30 @@ def test_index(tmp_path, caplog, verbose):
     else:
         assert 'Getting all images for registry.example.com/aisleriot' not in caplog.text
     assert result.exit_code == 0
+
+
+DIFFER_CONFIG = yaml.safe_load("""
+pyxis_url: https://pyxis.example.com/v1
+koji_config: brew
+deltas_dir: ${OUTPUT_DIR}/deltas/
+deltas_uri: https://flatpaks.fedoraproject.org/deltas
+work_dir: ${OUTPUT_DIR}/work/
+""")
+
+
+@mock_redis
+def test_differ(tmp_path):
+    config_path = write_config(tmp_path, DIFFER_CONFIG)
+
+    os.environ["OUTPUT_DIR"] = str(tmp_path)
+    os.mkdir(tmp_path / "deltas")
+
+    runner = CliRunner()
+
+    def mock_get_message(*args, **kwargs):
+        sys.exit(42)
+
+    with patch('redis.client.PubSub.get_message', side_effect=mock_get_message):
+        result = runner.invoke(cli, ['--config-file', config_path, 'differ'],
+                               catch_exceptions=False)
+        assert result.exit_code == 42

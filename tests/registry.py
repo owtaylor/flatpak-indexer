@@ -1,0 +1,245 @@
+from base64 import b64encode
+from contextlib import contextmanager
+import gzip
+import hashlib
+from io import BytesIO
+import json
+import re
+import tarfile
+from urllib.parse import urlparse
+
+import responses
+import requests
+
+from .utils import WithArgDecorator
+
+
+MEDIA_TYPE_OCI = 'application/vnd.oci.image.manifest.v1+json'
+
+
+def registry_hostname(registry):
+    """
+    Strip a reference to a registry to just the hostname:port
+    """
+    if registry.startswith('http:') or registry.startswith('https:'):
+        return urlparse(registry).netloc
+    else:
+        return registry
+
+
+def to_bytes(value):
+    if isinstance(value, bytes):
+        return value
+    else:
+        return value.encode('utf-8')
+
+
+def json_bytes(value):
+    return json.dumps(value).encode("utf-8")
+
+
+def make_digest(blob):
+    # Abbreviate the hexdigest for readability of debugging output if things fail
+    return 'sha256:' + hashlib.sha256(to_bytes(blob)).hexdigest()[0:10]
+
+
+class TestLayer():
+    def __init__(self, filename, file_contents):
+        tar_out = BytesIO()
+        with tarfile.open(mode="w", fileobj=tar_out) as tf:
+            tarinfo = tarfile.TarInfo(filename)
+            tarinfo.size = len(file_contents)
+            with BytesIO(file_contents) as file_contents_file:
+                tf.addfile(tarinfo, file_contents_file)
+
+        gzip_out = BytesIO()
+        with gzip.GzipFile(fileobj=gzip_out, mode="w") as f:
+            f.write(tar_out.getvalue())
+
+        self.set_contents(gzip_out.getvalue())
+        self.diff_id = make_digest(tar_out.getvalue())
+
+    def set_contents(self, contents):
+        self.contents = contents
+        self.digest = make_digest(self.contents)
+        self.size = len(self.contents)
+
+    def verify(self, path):
+        with open(path, "rb") as f:
+            contents = f.read()
+
+        assert contents == self.contents
+
+
+class MockRegistry:
+    """
+    This class mocks a subset of the v2 Docker Registry protocol. It also has methods to inject
+    and test content in the registry.
+    """
+    def __init__(self, registry='registry.example.com', required_creds=None, flags=''):
+        self.hostname = registry_hostname(registry)
+        self.repos = {}
+        self.required_creds = required_creds
+        self.flags = flags
+        self._add_pattern(responses.GET, r'/v2/(.*)/manifests/([^/]+)',
+                          self._get_manifest)
+        self._add_pattern(responses.GET, r'/v2/(.*)/blobs/([^/]+)',
+                          self._get_blob)
+
+    def get_repo(self, name):
+        return self.repos.setdefault(name, {
+            'blobs': {},
+            'manifests': {},
+            'tags': {},
+            'uploads': {},
+        })
+
+    def add_blob(self, name, blob):
+        repo = self.get_repo(name)
+        digest = make_digest(blob)
+        repo['blobs'][digest] = blob
+        return digest
+
+    def get_blob(self, name, digest):
+        return self.get_repo(name)['blobs'][digest]
+
+    def add_manifest(self, name, ref, manifest):
+        repo = self.get_repo(name)
+        digest = make_digest(manifest)
+        repo['manifests'][digest] = manifest
+        if ref is None:
+            pass
+        elif ref.startswith('sha256:'):
+            assert ref == digest
+        else:
+            repo['tags'][ref] = digest
+        return digest
+
+    def get_manifest(self, name, ref):
+        repo = self.get_repo(name)
+        if not ref.startswith('sha256:'):
+            ref = repo['tags'][ref]
+        return repo['manifests'][ref]
+
+    def _check_creds(self, req):
+        if self.required_creds:
+            username, password = self.required_creds
+
+            auth = req.headers['Authorization'].strip().split()
+            assert auth[0] == 'Basic'
+            assert to_bytes(auth[1]) == b64encode(to_bytes(username + ':' + password))
+
+    def _add_pattern(self, method, pattern, callback):
+        url = 'https://' + self.hostname
+        pat = re.compile('^' + url + pattern + '$')
+
+        def do_it(req):
+            self._check_creds(req)
+
+            status, headers, body = callback(req, *(pat.match(req.url).groups()))
+            if method == responses.HEAD:
+                return status, headers, ''
+            else:
+                return status, headers, body
+
+        responses.add_callback(method, pat, do_it, match_querystring=True)
+
+    def _get_manifest(self, req, name, ref):
+        repo = self.get_repo(name)
+        if not ref.startswith('sha256:'):
+            try:
+                ref = repo['tags'][ref]
+            except KeyError:
+                return (requests.codes.NOT_FOUND, {}, json_bytes({'error': 'NOT_FOUND'}))
+
+        try:
+            blob = repo['manifests'][ref]
+        except KeyError:
+            return (requests.codes.NOT_FOUND, {}, json_bytes({'error': 'NOT_FOUND'}))
+
+        decoded = json.loads(blob)
+        content_type = decoded.get('mediaType')
+        if content_type is None:  # OCI
+            content_type = MEDIA_TYPE_OCI
+
+        accepts = re.split(r'\s*,\s*', req.headers['Accept'])
+        assert content_type in accepts
+
+        if 'bad_content_type' in self.flags:
+            if content_type == MEDIA_TYPE_OCI:
+                content_type = 'application/json'
+
+        headers = {
+            'Docker-Content-Digest': ref,
+            'Content-Type': content_type,
+            'Content-Length': str(len(blob)),
+        }
+        return (200, headers, blob)
+
+    def _get_blob(self, req, name, digest):
+        repo = self.get_repo(name)
+        assert digest.startswith('sha256:')
+
+        try:
+            blob = repo['blobs'][digest]
+        except KeyError:
+            return (requests.codes.NOT_FOUND, {}, json_bytes({'error': 'NOT_FOUND'}))
+
+        headers = {
+            'Docker-Content-Digest': digest,
+            'Content-Type': 'application/json',
+            'Content-Length': str(len(blob)),
+        }
+        return (200, headers, blob)
+
+    def add_fake_image(self, name, tag, diff_ids=None, layer_contents=None):
+        layer = TestLayer("test", b"42")
+        if layer_contents:
+            layer.set_contents(layer_contents)
+        layers = [layer]
+        for layer in layers:
+            assert self.add_blob(name, layer.contents) == layer.digest
+
+        if diff_ids is None:
+            diff_ids = [layer.diff_id for layer in layers]
+
+        config = {
+            'architecture': 'amd64',
+            'os': 'linux',
+            'rootfs': {
+                'type': 'layers',
+                'diff_ids': diff_ids,
+            },
+        }
+        config_bytes = json_bytes(config)
+        config_digest = self.add_blob(name, config_bytes)
+        config_size = len(config_bytes)
+
+        manifest = {
+            'schemaVersion': 2,
+            'mediaType': MEDIA_TYPE_OCI,
+            'config': {
+                'mediaType': 'application/vnd.oci.image.config.v1+json',
+                'digest': config_digest,
+                'size': config_size,
+            },
+            'layers': [{
+                'mediaType': 'application/vnd.oci.image.layer.v1.tar.gz',
+                'digest': layer.digest,
+                'size': layer.size,
+            } for layer in layers]
+        }
+
+        manifest_bytes = json_bytes(manifest)
+        manifest_digest = self.add_manifest(name, tag, manifest_bytes)
+
+        return manifest_digest, layers[0]
+
+
+@contextmanager
+def _setup_registry(**kwargs):
+    with responses._default_mock:
+        yield MockRegistry(**kwargs)
+
+
+mock_registry = WithArgDecorator('registry', _setup_registry)

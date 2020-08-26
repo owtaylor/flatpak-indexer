@@ -4,6 +4,7 @@ import time
 
 from .config import Config
 from .datasource import load_updaters
+from .differ import Differ
 from .indexer import Indexer
 
 
@@ -61,6 +62,15 @@ def daemon(ctx):
         # Stopping the updaters (and their worker threads) is needed for the process to exit
         for updater in updaters:
             updater.stop()
+
+
+@cli.command(name="differ")
+@click.pass_context
+def differ(ctx):
+    cfg = ctx.obj['config']
+
+    differ = Differ(cfg)
+    differ.run()
 
 
 @cli.command(name="index")
