@@ -6,6 +6,7 @@ import logging
 import os
 import re
 from tempfile import NamedTemporaryFile
+from urllib.parse import urljoin
 
 from requests import Session
 from requests.adapters import HTTPAdapter
@@ -149,3 +150,23 @@ def parse_date(date_str):
     """
     dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%f+00:00')
     return dt.replace(tzinfo=timezone.utc)
+
+
+def uri_for_digest(base_uri, digest, extension):
+    assert digest.startswith("sha256:")
+    subdir = digest[7:9]
+    filename = digest[9:] + extension
+    return urljoin(base_uri, subdir + '/' + filename)
+
+
+def path_for_digest(base_dir, digest, extension, create_subdir=False):
+    assert digest.startswith("sha256:")
+    subdir = digest[7:9]
+    filename = digest[9:] + extension
+
+    if create_subdir:
+        full_subdir = os.path.join(base_dir, subdir)
+        if not os.path.exists(full_subdir):
+            os.mkdir(full_subdir)
+
+    return os.path.join(base_dir, subdir, filename)

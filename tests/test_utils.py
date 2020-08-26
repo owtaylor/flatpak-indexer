@@ -10,8 +10,10 @@ from flatpak_indexer.utils import (atomic_writer,
                                    format_date,
                                    get_retrying_requests_session,
                                    parse_date,
+                                   path_for_digest,
                                    substitute_env_vars,
-                                   SubstitutionError)
+                                   SubstitutionError,
+                                   uri_for_digest)
 
 
 def test_retrying_requests_session():
@@ -111,3 +113,18 @@ def test_parse_date():
     assert dt.minute == 26
     assert dt.second == 22
     assert dt.tzinfo.utcoffset(None) == datetime.timedelta(0)
+
+
+def test_path_for_digest(tmp_path):
+    assert (path_for_digest(str(tmp_path), 'sha256:abcd', '.png') ==
+            str(tmp_path / "ab/cd.png"))
+    assert not (tmp_path / "ab").exists()
+
+    assert (path_for_digest(str(tmp_path), 'sha256:abcd', '.png', create_subdir=True) ==
+            str(tmp_path / "ab/cd.png"))
+    assert (tmp_path / "ab").exists()
+
+
+def test_uri_for_digest():
+    assert (uri_for_digest('https://example.com/files/', 'sha256:abcd', '.png') ==
+            "https://example.com/files/ab/cd.png")

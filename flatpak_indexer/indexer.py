@@ -4,9 +4,8 @@ import hashlib
 import logging
 import json
 import os
-from urllib.parse import urljoin
 
-from .utils import atomic_writer
+from .utils import atomic_writer, path_for_digest, uri_for_digest
 from .models import RegistryModel
 
 
@@ -37,25 +36,23 @@ class IconStore(object):
 
         h = hashlib.sha256()
         h.update(decoded)
-        digest = h.hexdigest()
-        subdir = digest[:2]
-        filename = digest[2:] + '.png'
+        digest = 'sha256:' + h.hexdigest()
 
-        key = (subdir, filename)
+        fullpath = path_for_digest(self.icons_dir, digest, ".png",
+                                   create_subdir=True)
+        key = tuple(fullpath.split("/")[-2:])
+
         if key in self.icons:
             pass
         elif key in self.old_icons:
             self.icons[key] = True
         else:
-            if not os.path.exists(os.path.join(self.icons_dir, subdir)):
-                os.mkdir(os.path.join(self.icons_dir, subdir))
-            fullpath = os.path.join(self.icons_dir, subdir, filename)
             logger.info("Storing icon: %s", fullpath)
             with open(fullpath, 'wb') as f:
                 f.write(decoded)
             self.icons[key] = True
 
-        return urljoin(self.icons_uri, subdir + '/' + filename)
+        return uri_for_digest(self.icons_uri, digest, ".png")
 
     def clean(self):
         for key in self.old_icons:
