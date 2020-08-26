@@ -48,6 +48,18 @@ class ModelField:
         return True
 
 
+class ClassField(ModelField):
+    def __init__(self, python_name, json_name, item_type):
+        super().__init__(python_name, json_name)
+        self.item_type = item_type
+
+    def json_value(self, instance):
+        return getattr(instance, self.python_name).to_json()
+
+    def python_value(self, data):
+        return self.item_type.from_json(data[self.json_name])
+
+
 class IntegerField(ModelField):
     def json_value(self, instance):
         return int(getattr(instance, self.python_name))
@@ -224,7 +236,9 @@ def _make_model_field(name, type_):
     elif origin == list:
         return ListField(name, json_name, type_.__args__[0])
     elif origin is None:
-        if type_ == str:
+        if issubclass(type_, BaseModel):
+            return ClassField(name, json_name, type_)
+        elif type_ == str:
             return StringField(name, json_name)
         elif type_ == int:
             return IntegerField(name, json_name)

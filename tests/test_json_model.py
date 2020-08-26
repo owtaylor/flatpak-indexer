@@ -59,6 +59,20 @@ def test_datetime_field_null():
     assert from_json.f1 is None
 
 
+class ClassStuff(BaseModel):
+    f1: StringStuff
+
+
+def test_class_field():
+    obj = ClassStuff(f1=StringStuff(f1='foo'))
+    JSON = {"F1": {"F1": "foo"}}
+
+    assert obj.to_json() == JSON
+
+    from_json = ClassStuff.from_json(JSON)
+    assert from_json.f1.f1 == "foo"
+
+
 class ListStuff(BaseModel):
     f1: List[str]
     f2: List[StringStuff]
