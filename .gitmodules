@@ -1,0 +1,3 @@
+[submodule "differ/tar-diff"]
+	path = differ/tar-diff
+	url = https://github.com/containers/tar-diff

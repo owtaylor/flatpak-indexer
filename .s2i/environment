@@ -1,2 +1,3 @@
 OUTPUT_DIR=/var/www/flatpaks
 WORK_DIR=/var/lib/flatpak-indexer
+FLATPAK_INDEXER_INSTALL_TAR_DIFF=1

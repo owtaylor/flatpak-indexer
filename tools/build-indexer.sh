@@ -4,16 +4,25 @@ set -ex
 
 origin=$(cd $(dirname $0)/.. && pwd)
 
+tmp_container=
 work=$(mktemp -d)
 cleanup() {
     :
-#    rm -rf $work
+    #    rm -rf $work
+    [ -n "$tmp_container" ] && podman rm $tmp_container
 }
 trap cleanup EXIT
 
 set -x
 
-s2i build --copy --as-dockerfile=$work/Dockerfile $origin registry.redhat.io/rhscl/python-36-rhel7 flatpak-indexer
+podman build $origin/differ -t flatpak-indexer-tar-diff
+
+s2i build --copy --as-dockerfile=$work/Dockerfile $origin ubi8/python-38 flatpak-indexer
+
+tmp_container=$(podman create flatpak-indexer-tar-diff)
+mkdir -p -m 0755 $work/upload/src/bin
+podman cp $tmp_container:/opt/app-root/tar-diff $work/upload/src/bin/tar-diff
+
 tmp_tag="flatpak-indexer:$(date +%Y%m%d-%H%M%S)"
 podman build $work -t $tmp_tag
 if podman run --network=none --rm $tmp_tag tools/test.sh ; then

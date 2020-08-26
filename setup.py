@@ -1,4 +1,9 @@
+import os
 from setuptools import setup
+
+data_files=[]
+if os.environ.get('FLATPAK_INDEXER_INSTALL_TAR_DIFF'):
+    data_files.append(('bin', ['bin/tar-diff']))
 
 setup(name='flatpak-indexer',
       version='0.1',
@@ -20,6 +25,7 @@ setup(name='flatpak-indexer',
               'messaging-certs/*.pem'
           ]
       },
+      data_files=data_files,
       install_requires=[
           'click',
           'koji',
