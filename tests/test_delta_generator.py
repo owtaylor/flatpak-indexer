@@ -280,6 +280,21 @@ def test_delta_generator(tmp_path, iterations, task_destiny, layer_counts):
 
 
 @mock_redis
+def test_delta_generator_empty(tmp_path):
+    os.environ["OUTPUT_DIR"] = str(tmp_path)
+    os.mkdir(tmp_path / "deltas")
+
+    config = get_config(tmp_path, CONFIG)
+
+    generator = DeltaGenerator(config)
+
+    with FakeDiffer(config):
+        generator.generate()
+
+    assert len(os.listdir(tmp_path / "deltas")) == 0
+
+
+@mock_redis
 def test_delta_generator_expire(tmp_path):
     os.environ["OUTPUT_DIR"] = str(tmp_path)
     os.mkdir(tmp_path / "deltas")
