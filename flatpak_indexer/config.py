@@ -32,7 +32,12 @@ class IndexConfig:
         self.koji_tag = lookup.get_str('koji_tag', None)
         self.bodhi_status = lookup.get_str('bodhi_status', None)
         self.architecture = lookup.get_str('architecture', None)
+        self.delta_keep_days = lookup.get_int('delta_keep_days', 0)
         self.extract_icons = lookup.get_bool('extract_icons', False)
+
+    @property
+    def output_tag(self):
+        return self.koji_tag if self.koji_tag else self.tag
 
 
 class DaemonConfig:
@@ -151,6 +156,14 @@ class Config:
         if self.icons_dir is not None and self.icons_uri is None:
             raise ConfigError("icons_dir is configured, but not icons_uri")
 
+        self.deltas_dir = lookup.get_str('deltas_dir', None)
+        self.deltas_uri = lookup.get_str('deltas_uri', None)
+        if self.deltas_uri and not self.deltas_uri.endswith('/'):
+            self.deltas_uri += '/'
+
+        if self.deltas_dir is not None and self.deltas_uri is None:
+            raise ConfigError("deltas_dir is configured, but not deltas_uri")
+
         for name, sublookup in lookup.iterate_objects('registries'):
             registry_config = RegistryConfig(name, sublookup)
             self.registries[name] = registry_config
@@ -191,6 +204,16 @@ class Config:
             if index_config.extract_icons and self.icons_dir is None:
                 raise ConfigError("indexes/{}: extract_icons is set, but no icons_dir is configured"
                                   .format(index_config.name))
+
+            if index_config.delta_keep_days > 0:
+                if self.deltas_dir is None:
+                    raise ConfigError(("indexes/{}: delta_keep_days is set, " +
+                                       "but no deltas_dir is configured")
+                                      .format(index_config.name))
+                if self.redis_url is None:
+                    raise ConfigError(("indexes/{}: delta_keep_days is set, " +
+                                       "but no redis_url is configured")
+                                      .format(index_config.name))
 
             if registry_config.datasource == 'pyxis':
                 if index_config.bodhi_status is not None:

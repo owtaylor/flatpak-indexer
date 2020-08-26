@@ -11,6 +11,7 @@ from .bodhi import mock_bodhi
 from .fedora_messaging import mock_fedora_messaging
 from .koji import mock_koji
 from .redis import mock_redis
+from .test_delta_generator import FakeDiffer
 from .utils import get_config, mock_brew, mock_pyxis
 
 
@@ -25,6 +26,9 @@ CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 koji_config: brew
 work_dir: ${OUTPUT_DIR}/work
+deltas_dir: ${OUTPUT_DIR}/deltas
+deltas_uri: https://registry.fedoraproject.org/deltas
+redis_url: redis://localhost
 icons_dir: ${OUTPUT_DIR}/icons/
 icons_uri: https://flatpaks.example.com/icons
 registries:
@@ -33,6 +37,7 @@ registries:
         datasource: pyxis
 indexes:
     amd64:
+        delta_keep_days: 7
         architecture: amd64
         registry: registry.example.com
         output: ${OUTPUT_DIR}/test/flatpak-amd64.json
@@ -171,6 +176,8 @@ def test_indexer_koji(tmp_path):
 FEDORA_CONFIG = yaml.safe_load("""
 koji_config: brew
 redis_url: redis://localhost
+deltas_dir: ${OUTPUT_DIR}/deltas
+deltas_uri: https://registry.fedoraproject.org/deltas
 work_dir: ${OUTPUT_DIR}/work
 registries:
     fedora:
@@ -183,11 +190,13 @@ indexes:
         output: ${OUTPUT_DIR}/test/flatpak-latest.json
         tag: latest
         bodhi_status: stable
+        delta_keep_days: 10000
     testing:
         registry: fedora
         output: ${OUTPUT_DIR}/test/flatpak-testing.json
         tag: testing
         bodhi_status: testing
+        delta_keep_days: 10000
 """)
 
 
@@ -212,12 +221,14 @@ def test_indexer_fedora(mock_connection, tmp_path):
     os.environ["OUTPUT_DIR"] = str(tmp_path)
 
     os.mkdir(tmp_path / "work")
+    os.mkdir(tmp_path / "deltas")
 
     config = get_config(tmp_path, FEDORA_CONFIG)
     run_update(config)
 
-    indexer = Indexer(config)
-    indexer.index()
+    with FakeDiffer(config):
+        indexer = Indexer(config)
+        indexer.index()
 
     with open(tmp_path / "test/flatpak-latest.json") as f:
         data = json.load(f)

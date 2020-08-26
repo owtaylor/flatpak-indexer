@@ -1,0 +1,54 @@
+# name of a Koji config section
+koji_config: koji
+# This is a directory that is used to store intermediate extracted information
+# passed from the data source to the indexer
+work_dir: ${WORK_DIR:work}
+# URL to a local Redis index for caching
+redis_url: redis://localhost:6379
+deltas_dir: ${OUTPUT_DIR:out}/deltas/
+deltas_uri: https://flatpaks.local.fishsoup.net.com/deltas/
+# When extract_icons is set for an index, icons are saved to icons_dir and labels are
+# rewritten in the index from a data: URL to an URL formed from icons_uri
+icons_dir: ${OUTPUT_DIR:out}/icons/
+icons_uri: https://flatpaks.local.fishsoup.net.com/app-icons/
+daemon:
+        # How often to query Bodhi
+        update_interval: 180
+registries:
+        fedora:
+                # Written into the index
+                public_url: https://registry.fedoraproject.org/
+                datasource: fedora
+                force_flatpak_token: true
+indexes:
+        latest:
+                # path to the output location - environment variable substitions
+                # are possible for all strings
+                output: ${OUTPUT_DIR:out}/fedora/flatpak-latest.json
+                registry: fedora
+                tag: latest
+                bodhi_status: stable
+                extract_icons: True
+                delta_keep_days: 30
+        latest-amd64:
+                output: ${OUTPUT_DIR:out}/fedora/flatpak-latest-amd64.json
+                registry: fedora
+                architecture: amd64
+                tag: latest
+                bodhi_status: stable
+                extract_icons: True
+        stable:
+                # path to the output location - environment variable substitions
+                # are possible for all strings
+                output: ${OUTPUT_DIR:out}/fedora/flatpak-testing.json
+                registry: fedora
+                tag: testing
+                bodhi_status: testing
+                extract_icons: True
+        stable-amd64:
+                output: ${OUTPUT_DIR:out}/fedora/flatpak-testing-amd64.json
+                registry: fedora
+                architecture: amd64
+                tag: testing
+                bodhi_status: testing
+                extract_icons: True

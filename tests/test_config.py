@@ -13,6 +13,8 @@ pyxis_url: https://pyxis.example.com/v1
 redis_url: redis://localhost
 work_dir: /flatpak-work
 koji_config: brew
+deltas_dir: /flatpaks/deltas/
+deltas_uri: https://flatpaks.example.com/deltas
 icons_dir: /flatpaks/icons/
 icons_uri: https://flatpaks.example.com/icons
 daemon:
@@ -44,6 +46,7 @@ indexes:
         output: /fedora/flatpak-testing.json
         bodhi_status: testing
         tag: testing
+        delta_keep_days: 7
 """)
 
 
@@ -193,7 +196,7 @@ def test_pyxis_url_missing(tmp_path):
         get_config(tmp_path, config_data)
 
 
-def test_redis_url_missing(tmp_path):
+def test_redis_url_missing_fedora(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
     del config_data['redis_url']
     with raises(ConfigError,
@@ -233,6 +236,15 @@ def test_no_koji_tag_or_tag(tmp_path):
         get_config(tmp_path, config_data)
 
 
+def test_index_output_tag(tmp_path):
+    config = get_config(tmp_path, BASIC_CONFIG)
+    for index in config.indexes:
+        if index.name == 'amd64':
+            assert index.output_tag == 'latest'
+        elif index.name == 'brew-rc':
+            assert index.output_tag == 'release-candidate'
+
+
 def test_koji_tag_extra(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
     del config_data['indexes']['fedora-testing']['tag']
@@ -270,4 +282,31 @@ def test_icons_uri_missing(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
     del config_data['icons_uri']
     with raises(ConfigError, match="icons_dir is configured, but not icons_uri"):
+        get_config(tmp_path, config_data)
+
+
+def test_deltas_dir_missing(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    del config_data['deltas_dir']
+    with raises(ConfigError,
+                match=("indexes/fedora-testing: " +
+                       "delta_keep_days is set, but no deltas_dir is configured")):
+        get_config(tmp_path, config_data)
+
+
+def test_redis_url_missing_deltas(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    del config_data['redis_url']
+    del config_data['registries']['fedora']
+    del config_data['indexes']['fedora-testing']
+    config_data['indexes']['amd64']['delta_keep_days'] = 7
+    with raises(ConfigError,
+                match="indexes/amd64: delta_keep_days is set, but no redis_url is configured"):
+        get_config(tmp_path, config_data)
+
+
+def test_deltas_uri_missing(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    del config_data['deltas_uri']
+    with raises(ConfigError, match="deltas_dir is configured, but not deltas_uri"):
         get_config(tmp_path, config_data)

@@ -5,6 +5,7 @@ import logging
 import json
 import os
 
+from .delta_generator import DeltaGenerator
 from .utils import atomic_writer, path_for_digest, uri_for_digest
 from .models import RegistryModel
 
@@ -82,7 +83,7 @@ class IndexWriter:
         if uri is not None:
             labels[key] = uri
 
-    def add_image(self, name, image):
+    def add_image(self, name, image, delta_manifest_url):
         image = copy.copy(image)
         image.labels = copy.copy(image.labels)
 
@@ -90,6 +91,9 @@ class IndexWriter:
             # This string the base64-encoding GVariant holding a variant
             # holding the int32 1.
             image.labels['org.flatpak.commit-metadata.xa.token-type'] = 'AQAAAABp'
+
+        if delta_manifest_url:
+            image.labels['io.github.containers.DeltaUrl'] = delta_manifest_url
 
         self.extract_icon(image.labels, 'org.freedesktop.appstream.icon-64')
         self.extract_icon(image.labels, 'org.freedesktop.appstream.icon-128')
@@ -113,7 +117,7 @@ class IndexWriter:
             }, writer, sort_keys=True, indent=4, ensure_ascii=False)
 
 
-class Indexer(object):
+class Indexer:
     def __init__(self, config):
         self.conf = config
 
@@ -157,11 +161,29 @@ class Indexer(object):
         if self.conf.icons_dir is not None:
             icon_store = IconStore(self.conf.icons_dir, self.conf.icons_uri)
 
+        delta_generator = None
+        if any(index_config.delta_keep_days > 0 for index_config in self.conf.indexes):
+            delta_generator = DeltaGenerator(self.conf)
+
+            for index_config in self.conf.indexes:
+                tag = index_config.output_tag
+
+                registry_info = registries[index_config.registry]
+                if registry_info is None:
+                    # No intermediate file, skip
+                    continue
+
+                registry_config = self.conf.registries[index_config.registry]
+                for repository in registry_info.repositories.values():
+                    tag_history = repository.tag_histories.get(tag)
+                    if tag_history:
+                        delta_generator.add_tag_history(registry_config.public_url,
+                                                        repository, tag_history, index_config)
+
+            delta_generator.generate()
+
         for index_config in self.conf.indexes:
-            if index_config.koji_tag:
-                tag = index_config.koji_tag
-            else:
-                tag = index_config.tag
+            tag = index_config.output_tag
 
             registry_name = index_config.registry
             registry_config = self.conf.registries[registry_name]
@@ -169,7 +191,7 @@ class Indexer(object):
             registry_info = registries[registry_name]
             if registry_info is None:
                 logger.debug("No intermediate file found for %s", registry_name)
-                return
+                continue
 
             index = IndexWriter(index_config,
                                 registry_config,
@@ -180,7 +202,14 @@ class Indexer(object):
                     if (tag in image.tags and
                         (index.config.architecture is None or
                          image.architecture == index.config.architecture)):
-                        index.add_image(repository.name, image)
+
+                        if delta_generator:
+                            delta_manifest_url = \
+                                delta_generator.get_delta_manifest_url(image.digest)
+                        else:
+                            delta_manifest_url = None
+
+                        index.add_image(repository.name, image, delta_manifest_url)
 
             index.write()
 

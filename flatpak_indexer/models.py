@@ -49,3 +49,23 @@ class RegistryModel(BaseModel):
             self.repositories[name] = RepositoryModel(name=name)
 
         self.repositories[name].images[image.digest] = image
+
+
+class TardiffImageModel(BaseModel):
+    registry: str
+    repository: str
+    ref: str
+
+
+class TardiffSpecModel(BaseModel):
+    from_image: TardiffImageModel
+    from_diff_id: str
+    to_image: TardiffImageModel
+    to_diff_id: str
+
+
+class TardiffResultModel(BaseModel):
+    status: str
+    digest: str
+    size: int
+    message: str
