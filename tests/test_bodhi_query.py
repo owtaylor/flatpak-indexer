@@ -136,6 +136,31 @@ def test_bodhi_query_flatpak_updates():
 
 
 @responses.activate
+def test_bodhi_query_flatpak_updates_all():
+    redis_client = make_redis_client()
+    koji_session = make_koji_session()
+    mock_bodhi()
+
+    refresh_all_updates(koji_session, redis_client, 'flatpak')
+
+    updates = list_updates(redis_client, 'flatpak')
+    assert len(updates) == 8
+
+    build_map = {u.update_id: [b.rsplit('-', 2)[0] for b in u.builds] for u in updates}
+
+    assert build_map == {
+        'FEDORA-FLATPAK-2018-2f1988821e': ['eog'],
+        'FEDORA-FLATPAK-2018-aecd5ddc46': ['feedreader'],
+        'FEDORA-FLATPAK-2018-b653073d2f': ['quadrapassel'],
+        'FEDORA-FLATPAK-2019-1c04884fc8': ['gnome-clocks', 'gnome-weather'],
+        'FEDORA-FLATPAK-2019-a922b417ed': ['feedreader'],
+        'FEDORA-FLATPAK-2019-adc833ad33': ['gnome-weather'],
+        'FEDORA-FLATPAK-2019-d84b882193': ['feedreader'],
+        'FEDORA-FLATPAK-2019-f531f062df': ['gnome-clocks']
+    }
+
+
+@responses.activate
 def test_bodhi_refresh_update_status():
     redis_client = make_redis_client()
     koji_session = make_koji_session()

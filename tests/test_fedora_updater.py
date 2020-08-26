@@ -79,7 +79,8 @@ def test_fedora_updater(mock_connection, tmp_path):
     with open(tmp_path / "registry.example.com.json") as f:
         data = json.load(f)
 
-    assert len(data['Repositories']) == 3
+    assert len(data['Repositories']) == 5
+
     eog_repository = [r for r in data['Repositories'] if r['Name'] == 'eog'][0]
     assert len(eog_repository['Images']) == 1
     assert eog_repository['Images'][0]['Tags'] == ['latest', 'testing']
@@ -88,3 +89,11 @@ def test_fedora_updater(mock_connection, tmp_path):
     assert len(feedreader_repository['Images']) == 2
     assert feedreader_repository['Images'][0]['Tags'] == ['testing']
     assert feedreader_repository['Images'][1]['Tags'] == ['latest']
+
+    gnome_clocks_repository = [r for r in data['Repositories'] if r['Name'] == 'gnome-clocks'][0]
+    assert len(gnome_clocks_repository['Images']) == 2
+    assert gnome_clocks_repository['Images'][0]['Tags'] == ['latest', 'testing']
+
+    gnome_weather_repository = [r for r in data['Repositories'] if r['Name'] == 'gnome-weather'][0]
+    assert len(gnome_weather_repository['Images']) == 2
+    assert gnome_weather_repository['Images'][1]['Tags'] == ['latest', 'testing']

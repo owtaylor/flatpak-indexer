@@ -335,5 +335,7 @@ def list_updates(redis_client, content_type, entity_name=None, release_branch=No
             if release_branch is None or rb == release_branch:
                 yield 'update:' + update_id
 
-    return [BodhiUpdateModel.from_json_text(x)
-            for x in redis_client.mget(filter_results(updates_by_entity))]
+    # Remove duplicates
+    to_fetch = sorted(set(filter_results(updates_by_entity)))
+
+    return [BodhiUpdateModel.from_json_text(x) for x in redis_client.mget(to_fetch)]

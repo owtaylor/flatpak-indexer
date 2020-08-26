@@ -68,7 +68,9 @@ class MockKojiContext():
             'flatpak-rpm-macros': 24301,
             'flatpak-common': 27629,
             'flatpak-runtime': 25428,
+            'gnome-clocks': 14779,
             'gnome-desktop3': 10518,
+            'gnome-weather': 15839,
             'libpeas': 10531,
             'quadrapassel': 16135,
         }.get(name)

@@ -14,7 +14,9 @@ import requests
 
 
 # The data we use is meant to be a point-in-time snapshot of Fedora at this
-# date.
+# date; we sneak some newer things in below to test aspects that weren't
+# in Fedora at that point. At some point, rebasing to a newer point-of-time
+# could make sense.
 DATE = "2019-02-06 00:00:00"
 TAGS = ""
 
@@ -56,7 +58,7 @@ class Downloader:
         session_opts = koji.grab_session_options(options)
         self.koji_session = koji.ClientSession(options['server'], session_opts)
 
-    def _check_existing(self, relative, indent=0):
+    def _check_existing(self, relative, *, indent=0):
         dest = os.path.join(self.output, relative)
         if os.path.exists(dest):
             return True, dest
@@ -99,7 +101,7 @@ class Downloader:
         os.mkdir(os.path.join(self.output, 'builds'))
         os.mkdir(os.path.join(self.output, 'git'))
 
-    def download_build(self, nvr=None, build_id=None, indent=0):
+    def download_build(self, *, nvr=None, build_id=None, indent=0):
         if nvr is None and build_id is None:
             raise RuntimeError(f"nvr or build_id must be specified")
 
@@ -168,7 +170,7 @@ class Downloader:
         if btype == 'image':
             for m in build['extra']['image']['modules']:
                 if m in self.module_nvr_short_to_nvr:
-                    self.download_build(self.module_nvr_short_to_nvr[m], indent)
+                    self.download_build(nvr=self.module_nvr_short_to_nvr[m], indent=indent)
                 else:
                     module_name = m.rsplit('-', 2)[0]
                     package_id = self.koji_session.getPackageID(module_name)
@@ -204,17 +206,17 @@ class Downloader:
                 self.download_build(nvr=f"{r['name']}-{r['version']}-{r['release']}",
                                     indent=indent + 4)
 
-    def download_package_details(self, indent=0):
+    def download_package_details(self, *, indent=0):
         for package in sorted(self.image_packages):
-            self.download_updates('rpm', package, indent)
+            self.download_updates('rpm', package, indent=indent)
             self.dump_git(os.path.join('rpms', package), indent=indent + 4)
 
-    def download_updates(self, content_type, package, indent=0):
+    def download_updates(self, content_type, package, *, releases=None, date=DATE, indent=0):
         key = f"{content_type}/{package}"
 
         if (key in self.update_info or
             (key in self.base_update_info and
-             self.base_update_info[key]['date'] == DATE)):
+             self.base_update_info[key]['date'] == date)):
 
             show(f"{key}: already downloaded updates", indent)
             if key not in self.update_info:
@@ -236,10 +238,11 @@ class Downloader:
 
         show(f"{key}: downloading updates", indent)
 
-        if content_type == 'flatpak':
-            releases = ['F29F']
-        elif content_type == 'rpm':
-            releases = ['F28', 'F29']
+        if releases is None:
+            if content_type == 'flatpak':
+                releases = ['F29F']
+            elif content_type == 'rpm':
+                releases = ['F28', 'F29']
 
         url = "https://bodhi.fedoraproject.org/updates/"
         params = {
@@ -248,7 +251,7 @@ class Downloader:
             'content_type': content_type,
             'packages': package,
             'releases': releases,
-            'submitted_before': DATE,
+            'submitted_before': date,
         }
 
         response = requests.get(url,
@@ -258,7 +261,7 @@ class Downloader:
         response_json = response.json()
 
         self.update_info[key] = {
-            'date': DATE,
+            'date': date,
             'updates': []
         }
 
@@ -300,7 +303,7 @@ class Downloader:
         with gzip.open(output_file, 'wt') as f:
             json.dump(result, f, indent=4)
 
-    def dump_git(self, pkg, indent=0):
+    def dump_git(self, pkg, *, indent=0):
         exists, output_file = self._check_existing(f'git/{pkg}.json.gz')
         if exists:
             show(f"{pkg}.git: already downloaded", indent)
@@ -330,6 +333,13 @@ def main(output, base):
     downloader.download_updates('flatpak', 'eog')
     downloader.download_updates('flatpak', 'quadrapassel')
     downloader.download_build(nvr='eog-master-20180821163756.2')
+
+    # There is a F30 update including gnome-clocks and gnome-weather, use this
+    # to test multi-Flatpak updates
+    downloader.download_updates('flatpak', 'gnome-clocks',
+                                releases=['F30F'], date="2019-08-01 00:00:00")
+    downloader.download_updates('flatpak', 'gnome-weather',
+                                releases=['F30F'], date="2019-08-01 00:00:00")
 
     # A more recent Flatpak with labels
     downloader.download_build(nvr='baobab-master-3220200331145937.2')

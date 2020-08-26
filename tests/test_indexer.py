@@ -234,7 +234,7 @@ def test_indexer_fedora(mock_connection, tmp_path):
         data = json.load(f)
 
     assert data['Registry'] == 'https://registry.fedoraproject.org/'
-    assert len(data['Results']) == 3
+    assert len(data['Results']) == 5
 
     eog_repository = [r for r in data['Results'] if r['Name'] == 'eog'][0]
     assert len(eog_repository['Images']) == 1
