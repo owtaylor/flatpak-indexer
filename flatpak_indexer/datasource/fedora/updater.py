@@ -5,7 +5,7 @@ import koji
 import redis
 
 from ...utils import atomic_writer
-from ...models import RegistryModel
+from ...models import RegistryModel, TagHistoryModel, TagHistoryItemModel
 
 from .bodhi_change_monitor import BodhiChangeMonitor
 from .koji_query import query_flatpak_build
@@ -75,12 +75,28 @@ class FedoraUpdater(object):
                 repo.stable_updates.append(update)
 
         for repo in repos.values():
-            repo.latest_testing = max((r for r in repo.testing_updates
-                                       if r.status in ('testing', 'stable')),
-                                      key=lambda r: r.date_testing, default=None)
-            repo.latest_stable = max((r for r in repo.stable_updates
-                                      if r.status == 'stable'),
-                                     key=lambda r: r.date_stable, default=None)
+            # Find the current testing update - the status might be 'stable' if it's been
+            # moved to stable afterwards
+            current_testing = max((r for r in repo.testing_updates
+                                  if r.status in ('testing', 'stable')),
+                                  key=lambda r: r.date_testing, default=None)
+
+            # Discard any updates that have date_testing after the current update - they
+            # must have been unpushed from testing
+            repo.testing_updates = [r for r in repo.testing_updates
+                                    if (current_testing and
+                                        current_testing.date_testing >= r.date_testing)]
+
+            # Sort the newest first
+            repo.testing_updates.sort(key=lambda r: r.date_testing, reverse=True)
+
+            # Now the same for stable
+            current_stable = max((r for r in repo.testing_updates
+                                  if r.status == 'stable'),
+                                 key=lambda r: r.date_stable, default=None)
+            repo.stable_updates = [r for r in repo.stable_updates if
+                                   current_stable and current_stable.date_stable >= r.date_stable]
+            repo.stable_updates.sort(key=lambda r: r.date_stable, reverse=True)
 
         registry_statuses = {}
         for index_config in self.conf.indexes:
@@ -100,28 +116,46 @@ class FedoraUpdater(object):
             need_stable = 'stable' in registry_statuses[registry_name]
 
             for repo_name, repo in repos.items():
-                testing_build = (builds[repo.latest_testing.update_id]
-                                 if repo.latest_testing else None)
-                stable_build = (builds[repo.latest_stable.update_id]
-                                if repo.latest_stable else None)
+                testing_builds = [builds[u.update_id] for u in repo.testing_updates]
+                stable_builds = [builds[u.update_id] for u in repo.stable_updates]
 
-                if (testing_build and
-                        stable_build and
-                        testing_build is stable_build):
-                    _set_build_image_tags(testing_build, ["latest", "testing"])
+                # Set the tags on images based on what is current
+                if (testing_builds and stable_builds and
+                        testing_builds[0] is stable_builds[0]):
+                    _set_build_image_tags(testing_builds[0], ["latest", "testing"])
                 else:
-                    if testing_build:
-                        _set_build_image_tags(testing_build, ["testing"])
-                    if stable_build:
-                        _set_build_image_tags(stable_build, ["latest"])
+                    if testing_builds:
+                        _set_build_image_tags(testing_builds[0], ["testing"])
+                    if stable_builds:
+                        _set_build_image_tags(stable_builds[0], ["latest"])
 
-                if need_testing and testing_build:
-                    for image in testing_build.images:
-                        registry.add_image(repo_name, image)
+                # Now build the image list and tag history
+                if need_testing and testing_builds:
+                    tag_history = TagHistoryModel(name="testing")
 
-                if need_stable and stable_build:
-                    for image in stable_build.images:
-                        registry.add_image(repo_name, image)
+                    for update, build in zip(repo.testing_updates, testing_builds):
+                        for image in build.images:
+                            registry.add_image(repo_name, image)
+                            item = TagHistoryItemModel(architecture=image.architecture,
+                                                       date=update.date_testing,
+                                                       digest=image.digest)
+                            tag_history.items.append(item)
+
+                    registry.repositories[repo_name].tag_histories["testing"] = tag_history
+                    print(tag_history.to_json())
+
+                if need_stable and stable_builds:
+                    tag_history = TagHistoryModel(name="latest")
+
+                    for update, build in zip(repo.stable_updates, stable_builds):
+                        for image in build.images:
+                            registry.add_image(repo_name, image)
+                            item = TagHistoryItemModel(architecture=image.architecture,
+                                                       date=update.date_stable,
+                                                       digest=image.digest)
+                            tag_history.items.append(item)
+
+                    registry.repositories[repo_name].tag_histories["latest"] = tag_history
 
             filename = os.path.join(self.conf.work_dir, registry_name + ".json")
             with atomic_writer(filename) as writer:

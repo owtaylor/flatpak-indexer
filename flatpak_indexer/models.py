@@ -1,6 +1,18 @@
+from datetime import datetime
 from typing import Dict, List
 
 from .json_model import BaseModel, IndexedList, Rename
+
+
+class TagHistoryItemModel(BaseModel):
+    architecture: str
+    date: datetime
+    digest: str
+
+
+class TagHistoryModel(BaseModel):
+    name: str
+    items: List[TagHistoryItemModel]
 
 
 class ImageModel(BaseModel):
@@ -26,6 +38,7 @@ class RepositoryModel(BaseModel):
     name: str
     images: IndexedList[ImageModel, "digest"]  # noqa: F821
     lists: IndexedList[ListModel, "digest"]  # noqa: F821
+    tag_histories: IndexedList[TagHistoryModel, "name"]  # noqa: F821
 
 
 class RegistryModel(BaseModel):
