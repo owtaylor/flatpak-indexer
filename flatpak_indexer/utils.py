@@ -129,6 +129,25 @@ def atomic_writer(output_path):
             os.unlink(tmpfile.name)
 
 
+class TemporaryPathname:
+    def __init__(self, suffix=None, prefix=None, dir=None):
+        tmpfile = NamedTemporaryFile(delete=False,
+                                     dir=dir,
+                                     prefix=prefix,
+                                     suffix=suffix)
+        tmpfile.close()
+
+        self.name = tmpfile.name
+        self.delete = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc, value, tb):
+        if self.delete:
+            os.unlink(self.name)
+
+
 def substitute_env_vars(val):
     return _substitute_env_vars(_ENV_VAR_TOKEN_RE.finditer(val))
 

@@ -1,7 +1,6 @@
 from datetime import datetime
 import logging
 import os
-import shutil
 import subprocess
 import tempfile
 import time
@@ -10,7 +9,7 @@ import redis
 
 from .models import TardiffSpecModel, TardiffResultModel
 from .registry_client import RegistryClient
-from .utils import path_for_digest
+from .utils import path_for_digest, TemporaryPathname
 
 
 logger = logging.getLogger(__name__)
@@ -71,10 +70,10 @@ class Differ:
                     spec.to_image.registry, spec.to_image.repository, spec.to_image.ref,
                     spec.to_diff_id)
 
-        with tempfile.TemporaryDirectory(prefix="flatpak-indexer-differ-") as tempdir:
+        with tempfile.TemporaryDirectory(prefix="flatpak-indexer-differ-") as tempdir, \
+             TemporaryPathname(dir=self.config.deltas_dir, suffix=".tardiff") as result_path:
             from_path = os.path.join(tempdir, "from-layer")
             to_path = os.path.join(tempdir, "to-layer")
-            result_path = os.path.join(tempdir, "tardiff")
 
             def progress(*args):
                 self.redis_client.zadd('tardiff:progress', {task: datetime.now().timestamp()})
@@ -83,7 +82,7 @@ class Differ:
                                  from_path, progress_callback=progress)
             self._download_layer(spec.to_image, spec.to_diff_id,
                                  to_path, progress_callback=progress)
-            args = ["tar-diff", from_path, to_path, result_path]
+            args = ["tar-diff", from_path, to_path, result_path.name]
             logger.info("Calling %s", args)
             p = subprocess.Popen(args)
             while True:
@@ -96,15 +95,14 @@ class Differ:
                 progress()
 
             if result == 0:
-                output = subprocess.check_output(["sha256sum", result_path], encoding="utf-8")
+                output = subprocess.check_output(["sha256sum", result_path.name], encoding="utf-8")
                 digest = 'sha256:' + output.strip().split()[0]
-                size = os.stat(result_path).st_size
+                size = os.stat(result_path.name).st_size
 
                 final_path = path_for_digest(self.config.deltas_dir,
                                              digest, '.tardiff', create_subdir=True)
-                # FIXME: create temporary directory within deltas_dir, so that the
-                # rename is atomic and we don't truncate on disk-full
-                shutil.move(result_path, final_path)
+                os.rename(result_path.name, final_path)
+                result_path.delete = False
 
                 logger.info("Successfully processed task")
                 result = TardiffResultModel(status="success",

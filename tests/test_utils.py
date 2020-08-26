@@ -13,6 +13,7 @@ from flatpak_indexer.utils import (atomic_writer,
                                    path_for_digest,
                                    substitute_env_vars,
                                    SubstitutionError,
+                                   TemporaryPathname,
                                    uri_for_digest)
 
 
@@ -86,6 +87,22 @@ def test_atomic_writer_write_failure(tmp_path):
             raise IOError()
 
     assert os.listdir(tmp_path) == []
+
+
+@pytest.mark.parametrize('steal', (True, False))
+def test_temporary_pathname(tmp_path, steal):
+    with TemporaryPathname(dir=tmp_path, prefix="foo-", suffix=".txt") as path:
+        assert os.path.dirname(path.name) == str(tmp_path)
+        assert os.path.basename(path.name).startswith("foo-")
+        assert path.name.endswith(".txt")
+
+        if steal:
+            os.rename(path.name, tmp_path / "foo.txt")
+            path.delete = False
+
+    if steal:
+        assert (tmp_path / "foo.txt").exists()
+    assert not os.path.exists(path.name)
 
 
 def test_format_date():
