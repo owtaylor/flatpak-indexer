@@ -7,3 +7,4 @@
 /flatpak_indexer/certs/RH-IT-Root-CA.crt
 /flatpak_indexer.egg-info/
 /test-data
+__pycache__
