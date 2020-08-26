@@ -12,6 +12,8 @@ class ImageModel(BaseModel):
     annotations: Dict[str, str]
     tags: List[str]
 
+    diff_ids: List[str]
+
 
 class ListModel(BaseModel):
     digest: str

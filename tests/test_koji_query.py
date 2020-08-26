@@ -103,6 +103,9 @@ def test_query_flatpak_build(caplog):
     assert image.digest == 'sha256:358650781c10de5983b46303b6accbd411c1177990d1e036ee905f15ed60e65a'
     assert image.media_type == 'application/vnd.oci.image.manifest.v1+json'
     assert image.labels['org.flatpak.ref'] == 'app/org.gnome.Baobab/x86_64/stable'
+    assert image.diff_ids == [
+        'sha256:d9b3dc4fc51451185b7754d66155513e89d24374a26a3b270f9b99649eb33d22'
+    ]
 
     caplog.clear()
     query_flatpak_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')

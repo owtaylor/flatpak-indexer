@@ -104,7 +104,8 @@ def _get_build(koji_session, redis_client, build_info, build_cls):
                                            media_type=media_type,
                                            os=config['os'],
                                            architecture=config['architecture'],
-                                           labels=config['config'].get('Labels', {})))
+                                           labels=config['config'].get('Labels', {}),
+                                           diff_ids=config['rootfs']['diff_ids']))
 
         for m in build_info['extra']['image']['modules']:
             module_build = query_module_build(koji_session, redis_client, m)
