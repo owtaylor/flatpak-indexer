@@ -1,10 +1,11 @@
-from functools import partial, update_wrapper
-import inspect
+from contextlib import contextmanager
 import json
 import queue
 from unittest.mock import patch, create_autospec
 
 import pika
+
+from .utils import WithArgDecorator
 
 
 def make_message(alias):
@@ -73,41 +74,10 @@ class MockConnection():
                 raise pika.exceptions.ChannelClosedByBroker(500, "everything went south")
 
 
-def mock_fedora_messaging(f=None, **mock_connection_kwargs):
-    if f is None:
-        # Handle arguments to the decorator: when called with only kwargs, return a function
-        # that when called wth single function argument, invokes this function
-        # including the function *and* kwargs
-        return partial(mock_fedora_messaging, **mock_connection_kwargs)
+@contextmanager
+def _setup_fedora_messaging(**kwargs):
+    with patch('pika.BlockingConnection', autospec=True) as connection_mock:
+        yield MockConnection(connection_mock.return_value, **kwargs)
 
-    sig = inspect.signature(f)
-    need_mock_connection = 'mock_connection' in sig.parameters
 
-    def wrapper(*args, **kwargs):
-        with patch('pika.BlockingConnection', autospec=True) as connection_mock:
-            if need_mock_connection:
-                kwargs['mock_connection'] = MockConnection(connection_mock.return_value,
-                                                           **mock_connection_kwargs)
-
-            return f(*args, **kwargs)
-
-    update_wrapper(wrapper, f)
-
-    if need_mock_connection:
-        # We need the computed signature of the final function to not include the
-        # mock_connection argument, since pytest will think it's a fixture.
-        # We remove the extra from the function we return using functools.partial.
-        #
-        # functools.update_wrapper does things we need, like updating __dict__ with
-        # the pytest marks from the original function. But it also sets result.__wrapped__
-        # to point back to the original function, and this results in inspect.signature
-        # using the original function for the signature, bringing back the
-        # mock_connection argument.
-
-        result = partial(wrapper, mock_connection=None)
-        update_wrapper(result, wrapper)
-        del result.__dict__['__wrapped__']
-
-        return result
-    else:
-        return wrapper
+mock_fedora_messaging = WithArgDecorator('mock_connection', _setup_fedora_messaging)
