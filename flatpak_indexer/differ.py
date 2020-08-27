@@ -145,6 +145,8 @@ class Differ:
                     pubsub = self.redis_client.pubsub()
                     pubsub.subscribe('tardiff:queued')
 
+                    logger.info("Connected to Redis, waiting for tasks")
+
                 if max_tasks >= 0 and task_count >= max_tasks:
                     break
 
