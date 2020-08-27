@@ -186,9 +186,15 @@ your system and have run the indexer either with the development setup or as an 
 ./tools/run-frontend.sh
 ```
 
-You can then go to
-[https://flatpaks.local.fishsoup.net:8443/test/index/static?label:org.flatpak.ref:exists=1&architecture=amd64]
-in your browser and should see the JSON output of the indexer.
+You can then load the [Fedora](https://flatpaks.local.fishsoup.net:8443/fedora/index/static?label:org.flatpak.ref:exists=1&architecture=amd64&tag=latest)
+or [Pyxis](https://flatpaks.local.fishsoup.net:8443/pyxis/index/static?label:org.flatpak.ref:exists=1&architecture=amd64&tag=latest)
+index in your browser, and you should see the correct JSON.
+
+You can also add a Flatpak remote that points to the generated index:
+
+``` sh
+flatpak remote-add --user fedora-local oci+https://flatpaks.local.fishsoup.net:8443/fedora/
+```
 
 Test Data
 ---------
