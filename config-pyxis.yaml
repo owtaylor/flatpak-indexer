@@ -38,12 +38,12 @@ indexes:
         all:
                 # path to the output location - environment variable substitions
                 # are possible for all strings
-                output: ${OUTPUT_DIR:out}/test/flatpak-latest.json
+                output: ${OUTPUT_DIR:out}/pyxis/flatpak-latest.json
                 registry: registry.access.redhat.com
                 tag: latest
                 extract_icons: True
         amd64:
-                output: ${OUTPUT_DIR:out}/test/flatpak-latest-amd64.json
+                output: ${OUTPUT_DIR:out}/pyxis/flatpak-latest-amd64.json
                 registry: registry.access.redhat.com
                 architecture: amd64
                 tag: latest

@@ -20,72 +20,12 @@ Configuration
 -------------
 
 The indexer service is configured via a YAML file (typically provided as a kubernetes
-config map). Example:
+config map). You can find examples in [config-fedora.yaml](config-local.yaml) and
+[config-pyxis.yaml](config-pyxis.yaml).
 
-``` yaml
-#pyxis_url: https://catalog.redhat.com/api/containers/v1
-pyxis_url: https://pyxis.engineering.redhat.com/v1
-# if missing, system trust root is used; if relative, looked up in included certs
-pyxis_cert: RH-IT-Root-CA.crt
-# these define a client certificate/key pair to authenticate to pyxis; this
-# shows environment variable substitution with a fallback
-pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
-pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
-# name of a Koji config section
-koji_config: brew
-# When extract_icons is set for an index, icons are saved to icons_dir and labels are
-# rewritten in the index from a data: URL to an URL formed from icons_uri
-icons_dir: ${OUTPUT_DIR:out}/icons/
-icons_uri: https://flatpaks.local.fishsoup.net.com/app-icons/
-daemon:
-        # How often to query Pyxis
-        update_interval: 1800
-registries:
-        # key must match registry ID in Pyxis
-        registry.access.redhat.com:
-                # Written into the index
-                public_url: https://registry.access.redhat.com/
-                # Get container data from the Pyxis API
-                datasource: pyxis
-                # repositories: ['repo1', 'repo2'] overrides querying Pyxis for the list
-        # You can also define a pseudo-registry based on koji/brew builds
-        brew:
-                # internal registry where builds are pushed
-                public_url: https://registry-proxy.engineering.redhat.com/
-                datasource: pyxis
-                # Set to insert org.flatpak.commit-metadata.xa.token-type into labels
-                # This causes Flatpak to get a bearer token before downloading images
-                force_flatpak_token: true
-indexes:
-        all:
-                # path to the output location - environment variable substitions
-                # are possible for all strings
-                output: ${OUTPUT_DIR:out}/test/flatpak-latest.json
-                registry: registry.access.redhat.com
-                tag: latest
-                extract_icons: True
-        amd64:
-                output: ${OUTPUT_DIR:out}/test/flatpak-latest-amd64.json
-                registry: registry.access.redhat.com
-                architecture: amd64
-                tag: latest
-                extract_icons: True
-        # These indexes index all Flatpaks found in the rhel-8.2.0-candidate tag
-        brew:
-                output: ${OUTPUT_DIR:out}/brew/flatpak-rhel-8.2.0-candidate.json
-                registry: brew
-                koji_tag: rhel-8.2.0-candidate
-                extract_icons: True
-        brew-amd64:
-                output: ${OUTPUT_DIR:out}/brew/flatpak-rhel-8.2.0-candidate-amd64.json
-                registry: brew
-                architecture: amd64
-                koji_tag: rhel-8.2.0-candidate
-                extract_icons: True
-```
 
-Development setup
------------------
+Development setup (Red Hat)
+---------------------------
 
 To develop against the internal Pyxis instance, you'll need a client certificate that
 authenticates you as a Red Hat user. See https://mojo.redhat.com/docs/DOC-1210484 -
@@ -93,28 +33,46 @@ once you have the container working, you'll need the specific instructions under
 "caDirUserCert" section.
 
 ``` sh
-# DO ONCE
-
 # Put your client certificate/key into place
 mkdir -p ~/.config/flatpak-indexer
 cp myuser.crt ~/.config/flatpak-indexer/client.crt
 cp myuser.key ~/.config/flatpak-indexer/client.key
 
 # Download the Red Hat IT root certificate
-./tools/download-cert.sh
+./tools/download-it-cert.sh
+```
+
+Development setup (general)
+---------------------------
+
+``` sh
+# DO ONCE
+
 pipenv --three
 pipenv install --dev
-# To enter development environmnet
+
+# ENTER YOUR DEVELOPMENT SETUP
+
 pipenv shell
 
-# DO EVERY TIME
+# TEST-DRIVEN WORKFLOW
 
 # To run tests and check style
 ./tools/test.sh
+
 # To run a specific test
 pytest tests -k test_config_basic
-# To try a test run against dev Pyxis
-flatpak-indexer -v -c config-local.yaml index
+
+# TESTING WITH REAL DATA
+
+# Start redis in one terminal
+./tools/run-redis.sh
+
+# Run a differ in another terminal
+flatpak-indexer -v -c config-[pyxis|fedora].yaml differ
+
+# And try indexing in a third terminal
+flatpak-indexer -v -c config-[pyxis|fedora].yaml index
 ```
 
 Development standards
@@ -141,27 +99,20 @@ It's also possible to build and run the indexer as an image generated with
 s2i, to test it closer to the production setup. You'll need to have
 [s2i](https://github.com/openshift/source-to-image) installed on your system.
 
-See the instructions in the "Development setup" above section for obtaining a
-client certificate.
+See the instructions in the "Development setup (Red Hat)" section as well
+for testing against the internal Red Hat instance.
 
 ``` sh
-# DO ONCE
-
-# Put your client certificate/key into place
-mkdir -p ~/.config/flatpak-indexer
-cp myuser.crt ~/.config/flatpak-indexer/client.crt
-cp myuser.key ~/.config/flatpak-indexer/client.key
-
-# Download the Red Hat IT root certificate
-./tools/download-cert.sh
-
-# DO EVERY TIME
-
 # Build the container and run tests
 ./tools/build-indexer.sh
-# Run the container
-./tools/run-indexer.sh
+# Run the indexer
+./tools/run-indexer.sh --fedora --indexer
+# In a different terminal, run a differ daemon
+./tools/run-indexer.sh --fedora --differ
 ```
+
+To test against the internal Red Hat Pyxis instance, you would pass --pyxis
+instead of --fedora above.
 
 Testing frontend image locally
 ------------------------------
