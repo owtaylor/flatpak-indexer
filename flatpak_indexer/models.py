@@ -51,6 +51,33 @@ class RegistryModel(BaseModel):
         self.repositories[name].images[image.digest] = image
 
 
+class KojiBuildModel(BaseModel):
+    build_id: str
+    nvr: str
+    source: str
+    completion_time: datetime
+    user_name: str
+
+
+class FlatpakBuildModel(KojiBuildModel):
+    repository: str
+
+    module_builds: List[str]
+    package_builds: List[str]
+
+    images: List[ImageModel]
+
+
+class ModuleBuildModel(KojiBuildModel):
+    modulemd: str
+
+    package_builds: List[str]
+
+
+class PackageBuildModel(KojiBuildModel):
+    pass
+
+
 class TardiffImageModel(BaseModel):
     registry: str
     repository: str

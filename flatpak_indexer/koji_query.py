@@ -5,10 +5,8 @@ import re
 
 import koji
 
-from ...utils import format_date, parse_date
-from ...models import ImageModel
-
-from .models import FlatpakBuildModel, ModuleBuildModel, PackageBuildModel
+from .utils import format_date, parse_date
+from .models import FlatpakBuildModel, ImageModel, ModuleBuildModel, PackageBuildModel
 
 
 logger = logging.getLogger(__name__)

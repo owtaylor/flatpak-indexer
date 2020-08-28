@@ -8,7 +8,7 @@ from ...utils import atomic_writer
 from ...models import RegistryModel, TagHistoryModel, TagHistoryItemModel
 
 from .bodhi_change_monitor import BodhiChangeMonitor
-from .koji_query import query_flatpak_build
+from ...koji_query import query_flatpak_build
 from .bodhi_query import (list_updates, refresh_all_updates,
                           refresh_update_status, reset_update_cache)
 
