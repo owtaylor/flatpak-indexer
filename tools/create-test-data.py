@@ -103,7 +103,7 @@ class Downloader:
 
     def download_build(self, *, nvr=None, build_id=None, indent=0):
         if nvr is None and build_id is None:
-            raise RuntimeError(f"nvr or build_id must be specified")
+            raise RuntimeError("nvr or build_id must be specified")
 
         if nvr is None:
             nvr = self.build_id_to_nvr.get(build_id)
@@ -137,7 +137,7 @@ class Downloader:
             if btype == 'image' or btype == 'module':
                 archives = self.koji_session.listArchives(build['id'])
                 build['archives'] = []
-                show(f"Listing archives", indent)
+                show("Listing archives", indent)
                 seen = set()
                 for archive in archives:
                     if btype == 'module':

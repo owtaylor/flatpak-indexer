@@ -1,7 +1,7 @@
 import os
 from setuptools import setup
 
-data_files=[]
+data_files = []
 if os.environ.get('FLATPAK_INDEXER_INSTALL_TAR_DIFF'):
     data_files.append(('bin', ['bin/tar-diff']))
 
