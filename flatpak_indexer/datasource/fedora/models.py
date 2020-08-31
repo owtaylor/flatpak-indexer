@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from ...json_model import BaseModel
 
@@ -11,7 +11,7 @@ class BodhiUpdateModel(BaseModel):
     status: str
     type: str
     date_submitted: datetime
-    date_testing: datetime
-    date_stable: datetime
+    date_testing: Optional[datetime]
+    date_stable: Optional[datetime]
     user_name: str
     builds: List[str]

@@ -2,6 +2,7 @@
 
 from datetime import datetime
 import json
+import typing
 
 from .utils import format_date, parse_date
 
@@ -37,68 +38,72 @@ class IndexedList(metaclass=IndexedListMeta):
 
 
 class ModelField:
-    def __init__(self, python_name, json_name):
+    def __init__(self, python_name, json_name, *, optional=False):
         self.python_name = python_name
         self.json_name = json_name
+        self.optional = optional
 
+
+class ScalarField(ModelField):
     def init_value(self, kwargs):
-        return kwargs[self.python_name]
+        value = kwargs.get(self.python_name)
+        if value is None and not self.optional:
+            raise AttributeError(f"{self.json_name} must be specified")
+
+        return value
 
     def json_include(self, instance):
-        return True
+        if self.optional:
+            return getattr(instance, self.python_name) is not None
+        else:
+            return True
+
+    def json_value(self, instance):
+        return self.to_json(getattr(instance, self.python_name))
+
+    def python_value(self, data):
+        value = data.get(self.json_name)
+        if value is None:
+            if not self.optional:
+                raise ValueError(
+                    f"{self.python_name} is not optional, but value is missing or null")
+            return None
+        else:
+            return self.from_json(value)
 
 
-class ClassField(ModelField):
-    def __init__(self, python_name, json_name, item_type):
-        super().__init__(python_name, json_name)
+class ClassField(ScalarField):
+    def __init__(self, python_name, json_name, item_type, *, optional=False):
+        super().__init__(python_name, json_name, optional=optional)
         self.item_type = item_type
 
-    def json_value(self, instance):
-        return getattr(instance, self.python_name).to_json()
+    def to_json(self, value):
+        return value.to_json()
 
-    def python_value(self, data):
-        return self.item_type.from_json(data[self.json_name])
-
-
-class IntegerField(ModelField):
-    def json_value(self, instance):
-        return int(getattr(instance, self.python_name))
-
-    def python_value(self, data):
-        return int(data[self.json_name])
+    def from_json(self, value):
+        return self.item_type.from_json(value)
 
 
-class StringField(ModelField):
-    def json_value(self, instance):
-        return str(getattr(instance, self.python_name))
-
-    def python_value(self, data):
-        return str(data[self.json_name])
+class IntegerField(ScalarField):
+    to_json = int
+    from_json = int
 
 
-class DateTimeField(ModelField):
-    # We need to be able to represent null dates for Bodhi's date_testing/date_stable
-    # We do this by making all dates able to be null but not missing. This probably
-    # should be made more similar to the the handling of empty lists/sets where
-    # empty is the same as missing.
-
-    def json_value(self, instance):
-        v = getattr(instance, self.python_name)
-        if v:
-            return format_date(getattr(instance, self.python_name))
-        else:
-            return None
-
-    def python_value(self, data):
-        v = data[self.json_name]
-        if v:
-            return parse_date(data[self.json_name])
-        else:
-            return None
+class StringField(ScalarField):
+    to_json = str
+    from_json = str
 
 
-class ListField(ModelField):
-    def __init__(self, python_name, json_name, item_type):
+class DateTimeField(ScalarField):
+    to_json = staticmethod(format_date)
+    from_json = staticmethod(parse_date)
+
+
+class CollectionField(ModelField):
+    def __init__(self, python_name, json_name, item_type, *, optional=False):
+        if optional:
+            raise TypeError(f"{python_name}: Optional[] cannot be used for collection fields")
+
         super().__init__(python_name, json_name)
         self.item_type = item_type
 
@@ -106,10 +111,14 @@ class ListField(ModelField):
         try:
             return kwargs[self.python_name]
         except KeyError:
-            return []
+            return self.collection_type()
 
     def json_include(self, instance):
         return bool(getattr(instance, self.python_name))
+
+
+class ListField(CollectionField):
+    collection_type = list
 
     def json_value(self, instance):
         v = getattr(instance, self.python_name)
@@ -139,17 +148,12 @@ class ListField(ModelField):
             ]
 
 
-class IndexedListField(ModelField):
-    def __init__(self, python_name, json_name, item_type, indexed_field):
-        super().__init__(python_name, json_name)
-        self.item_type = item_type
-        self.indexed_field = indexed_field
+class IndexedListField(CollectionField):
+    collection_type = dict
 
-    def init_value(self, kwargs):
-        try:
-            return kwargs[self.python_name]
-        except KeyError:
-            return {}
+    def __init__(self, python_name, json_name, item_type, indexed_field, *, optional=False):
+        super().__init__(python_name, json_name, item_type, optional=optional)
+        self.indexed_field = indexed_field
 
     def json_include(self, instance):
         return bool(getattr(instance, self.python_name))
@@ -176,16 +180,8 @@ class IndexedListField(ModelField):
         }
 
 
-class DictField(ModelField):
-    def __init__(self, python_name, json_name, item_type):
-        super().__init__(python_name, json_name)
-        self.item_type = item_type
-
-    def init_value(self, kwargs):
-        try:
-            return kwargs[self.python_name]
-        except KeyError:
-            return {}
+class DictField(CollectionField):
+    collection_type = dict
 
     def json_include(self, instance):
         return bool(getattr(instance, self.python_name))
@@ -225,25 +221,33 @@ def _make_model_field(name, type_):
     else:
         json_name = ''.join(x.capitalize() for x in name.split('_'))
 
+    # could use typing_inspect PyPI module
+    if str(type_).startswith('typing.Optional['):
+        type_ = typing.get_args(type_)[0]
+        optional = True
+    else:
+        optional = False
+
     if isinstance(type_, IndexedListAlias):
-        return IndexedListField(name, json_name, type_.origin, type_.indexed_field)
+        return IndexedListField(name, json_name, type_.origin, type_.indexed_field,
+                                optional=optional)
 
     origin = getattr(type_, '__origin__', None)
     if origin == dict:
         if type_.__args__[0] != str:
             raise TypeError(f"{name}: Only dict[str] is supported")
-        return DictField(name, json_name, type_.__args__[1])
+        return DictField(name, json_name, type_.__args__[1], optional=optional)
     elif origin == list:
-        return ListField(name, json_name, type_.__args__[0])
+        return ListField(name, json_name, type_.__args__[0], optional=optional)
     elif origin is None:
         if issubclass(type_, BaseModel):
-            return ClassField(name, json_name, type_)
+            return ClassField(name, json_name, type_, optional=optional)
         elif type_ == str:
-            return StringField(name, json_name)
+            return StringField(name, json_name, optional=optional)
         elif type_ == int:
-            return IntegerField(name, json_name)
+            return IntegerField(name, json_name, optional=optional)
         elif type_ == datetime:
-            return DateTimeField(name, json_name)
+            return DateTimeField(name, json_name, optional=optional)
 
     raise TypeError(f"{name}: Unsupported type {type_}")
 

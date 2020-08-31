@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import pytest
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from flatpak_indexer.json_model import BaseModel, IndexedList, Rename
 
@@ -47,16 +47,6 @@ def test_datetime_field():
 
     from_json = DateTimeStuff.from_json(JSON)
     assert from_json.f1 == obj.f1
-
-
-def test_datetime_field_null():
-    obj = DateTimeStuff(f1=None)
-    JSON = {"F1": None}
-
-    assert obj.to_json() == JSON
-
-    from_json = DateTimeStuff.from_json(JSON)
-    assert from_json.f1 is None
 
 
 class ClassStuff(BaseModel):
@@ -172,6 +162,38 @@ def test_inheritance():
         "F1": "a",
         "F2": "b",
     }
+
+
+def test_optional_field():
+    class OptionalStuff(BaseModel):
+        f1: Optional[int]
+
+    obj = OptionalStuff()
+    assert obj.to_json() == {}
+
+    obj = OptionalStuff(f1=42)
+    assert obj.to_json() == {'F1': 42}
+
+    assert OptionalStuff.from_json({}).f1 is None
+    assert OptionalStuff.from_json({'F1': 42}).f1 == 42
+
+
+def test_nonoptional_field():
+    class NonOptionalStuff(BaseModel):
+        f1: int
+
+    with pytest.raises(AttributeError, match=r"F1 must be specified"):
+        NonOptionalStuff()
+
+    with pytest.raises(ValueError, match=r"f1 is not optional, but value is missing or null"):
+        NonOptionalStuff.from_json({})
+
+
+def test_optional_list():
+    with pytest.raises(TypeError,
+                       match=r"f: Optional\[\] cannot be used for collection fields"):
+        class A(BaseModel):
+            f: Optional[List[int]]
 
 
 def test_unexpected_types():
