@@ -177,8 +177,7 @@ class Indexer:
                 for repository in registry_info.repositories.values():
                     tag_history = repository.tag_histories.get(tag)
                     if tag_history:
-                        delta_generator.add_tag_history(registry_config.public_url,
-                                                        repository, tag_history, index_config)
+                        delta_generator.add_tag_history(repository, tag_history, index_config)
 
             delta_generator.generate()
 
@@ -208,6 +207,10 @@ class Indexer:
                                 delta_generator.get_delta_manifest_url(image.digest)
                         else:
                             delta_manifest_url = None
+
+                        # Clean up some information we don't want in the final output
+                        image.diff_ids = []
+                        image.pull_spec = None
 
                         index.add_image(repository.name, image, delta_manifest_url)
 

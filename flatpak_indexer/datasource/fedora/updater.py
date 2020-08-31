@@ -4,11 +4,11 @@ import os
 import koji
 import redis
 
-from ...utils import atomic_writer
+from ...utils import atomic_writer, unparse_pull_spec
 from ...models import RegistryModel, TagHistoryModel, TagHistoryItemModel
 
 from .bodhi_change_monitor import BodhiChangeMonitor
-from ...koji_query import query_flatpak_build
+from ...koji_query import query_image_build
 from .bodhi_query import (list_updates, refresh_all_updates,
                           refresh_update_status, reset_update_cache)
 
@@ -24,6 +24,15 @@ class RepoInfo:
 def _set_build_image_tags(update, tags):
     for image in update.images:
         image.tags = tags
+
+
+def _fix_pull_spec(image, registry_url, repo_name):
+    # Replace the image pull spec which points to the candidate registry
+    # to the final location of the image - this will be more robust if builds
+    # are deleted from the candidate registry
+    image.pull_spec = unparse_pull_spec(registry_url,
+                                        repo_name,
+                                        image.digest)
 
 
 class FedoraUpdater(object):
@@ -55,7 +64,7 @@ class FedoraUpdater(object):
 
         refresh_all_updates(self.koji_session, self.redis_client, content_type='flatpak')
         updates = list_updates(self.redis_client, content_type='flatpak')
-        builds = {nvr: query_flatpak_build(self.koji_session, self.redis_client, nvr)
+        builds = {nvr: query_image_build(self.koji_session, self.redis_client, nvr)
                   for update in updates for nvr in update.builds}
 
         repos = {}
@@ -112,6 +121,7 @@ class FedoraUpdater(object):
 
         for registry_name, statuses in registry_statuses.items():
             registry = RegistryModel()
+            registry_url = self.conf.registries[registry_name].public_url
 
             need_testing = 'testing' in registry_statuses[registry_name]
             need_stable = 'stable' in registry_statuses[registry_name]
@@ -138,6 +148,7 @@ class FedoraUpdater(object):
 
                     for update, build in repo.testing_updates:
                         for image in build.images:
+                            _fix_pull_spec(image, registry_url, repo_name)
                             registry.add_image(repo_name, image)
                             item = TagHistoryItemModel(architecture=image.architecture,
                                                        date=update.date_testing,
@@ -151,6 +162,7 @@ class FedoraUpdater(object):
 
                     for update, build in repo.stable_updates:
                         for image in build.images:
+                            _fix_pull_spec(image, registry_url, repo_name)
                             registry.add_image(repo_name, image)
                             item = TagHistoryItemModel(architecture=image.architecture,
                                                        date=update.date_stable,

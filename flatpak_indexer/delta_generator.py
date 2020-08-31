@@ -6,7 +6,7 @@ import redis
 import time
 
 from .models import TardiffImageModel, TardiffResultModel, TardiffSpecModel
-from .utils import atomic_writer, path_for_digest, uri_for_digest
+from .utils import atomic_writer, parse_pull_spec, path_for_digest, uri_for_digest
 
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class DeltaGenerator:
         self.image_info = {}
         self.delta_manifest_urls = {}
 
-    def add_tag_history(self, registry_url, repository, tag_history, index_config):
+    def add_tag_history(self, repository, tag_history, index_config):
         keep = timedelta(days=index_config.delta_keep_days)
         arch_map = {}
 
@@ -35,7 +35,7 @@ class DeltaGenerator:
                 next_item = arch_map[item.architecture][-1]
                 if self.now - next_item.date <= keep:
                     arch_map[item.architecture].append(item)
-                    self._add_delta(registry_url, repository,
+                    self._add_delta(repository,
                                     item, arch_map[item.architecture][0])
 
     def generate(self):
@@ -47,20 +47,23 @@ class DeltaGenerator:
     def get_delta_manifest_url(self, digest):
         return self.delta_manifest_urls.get(digest)
 
-    def _add_delta(self, registry_url, repository, from_item, to_item):
+    def _add_delta(self, repository, from_item, to_item):
         if to_item.digest not in self.deltas:
             self.deltas[to_item.digest] = set()
 
         self.deltas[to_item.digest].add(from_item.digest)
 
-        self._add_image(registry_url, repository, from_item)
-        self._add_image(registry_url, repository, to_item)
+        self._add_image(repository, from_item)
+        self._add_image(repository, to_item)
 
-    def _add_image(self, registry_url, repository, history_item):
+    def _add_image(self, repository, history_item):
         image = repository.images[history_item.digest]
-        image_model = TardiffImageModel(registry=registry_url,
-                                        repository=repository.name,
-                                        ref=history_item.digest)
+
+        registry, repository, ref = parse_pull_spec(image.pull_spec)
+
+        image_model = TardiffImageModel(registry=registry,
+                                        repository=repository,
+                                        ref=ref)
         self.image_info[history_item.digest] = (image, image_model)
 
     def _get_specs(self):

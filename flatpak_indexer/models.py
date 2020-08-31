@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import Dict, List
+from functools import cached_property
+from typing import Dict, List, Optional
 
 from .json_model import BaseModel, IndexedList, Rename
+from .utils import parse_pull_spec
 
 
 class TagHistoryItemModel(BaseModel):
@@ -25,6 +27,10 @@ class ImageModel(BaseModel):
     tags: List[str]
 
     diff_ids: List[str]
+
+    # This is the place where the image was uploaded when built, which may differ
+    # from the public location of the image.
+    pull_spec: Optional[str]
 
 
 class ListModel(BaseModel):
@@ -59,13 +65,18 @@ class KojiBuildModel(BaseModel):
     user_name: str
 
 
-class FlatpakBuildModel(KojiBuildModel):
-    repository: str
+class ImageBuildModel(KojiBuildModel):
+    images: List[ImageModel]
 
+    @cached_property
+    def repository(self):
+        _, repository, _ = parse_pull_spec(self.images[0].pull_spec)
+        return repository
+
+
+class FlatpakBuildModel(ImageBuildModel):
     module_builds: List[str]
     package_builds: List[str]
-
-    images: List[ImageModel]
 
 
 class ModuleBuildModel(KojiBuildModel):

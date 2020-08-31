@@ -171,6 +171,30 @@ def parse_date(date_str):
     return dt.replace(tzinfo=timezone.utc)
 
 
+def parse_pull_spec(spec):
+    """Parse <registry>[:port]/<repository>[@<digest>|:tag]"""
+
+    server_port, repository_ref = spec.split('/', 1)
+    if '@' in repository_ref:
+        repository, ref = repository_ref.rsplit('@', 1)
+    else:
+        repository, ref = repository_ref.rsplit(':', 1)
+
+    return 'https://' + server_port, repository, ref
+
+
+def unparse_pull_spec(registry_url, repository, ref):
+    assert registry_url.startswith('https://')
+    server_port = registry_url[8:]
+    if not server_port.endswith('/'):
+        server_port += '/'
+
+    if ref.startswith('sha256:'):
+        return f'{server_port}{repository}@{ref}'
+    else:
+        return f'{server_port}{repository}:{ref}'
+
+
 def uri_for_digest(base_uri, digest, extension):
     assert digest.startswith("sha256:")
     subdir = digest[7:9]

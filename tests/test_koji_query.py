@@ -5,7 +5,7 @@ import time
 from pytest import raises
 
 from flatpak_indexer.koji_query import (list_flatpak_builds,
-                                        query_flatpak_build,
+                                        query_image_build,
                                         query_module_build,
                                         _query_package_build_by_id,
                                         query_tag_builds,
@@ -85,14 +85,14 @@ def test_query_builds_refresh():
     assert len(builds) == 2
 
 
-def test_query_flatpak_build(caplog):
+def test_query_image_build(caplog):
     caplog.set_level(logging.INFO)
 
     koji_session = make_koji_session()
     redis_client = make_redis_client()
 
     caplog.clear()
-    build = query_flatpak_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
+    build = query_image_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
     assert "Calling koji.getBuild" in caplog.text
 
     assert build.nvr == 'baobab-master-3220200331145937.2'
@@ -108,11 +108,11 @@ def test_query_flatpak_build(caplog):
     ]
 
     caplog.clear()
-    query_flatpak_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
+    query_image_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
     assert "Calling koji.getBuild" not in caplog.text
 
 
-def test_query_flatpak_build_missing_digest():
+def test_query_image_build_missing_digest():
     def filter_archives(build, archives):
         archives = copy.deepcopy(archives)
         for a in archives:
@@ -124,7 +124,7 @@ def test_query_flatpak_build_missing_digest():
     redis_client = make_redis_client()
 
     with raises(RuntimeError, match=r"Can't find OCI or docker digest in image"):
-        query_flatpak_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
+        query_image_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
 
 
 def test_query_module_build(caplog):
@@ -180,7 +180,7 @@ def test_query_build_missing():
     redis_client = make_redis_client()
 
     with raises(RuntimeError, match="Could not look up BAH-1-1 in Koji"):
-        query_flatpak_build(koji_session, redis_client, 'BAH-1-1')
+        query_image_build(koji_session, redis_client, 'BAH-1-1')
 
     with raises(RuntimeError, match="Could not look up package ID for BAH"):
         query_module_build(koji_session, redis_client, 'BAH-1-1')

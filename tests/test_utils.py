@@ -10,6 +10,8 @@ from flatpak_indexer.utils import (atomic_writer,
                                    format_date,
                                    get_retrying_requests_session,
                                    parse_date,
+                                   parse_pull_spec,
+                                   unparse_pull_spec,
                                    path_for_digest,
                                    substitute_env_vars,
                                    SubstitutionError,
@@ -130,6 +132,24 @@ def test_parse_date():
     assert dt.minute == 26
     assert dt.second == 22
     assert dt.tzinfo.utcoffset(None) == datetime.timedelta(0)
+
+
+def test_parse_pull_spec():
+    assert parse_pull_spec('registry.example.com/some/repo:latest') == (
+        'https://registry.example.com', 'some/repo', 'latest'
+    )
+    assert parse_pull_spec('registry.example.com/some/repo@sha256:12345') == (
+        'https://registry.example.com', 'some/repo', 'sha256:12345'
+    )
+
+
+def test_unparse_pull_spec():
+    assert (unparse_pull_spec('https://registry.example.com', 'some/repo', 'latest') ==
+            'registry.example.com/some/repo:latest')
+    assert (unparse_pull_spec('https://registry.example.com/', 'some/repo', 'latest') ==
+            'registry.example.com/some/repo:latest')
+    assert (unparse_pull_spec('https://registry.example.com', 'some/repo', 'sha256:12345') ==
+            'registry.example.com/some/repo@sha256:12345')
 
 
 def test_path_for_digest(tmp_path):

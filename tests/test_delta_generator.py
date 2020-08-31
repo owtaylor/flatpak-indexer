@@ -46,6 +46,7 @@ IMAGE1 = {
     'DiffIds': [
         'sha256:image1_layer0',
     ],
+    'PullSpec': 'registry.fedoraproject.org/baobab@sha256:a1b1c1d1e1f1'
 }
 
 IMAGE2 = {
@@ -56,6 +57,7 @@ IMAGE2 = {
     'DiffIds': [
         'sha256:image2_layer0',
     ],
+    'PullSpec': 'registry.fedoraproject.org/baobab@sha256:a2b2c2d2e2f2g2'
 }
 
 IMAGE3 = {
@@ -67,6 +69,7 @@ IMAGE3 = {
     'DiffIds': [
         'sha256:image3_layer0',
     ],
+    'PullSpec': 'registry.fedoraproject.org/baobab@sha256:a3b3c3d3e3f3'
 }
 
 REPOSITORY = {
@@ -244,8 +247,7 @@ def test_delta_generator(tmp_path, iterations, task_destiny, layer_counts):
     index_config = next(index for index in config.indexes if index.name == 'stable')
     repository = RepositoryModel.from_json(REPOSITORY)
 
-    generator.add_tag_history('https://registry.fedoraproject.org',
-                              repository,
+    generator.add_tag_history(repository,
                               repository.tag_histories['latest'],
                               index_config)
 
@@ -306,8 +308,7 @@ def test_delta_generator_expire(tmp_path):
     index_config = next(index for index in config.indexes if index.name == 'stable')
     repository = RepositoryModel.from_json(REPOSITORY)
 
-    generator.add_tag_history('https://registry.fedoraproject.org',
-                              repository,
+    generator.add_tag_history(repository,
                               repository.tag_histories['latest'],
                               index_config)
 
@@ -364,8 +365,7 @@ def test_delta_generator_connection_error(tmp_path):
     index_config = next(index for index in config.indexes if index.name == 'stable')
     repository = RepositoryModel.from_json(REPOSITORY)
 
-    generator.add_tag_history('https://registry.fedoraproject.org',
-                              repository,
+    generator.add_tag_history(repository,
                               repository.tag_histories['latest'],
                               index_config)
 

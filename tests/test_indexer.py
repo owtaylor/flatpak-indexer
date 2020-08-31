@@ -96,6 +96,9 @@ def test_indexer(tmp_path):
     assert aisleriot_image['Labels']['org.freedesktop.appstream.icon-128'] == \
         "https://www.example.com/icons/aisleriot.png"
 
+    assert 'PullSpec' not in aisleriot_image
+    assert 'DiffIds' not in aisleriot_image
+
     icon_url = aisleriot_image['Labels']['org.freedesktop.appstream.icon-64']
     assert icon_url.startswith('https://flatpaks.example.com/icons')
     icon_subpath = icon_url.split('/')[-2:]
