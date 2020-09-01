@@ -7,6 +7,7 @@ import yaml
 
 from flatpak_indexer.datasource import load_updaters
 from flatpak_indexer.indexer import Indexer
+from flatpak_indexer.models import RegistryModel
 from .bodhi import mock_bodhi
 from .fedora_messaging import mock_fedora_messaging
 from .koji import mock_koji
@@ -16,16 +17,18 @@ from .utils import get_config, mock_brew, mock_pyxis
 
 
 def run_update(config):
+    registry_data = {}
     for updater in load_updaters(config):
         updater.start()
-        updater.update()
+        updater.update(registry_data)
         updater.stop()
+
+    return registry_data
 
 
 CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 koji_config: brew
-work_dir: ${OUTPUT_DIR}/work
 deltas_dir: ${OUTPUT_DIR}/deltas
 deltas_uri: https://registry.fedoraproject.org/deltas
 redis_url: redis://localhost
@@ -59,28 +62,24 @@ def test_indexer(tmp_path):
 
     os.environ["OUTPUT_DIR"] = str(tmp_path)
 
-    os.mkdir(tmp_path / "work")
-
     os.makedirs(tmp_path / "icons" / "ba")
     with open(tmp_path / "icons" / "ba" / "bbled.png", "w"):
         pass
 
     config = get_config(tmp_path, CONFIG)
-    run_update(config)
+    registry_data = run_update(config)
 
     indexer = Indexer(config)
-    indexer.index()
+    indexer.index(registry_data)
 
     # No-op, datasource hasn't updated
-    indexer.index()
+    indexer.index(registry_data)
 
     # Fake an update
-    intermediate = tmp_path / "work" / "registry.example.com.json"
-    modified = os.stat(intermediate).st_mtime
-    os.utime(intermediate, (modified + 1, modified + 1))
+    registry_data['foo.example.com'] = RegistryModel()
 
     # Now the index will be rewritten
-    indexer.index()
+    indexer.index(registry_data)
 
     with open(tmp_path / "test/flatpak-amd64.json") as f:
         amd64_data = json.load(f)
@@ -108,32 +107,20 @@ def test_indexer(tmp_path):
     assert not (tmp_path / "icons" / "ba" / "bbled.png").exists()
 
 
-def test_indexer_empty(tmp_path):
-    os.environ["OUTPUT_DIR"] = str(tmp_path)
-
-    config = get_config(tmp_path, CONFIG)
-    config.indexes = []
-
-    indexer = Indexer(config)
-    indexer.index()
-
-
 def test_indexer_missing_data_source(tmp_path):
     os.environ["OUTPUT_DIR"] = str(tmp_path)
-    os.mkdir(tmp_path / "work")
     os.mkdir(tmp_path / "icons")
 
     config = get_config(tmp_path, CONFIG)
 
     indexer = Indexer(config)
-    indexer.index()
+    indexer.index({})
 
 
 KOJI_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 koji_config: brew
 redis_url: redis://localhost
-work_dir: ${OUTPUT_DIR}/work
 registries:
     brew:
         public_url: https://internal.example.com/
@@ -156,13 +143,11 @@ def test_indexer_koji(tmp_path):
 
     os.environ["OUTPUT_DIR"] = str(tmp_path)
 
-    os.mkdir(tmp_path / "work")
-
     config = get_config(tmp_path, KOJI_CONFIG)
-    run_update(config)
+    registry_data = run_update(config)
 
     indexer = Indexer(config)
-    indexer.index()
+    indexer.index(registry_data)
 
     with open(tmp_path / "test/brew.json") as f:
         data = json.load(f)
@@ -184,7 +169,6 @@ koji_config: brew
 redis_url: redis://localhost
 deltas_dir: ${OUTPUT_DIR}/deltas
 deltas_uri: https://registry.fedoraproject.org/deltas
-work_dir: ${OUTPUT_DIR}/work
 registries:
     fedora:
         public_url: https://registry.fedoraproject.org/
@@ -226,15 +210,14 @@ def test_indexer_fedora(mock_connection, tmp_path):
 
     os.environ["OUTPUT_DIR"] = str(tmp_path)
 
-    os.mkdir(tmp_path / "work")
     os.mkdir(tmp_path / "deltas")
 
     config = get_config(tmp_path, FEDORA_CONFIG)
-    run_update(config)
+    registry_data = run_update(config)
 
     with FakeDiffer(config):
         indexer = Indexer(config)
-        indexer.index()
+        indexer.index(registry_data)
 
     with open(tmp_path / "test/flatpak-latest.json") as f:
         data = json.load(f)

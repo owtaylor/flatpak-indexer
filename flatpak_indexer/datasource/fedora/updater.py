@@ -1,10 +1,7 @@
-import json
-import os
-
 import koji
 import redis
 
-from ...utils import atomic_writer, unparse_pull_spec
+from ...utils import unparse_pull_spec
 from ...models import RegistryModel, TagHistoryModel, TagHistoryItemModel
 
 from .bodhi_change_monitor import BodhiChangeMonitor
@@ -58,7 +55,7 @@ class FedoraUpdater(object):
 
             self.redis_client.set('fedora-messaging-queue', new_queue_name)
 
-    def update(self):
+    def update(self, registry_data):
         for bodhi_update_id in self.change_monitor.get_changed():
             refresh_update_status(self.koji_session, self.redis_client, bodhi_update_id)
 
@@ -171,10 +168,7 @@ class FedoraUpdater(object):
 
                     registry.repositories[repo_name].tag_histories["latest"] = tag_history
 
-            filename = os.path.join(self.conf.work_dir, registry_name + ".json")
-            with atomic_writer(filename) as writer:
-                json.dump(registry.to_json(),
-                          writer, sort_keys=True, indent=4, ensure_ascii=False)
+            registry_data[registry_name] = registry
 
     def stop(self):
         self.change_monitor.stop()

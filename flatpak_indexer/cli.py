@@ -48,14 +48,15 @@ def daemon(ctx):
                 time.sleep(max(0, cfg.daemon.update_interval - (time.time() - last_update_time)))
             last_update_time = time.time()
 
+            registry_data = {}
             for updater in updaters:
                 try:
-                    updater.update()
+                    updater.update(registry_data)
                 except Exception:
                     logger.exception("Failed to update data sources")
 
             try:
-                indexer.index()
+                indexer.index(registry_data)
             except Exception:
                 logger.exception("Failed to create index")
     finally:
@@ -81,10 +82,11 @@ def index(ctx):
     updaters = load_updaters(cfg)
     indexer = Indexer(cfg)
 
+    registry_data = {}
     for updater in updaters:
         updater.start()
         try:
-            updater.update()
+            updater.update(registry_data)
         finally:
             updater.stop()
-    indexer.index()
+    indexer.index(registry_data)

@@ -85,6 +85,11 @@ class IndexWriter:
 
     def add_image(self, name, image, delta_manifest_url):
         image = copy.copy(image)
+
+        # Clean up some information we don't want in the final output
+        image.diff_ids = []
+        image.pull_spec = None
+
         image.labels = copy.copy(image.labels)
 
         if self.registry_config.force_flatpak_token:
@@ -120,41 +125,27 @@ class IndexWriter:
 class Indexer:
     def __init__(self, config):
         self.conf = config
+        self.last_registry_data_hash = None
 
-    def load_registry(self, registry_name):
-        filename = os.path.join(self.conf.work_dir, registry_name + ".json")
-        try:
-            with open(filename, "rb") as f:
-                mtime = os.fstat(f.fileno()).st_mtime
-                raw = json.load(f)
-                return RegistryModel.from_json(raw), mtime
-        except FileNotFoundError:
-            return None, None
+    def _check_for_unchanged_data(self, registry_data):
+        h = hashlib.sha256()
+        for registry_name in sorted(registry_data.keys()):
+            registry = registry_data[registry_name]
+            h.update(registry_name.encode('utf-8'))
+            h.update(json.dumps(registry.to_json(),
+                                sort_keys=True, ensure_ascii=False).encode('utf-8'))
 
-    def index(self):
-        if len(self.conf.indexes) == 0:
-            return
+        unchanged = (h.digest() == self.last_registry_data_hash)
+        self.last_registry_data_hash = h.digest()
 
-        registries = {}
+        return unchanged
 
-        index_mtimes = []
-        registry_mtimes = []
-        for index_config in self.conf.indexes:
-            try:
-                index_mtimes.append(os.stat(index_config.output).st_mtime)
-            except FileNotFoundError:
-                pass
-
-            registry_name = index_config.registry
-            registry_config = self.conf.registries[registry_name]
-
-            if registry_name not in registries:
-                registries[registry_name], registry_mtime = self.load_registry(registry_name)
-                if registry_mtime is not None:
-                    registry_mtimes.append(registry_mtime)
-
-        if index_mtimes and registry_mtimes and max(registry_mtimes) < min(index_mtimes):
-            logger.debug("Skipping indexing, intermediate files have not been updated")
+    def index(self, registry_data):
+        # We always write a fresh index on the first run of the indexer, which makes
+        # sure that the index is up-to-date with our code and config files. But on
+        # subsequent runs, we short-circuit if nothing changed
+        if self._check_for_unchanged_data(registry_data):
+            logger.debug("Skipping indexing, queried data has not changed")
             return
 
         icon_store = None
@@ -168,9 +159,8 @@ class Indexer:
             for index_config in self.conf.indexes:
                 tag = index_config.output_tag
 
-                registry_info = registries[index_config.registry]
+                registry_info = registry_data.get(index_config.registry)
                 if registry_info is None:
-                    # No intermediate file, skip
                     continue
 
                 registry_config = self.conf.registries[index_config.registry]
@@ -187,9 +177,9 @@ class Indexer:
             registry_name = index_config.registry
             registry_config = self.conf.registries[registry_name]
 
-            registry_info = registries[registry_name]
+            registry_info = registry_data.get(registry_name)
             if registry_info is None:
-                logger.debug("No intermediate file found for %s", registry_name)
+                logger.debug("No queried information found for %s", registry_name)
                 continue
 
             index = IndexWriter(index_config,
@@ -207,10 +197,6 @@ class Indexer:
                                 delta_generator.get_delta_manifest_url(image.digest)
                         else:
                             delta_manifest_url = None
-
-                        # Clean up some information we don't want in the final output
-                        image.diff_ids = []
-                        image.pull_spec = None
 
                         index.add_image(repository.name, image, delta_manifest_url)
 

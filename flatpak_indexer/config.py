@@ -160,8 +160,6 @@ class Config:
 
             self.local_certs[k] = v
 
-        self.work_dir = lookup.get_str('work_dir')
-
         self.icons_dir = lookup.get_str('icons_dir', None)
         self.icons_uri = lookup.get_str('icons_uri', None)
         if self.icons_uri and not self.icons_uri.endswith('/'):

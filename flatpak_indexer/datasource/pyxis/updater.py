@@ -1,8 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timezone
 import logging
-import json
-import os
 
 import koji
 import redis
@@ -11,7 +9,7 @@ import requests
 from ...koji_query import query_image_build
 from ...models import (FlatpakBuildModel, RegistryModel,
                        TagHistoryItemModel, TagHistoryModel)
-from ...utils import atomic_writer, get_retrying_requests_session, parse_date
+from ...utils import get_retrying_requests_session, parse_date
 
 
 logger = logging.getLogger(__name__)
@@ -170,12 +168,6 @@ class Registry:
 
                     self._add_build_history(build.repository, koji_tag, architectures, build_items)
 
-    def write(self):
-        filename = os.path.join(self.global_config.work_dir, self.config.name + ".json")
-        with atomic_writer(filename) as writer:
-            json.dump(self.registry.to_json(),
-                      writer, sort_keys=True, indent=4, ensure_ascii=False)
-
 
 class PyxisUpdater(object):
     def __init__(self, config, page_size=50):
@@ -185,7 +177,7 @@ class PyxisUpdater(object):
     def start(self):
         pass
 
-    def update(self):
+    def update(self, registry_data):
         registries = {}
         for index_config in self.conf.indexes:
             registry_name = index_config.registry
@@ -200,9 +192,9 @@ class PyxisUpdater(object):
             registry = registries[registry_name]
             registry.add_index(index_config)
 
-        for registry in registries.values():
+        for registry_name, registry in registries.items():
             registry.find_images()
-            registry.write()
+            registry_data[registry_name] = registry.registry
 
     def stop(self):
         pass

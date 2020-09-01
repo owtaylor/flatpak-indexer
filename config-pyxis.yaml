@@ -13,9 +13,6 @@ koji_config: brew
 local_certs:
   pyxis.engineering.redhat.com: RH-IT-Root-CA.crt
   registry-proxy.engineering.redhat.com: RH-IT-Root-CA.crt
-# This is a directory that is used to store intermediate extracted information
-# passed from the data source to the indexer
-work_dir: ${WORK_DIR:work}
 deltas_dir: ${OUTPUT_DIR:out}/deltas/
 deltas_uri: https://flatpaks.local.fishsoup.net:8443/deltas/
 # When extract_icons is set for an index, icons are saved to icons_dir and labels are

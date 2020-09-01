@@ -1,8 +1,5 @@
 # name of a Koji config section
 koji_config: fedora
-# This is a directory that is used to store intermediate extracted information
-# passed from the data source to the indexer
-work_dir: ${WORK_DIR:work}
 # URL to a local Redis index for caching
 redis_url: ${REDIS_URL:redis://localhost:6379}
 deltas_dir: ${OUTPUT_DIR:out}/deltas/

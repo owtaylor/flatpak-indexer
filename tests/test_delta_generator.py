@@ -20,7 +20,6 @@ from .utils import get_config
 
 CONFIG = yaml.safe_load("""
 redis_url: redis://localhost
-work_dir: ${OUTPUT_DIR}/work
 deltas_dir: ${OUTPUT_DIR}/deltas
 deltas_uri: https://flatpaks.fedoraproject.org/deltas
 koji_config: fedora

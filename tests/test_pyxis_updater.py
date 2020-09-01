@@ -1,6 +1,3 @@
-import json
-import os
-
 import pytest
 import responses
 import yaml
@@ -10,8 +7,20 @@ from .utils import get_config, mock_brew, mock_pyxis, setup_client_cert
 
 from .redis import mock_redis
 
+
+def run_update(updater):
+    registry_data = {}
+
+    updater.start()
+    try:
+        updater.update(registry_data)
+    finally:
+        updater.stop()
+
+    return registry_data
+
+
 CONFIG = yaml.safe_load("""
-work_dir: ${WORK_DIR}
 pyxis_url: https://pyxis.example.com/v1
 redis_url: redis://localhost
 koji_config: brew
@@ -51,8 +60,6 @@ indexes:
 def test_pyxis_updater(tmp_path, server_cert, client_cert):
     mock_pyxis()
 
-    os.environ["WORK_DIR"] = str(tmp_path)
-
     config = get_config(tmp_path, CONFIG)
     if server_cert:
         config.local_certs['pyxis.example.com'] = 'test.crt'
@@ -61,29 +68,22 @@ def test_pyxis_updater(tmp_path, server_cert, client_cert):
 
     updater = PyxisUpdater(config, page_size=1)
 
-    updater.start()
-    try:
-        updater.update()
-    finally:
-        updater.stop()
+    registry_data = run_update(updater)
+    data = registry_data['registry.example.com']
 
-    with open(tmp_path / "registry.example.com.json") as f:
-        data = json.load(f)
-
-    assert len(data['Repositories']) == 2
-    aisleriot_repository = [r for r in data['Repositories'] if r['Name'] == 'aisleriot'][0]
-    assert len(aisleriot_repository['Images']) == 1
-    aisleriot_image = aisleriot_repository['Images'][0]
-    assert aisleriot_image['Digest'] == \
+    assert len(data.repositories) == 2
+    aisleriot_repository = data.repositories['aisleriot']
+    assert len(aisleriot_repository.images) == 1
+    aisleriot_image = next(iter(aisleriot_repository.images.values()))
+    assert aisleriot_image.digest == \
         'sha256:bo1dfacec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
-    assert aisleriot_image['Labels']['org.flatpak.ref'] == \
+    assert aisleriot_image.labels['org.flatpak.ref'] == \
         'app/org.gnome.Aisleriot/x86_64/stable'
-    assert aisleriot_image['Labels']['org.freedesktop.appstream.icon-128'] == \
+    assert aisleriot_image.labels['org.freedesktop.appstream.icon-128'] == \
         "https://www.example.com/icons/aisleriot.png"
 
 
 REPOSITORY_OVERRIDE_CONFIG = yaml.safe_load("""
-work_dir: ${WORK_DIR}
 pyxis_url: https://pyxis.example.com/v1
 redis_url: redis://localhost
 koji_config: brew
@@ -107,27 +107,18 @@ indexes:
 def test_pyxis_updater_repository_override(tmp_path):
     mock_pyxis()
 
-    os.environ["WORK_DIR"] = str(tmp_path)
-
     config = get_config(tmp_path, REPOSITORY_OVERRIDE_CONFIG)
     updater = PyxisUpdater(config)
 
-    updater.start()
-    try:
-        updater.update()
-    finally:
-        updater.stop()
+    registry_data = run_update(updater)
+    amd64_data = registry_data['registry.example.com']
 
-    with open(tmp_path / "registry.example.com.json") as f:
-        amd64_data = json.load(f)
-
-    assert len(amd64_data['Repositories']) == 1
-    testrepo_repository = amd64_data['Repositories'][0]
-    assert testrepo_repository['Name'] == 'testrepo'
+    assert len(amd64_data.repositories) == 1
+    testrepo_repository = amd64_data.repositories['testrepo']
+    assert testrepo_repository.name == 'testrepo'
 
 
 KOJI_CONFIG = yaml.safe_load("""
-work_dir: ${WORK_DIR}
 pyxis_url: https://pyxis.example.com/v1
 redis_url: redis://localhost
 koji_config: brew
@@ -150,24 +141,16 @@ indexes:
 def test_pyxis_updater_koji(tmp_path):
     mock_pyxis()
 
-    os.environ["WORK_DIR"] = str(tmp_path)
-
     config = get_config(tmp_path, KOJI_CONFIG)
     updater = PyxisUpdater(config)
 
-    updater.start()
-    try:
-        updater.update()
-    finally:
-        updater.stop()
+    registry_data = run_update(updater)
+    data = registry_data['brew']
 
-    with open(tmp_path / "brew.json") as f:
-        data = json.load(f)
-
-    assert len(data['Repositories']) == 1
-    aisleriot_repository = data['Repositories'][0]
-    assert aisleriot_repository['Name'] == 'rh-osbs/aisleriot'
-    assert len(aisleriot_repository['Images']) == 1
-    aisleriot_image = aisleriot_repository['Images'][0]
-    assert aisleriot_image['Digest'] == \
+    assert len(data.repositories) == 1
+    aisleriot_repository = data.repositories['rh-osbs/aisleriot']
+    assert aisleriot_repository.name == 'rh-osbs/aisleriot'
+    assert len(aisleriot_repository.images) == 1
+    aisleriot_image = next(iter(aisleriot_repository.images.values()))
+    assert aisleriot_image.digest == \
         'sha256:bo1dfacec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'

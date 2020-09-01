@@ -11,7 +11,6 @@ from .utils import get_config, setup_client_cert
 BASIC_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 redis_url: redis://localhost
-work_dir: /flatpak-work
 koji_config: brew
 deltas_dir: /flatpaks/deltas/
 deltas_uri: https://flatpaks.example.com/deltas
@@ -62,8 +61,8 @@ def test_config_basic(tmp_path):
 
 def test_key_missing(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
-    del config_data['work_dir']
-    with raises(ConfigError, match="A value is required for work_dir"):
+    del config_data['redis_url']
+    with raises(ConfigError, match=r'A value is required for redis_url'):
         get_config(tmp_path, config_data)
 
 
@@ -114,7 +113,6 @@ def test_environment_variable(tmp_path):
     CONFIG = {
         'pyxis_url': 'https://${DOMAIN_NAME}/v1',
         'redis_url': 'redis://localhost',
-        'work_dir': '/flatpak-work',
         'koji_config': 'brew',
     }
     conf = get_config(tmp_path, CONFIG)
@@ -127,7 +125,6 @@ def test_environment_variable_default(tmp_path):
     CONFIG = {
         'pyxis_url': 'https://${DOMAIN_NAME:pyxis.example.com}/v1',
         'redis_url': 'redis://localhost',
-        'work_dir': '/flatpak-work',
         'koji_config': 'brew',
     }
     conf = get_config(tmp_path, CONFIG)
@@ -139,7 +136,6 @@ def test_environment_variable_missing(tmp_path):
         del os.environ["DOMAIN_NAME"]
     CONFIG = {
         'pyxis_url': 'https://${DOMAIN_NAME}/v1',
-        'work_dir': '/flatpak-work',
         'koji_config': 'brew',
     }
     with raises(SubstitutionError, match=r'environment variable DOMAIN_NAME is not set'):
@@ -213,14 +209,6 @@ def test_pyxis_url_missing(tmp_path):
     del config_data['pyxis_url']
     with raises(ConfigError,
                 match=r'registry/[a-z].*: pyxis_url must be configured for the pyxis datasource'):
-        get_config(tmp_path, config_data)
-
-
-def test_redis_url_missing(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    del config_data['redis_url']
-    with raises(ConfigError,
-                match='A value is required for redis_url'):
         get_config(tmp_path, config_data)
 
 
