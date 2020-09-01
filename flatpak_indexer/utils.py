@@ -167,7 +167,11 @@ def parse_date(date_str):
     This format is the format that Pyxis writes, but we also use it for
     storing dates into JSON ourselves.
     """
-    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%f+00:00')
+    try:
+        dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.%f+00:00')
+    except ValueError:
+        dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S+00:00')
+
     return dt.replace(tzinfo=timezone.utc)
 
 

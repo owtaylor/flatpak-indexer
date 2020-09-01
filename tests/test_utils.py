@@ -123,15 +123,21 @@ def test_format_date():
 
 
 def test_parse_date():
-    dt = parse_date('2020-07-31T16:26:22.000000+00:00')
-    assert dt.timestamp() == 1596212782
+    dt = parse_date('2020-07-31T16:26:22.123456+00:00')
+    assert round(dt.timestamp() * 1000000) == 1596212782123456
     assert dt.year == 2020
     assert dt.month == 7
     assert dt.day == 31
     assert dt.hour == 16
     assert dt.minute == 26
     assert dt.second == 22
+    assert dt.microsecond == 123456
     assert dt.tzinfo.utcoffset(None) == datetime.timedelta(0)
+
+    dt = parse_date('2020-07-31T16:26:22+00:00')
+    assert dt.timestamp() == 1596212782
+    assert dt.second == 22
+    assert dt.microsecond == 0
 
 
 def test_parse_pull_spec():
