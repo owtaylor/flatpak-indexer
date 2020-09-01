@@ -291,10 +291,12 @@ class BaseModel(metaclass=BaseModelMeta):
 
     @classmethod
     def from_json(cls, data):
-        return cls(**{
-            field.python_name: field.python_value(data) for field in cls.__fields__.values()
-        })
+        result = cls.__new__(cls)
+        for field in cls.__fields__.values():
+            setattr(result, field.python_name, field.python_value(data))
+
+        return result
 
     @classmethod
-    def from_json_text(self, text):
-        return self.from_json(json.loads(text))
+    def from_json_text(cls, text):
+        return cls.from_json(json.loads(text))
