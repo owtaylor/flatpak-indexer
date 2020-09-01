@@ -27,9 +27,10 @@ import logging
 import os
 import tempfile
 import time
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 import requests
+import www_authenticate
 
 from .utils import get_retrying_requests_session
 
@@ -82,6 +83,8 @@ class RegistrySession(object):
             username, password = creds.split(':', 1)
             self.auth = requests.auth.HTTPBasicAuth(username, password)
 
+        self.orig_auth = self.auth
+
         self.session = get_retrying_requests_session()
 
     def _find_cert_dir(self):
@@ -133,7 +136,53 @@ class RegistrySession(object):
 
         return None
 
-    def _wrap_method(self, f, relative_url, *args, **kwargs):
+    def _kwargs(self, orginal_kwargs):
+        result = dict(orginal_kwargs)
+
+        result['auth'] = self.auth
+        result['cert'] = self.cert
+        if self.ca_cert:
+            result['verify'] = self.ca_cert
+
+        return result
+
+    def _get_token_auth(self, res, repository):
+        parsed = www_authenticate.parse(res.headers['www-authenticate'])
+        if 'bearer' not in parsed:
+            return
+
+        challenge = parsed['bearer']
+        realm = challenge.get('realm')
+        service = challenge.get('service')
+        scope = challenge.get('scope')
+        if scope is None and repository:
+            scope = f'repository:{repository}:pull'
+
+        logger.info("Getting token auth, realm=%s, service=%s, scope=%s",
+                    realm, service, scope)
+
+        if not realm:
+            return False
+
+        self.auth = self.orig_auth
+
+        params = []
+        if service:
+            params.append(('service', service))
+        if scope:
+            params.append(('scope', scope))
+
+        url = realm + '?' + urlencode(params)
+        res = requests.get(url, **self._kwargs(dict()))
+        if res.status_code != 200:
+            return False
+
+        token = res.json()['token']
+        self.auth = BearerAuth(token)
+
+        return True
+
+    def _wrap_method(self, f, relative_url, *args, repository=None, **kwargs):
         """
         Perform an HTTP request with appropriate options and fallback handling.
 
@@ -148,12 +197,15 @@ class RegistrySession(object):
         Returns:
             requests.Response: The response object.
         """
-        kwargs['auth'] = self.auth
-        kwargs['cert'] = self.cert
-        if self.ca_cert:
-            kwargs['verify'] = self.ca_cert
+        kwargs = self._kwargs(kwargs)
 
-        return f(self.registry_url + relative_url, *args, **kwargs)
+        res = f(self.registry_url + relative_url, *args, **kwargs)
+        if res.status_code == requests.codes.UNAUTHORIZED:
+            if self._get_token_auth(res, repository):
+                kwargs['auth'] = self.auth
+                res = f(self.registry_url + relative_url, *args, **kwargs)
+
+        return res
 
     def get(self, relative_url, **kwargs):
         """
@@ -199,7 +251,7 @@ class RegistryClient(object):
                     self.session.registry_hostport, repository, digest, size)
 
         url = "/v2/{}/blobs/{}".format(repository, digest)
-        result = self.session.get(url, stream=True)
+        result = self.session.get(url, stream=True, repository=repository)
         result.raise_for_status()
 
         output_dir = os.path.dirname(blob_path)
@@ -250,7 +302,7 @@ class RegistryClient(object):
         }
 
         url = '/v2/{}/manifests/{}'.format(repository, ref)
-        response = self.session.get(url, headers=headers)
+        response = self.session.get(url, headers=headers, repository=repository)
         response.raise_for_status()
         return response.json()
 
@@ -270,7 +322,7 @@ class RegistryClient(object):
                      descriptor['digest'], descriptor['size'])
 
         url = "/v2/{}/blobs/{}".format(repository, descriptor['digest'])
-        result = self.session.get(url, stream=True)
+        result = self.session.get(url, stream=True, repository=repository)
         result.raise_for_status()
         return result.json()
 

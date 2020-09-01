@@ -6,7 +6,7 @@ from io import BytesIO
 import json
 import re
 import tarfile
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import responses
 import requests
@@ -85,6 +85,8 @@ class MockRegistry:
                           self._get_manifest)
         self._add_pattern(responses.GET, r'/v2/(.*)/blobs/([^/]+)',
                           self._get_blob)
+        self._add_pattern(responses.GET, r'/token?.*',
+                          self._get_token)
 
     def get_repo(self, name):
         return self.repos.setdefault(name, {
@@ -122,19 +124,54 @@ class MockRegistry:
         return repo['manifests'][ref]
 
     def _check_creds(self, req):
-        if self.required_creds:
+        if self.required_creds and ('bearer_auth' not in self.flags or
+                                    req.url.startswith('https://registry.example.com/token')):
             username, password = self.required_creds
 
-            auth = req.headers['Authorization'].strip().split()
-            assert auth[0] == 'Basic'
-            assert to_bytes(auth[1]) == b64encode(to_bytes(username + ':' + password))
+            authorization = req.headers.get('Authorization')
+            ok = False
+            if authorization:
+                pieces = authorization.strip().split()
+                if (pieces[0] == 'Basic' and
+                        to_bytes(pieces[1]) == b64encode(to_bytes(username + ':' + password))):
+                    ok = True
+
+            if not ok:
+                return (requests.codes.UNAUTHORIZED, {}, '')
+
+    def _check_bearer_auth(self, req, repo):
+        if 'bearer_auth' in self.flags:
+            authorization = req.headers.get('Authorization')
+            if authorization != f'Bearer GOLDEN_LLAMA_{repo}':
+                if 'bearer_auth_unknown_type' in self.flags:
+                    return (requests.codes.UNAUTHORIZED,
+                            {
+                                'WWW-Authenticate': 'FeeFiFoFum'
+                            },
+                            '')
+                elif 'bearer_auth_no_realm' in self.flags:
+                    return (requests.codes.UNAUTHORIZED,
+                            {
+                                'WWW-Authenticate': 'Bearer service="registry.example.com"'
+                            },
+                            '')
+                else:
+                    return (requests.codes.UNAUTHORIZED,
+                            {
+                                'WWW-Authenticate':
+                                ('Bearer realm="https://registry.example.com/token",' +
+                                 'service="registry.example.com"')
+                            },
+                            '')
 
     def _add_pattern(self, method, pattern, callback):
         url = 'https://' + self.hostname
         pat = re.compile('^' + url + pattern + '$')
 
         def do_it(req):
-            self._check_creds(req)
+            auth_response = self._check_creds(req)
+            if auth_response:
+                return auth_response
 
             status, headers, body = callback(req, *(pat.match(req.url).groups()))
             if method == responses.HEAD:
@@ -145,6 +182,10 @@ class MockRegistry:
         responses.add_callback(method, pat, do_it, match_querystring=True)
 
     def _get_manifest(self, req, name, ref):
+        auth_response = self._check_bearer_auth(req, name)
+        if auth_response:
+            return auth_response
+
         repo = self.get_repo(name)
         if not ref.startswith('sha256:'):
             try:
@@ -177,6 +218,10 @@ class MockRegistry:
         return (200, headers, blob)
 
     def _get_blob(self, req, name, digest):
+        auth_response = self._check_bearer_auth(req, name)
+        if auth_response:
+            return auth_response
+
         repo = self.get_repo(name)
         assert digest.startswith('sha256:')
 
@@ -191,6 +236,17 @@ class MockRegistry:
             'Content-Length': str(len(blob)),
         }
         return (200, headers, blob)
+
+    def _get_token(self, req):
+        params = parse_qs(urlparse(req.url).query)
+        assert params['service'][0] == 'registry.example.com'
+        m = re.match(r'repository:(.*):pull$', params['scope'][0])
+        assert m
+        repo = m.group(1)
+
+        return (200, {}, json.dumps({
+            "token": f"GOLDEN_LLAMA_{repo}"
+        }))
 
     def add_fake_image(self, name, tag, diff_ids=None, layer_contents=None):
         layer = TestLayer("test", b"42")

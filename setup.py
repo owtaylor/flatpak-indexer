@@ -41,6 +41,7 @@ setup(name='flatpak-indexer',
           'pytest',
           'pytest-cov',
           'responses',
+          'www-authenticate',
       ],
       entry_points={
           'console_scripts': [
