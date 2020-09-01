@@ -52,6 +52,7 @@ indexes:
 
 
 @mock_brew
+@mock_redis
 @responses.activate
 def test_indexer(tmp_path):
     mock_pyxis()
@@ -131,6 +132,7 @@ def test_indexer_missing_data_source(tmp_path):
 KOJI_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 koji_config: brew
+redis_url: redis://localhost
 work_dir: ${OUTPUT_DIR}/work
 registries:
     brew:
@@ -147,6 +149,7 @@ indexes:
 
 
 @mock_brew
+@mock_redis
 @responses.activate
 def test_indexer_koji(tmp_path):
     mock_pyxis()

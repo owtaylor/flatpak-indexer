@@ -14,6 +14,7 @@ from .utils import write_config, mock_brew, mock_pyxis
 
 CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
+redis_url: redis://localhost
 koji_config: brew
 work_dir: ${OUTPUT_DIR}/work/
 icons_dir: ${OUTPUT_DIR}/icons/
@@ -97,6 +98,7 @@ def test_daemon_exception(tmp_path, where):
 
 
 @mock_brew
+@mock_redis
 @responses.activate
 @pytest.mark.parametrize('verbose', [False, True])
 def test_index(tmp_path, caplog, verbose):
@@ -114,9 +116,9 @@ def test_index(tmp_path, caplog, verbose):
     result = runner.invoke(cli, args, catch_exceptions=False)
     os.unlink(config_path)
     if verbose:
-        assert 'Getting all images for registry.example.com/aisleriot' in caplog.text
+        assert 'Calling koji.getBuild' in caplog.text
     else:
-        assert 'Getting all images for registry.example.com/aisleriot' not in caplog.text
+        assert 'Calling koji.getBuild' not in caplog.text
     assert result.exit_code == 0
 
 

@@ -8,6 +8,7 @@ import yaml
 from flatpak_indexer.datasource.pyxis import PyxisUpdater
 from .utils import get_config, mock_brew, mock_pyxis, setup_client_cert
 
+from .redis import mock_redis
 
 CONFIG = yaml.safe_load("""
 work_dir: ${WORK_DIR}
@@ -45,6 +46,7 @@ indexes:
                           (True,  False),
                           (False, True)])
 @mock_brew
+@mock_redis
 @responses.activate
 def test_pyxis_updater(tmp_path, server_cert, client_cert):
     mock_pyxis()
@@ -99,6 +101,7 @@ indexes:
 
 
 @mock_brew
+@mock_redis
 @responses.activate
 def test_pyxis_updater_repository_override(tmp_path):
     mock_pyxis()
@@ -140,6 +143,7 @@ indexes:
 
 
 @mock_brew
+@mock_redis
 @responses.activate
 def test_pyxis_updater_koji(tmp_path):
     mock_pyxis()

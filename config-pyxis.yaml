@@ -4,6 +4,8 @@ pyxis_url: https://pyxis.engineering.redhat.com/v1
 # shows environment variable substitution with a fallback
 pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
 pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
+# allow specifying trust root for hosts - if not found, system trust is used;
+redis_url: ${REDIS_URL:redis://localhost:6379}
 # name of a Koji config section
 koji_config: brew
 # Allowing overriding the system trust DB for https connections to certain hosts;
@@ -14,6 +16,8 @@ local_certs:
 # This is a directory that is used to store intermediate extracted information
 # passed from the data source to the indexer
 work_dir: ${WORK_DIR:work}
+deltas_dir: ${OUTPUT_DIR:out}/deltas/
+deltas_uri: https://flatpaks.local.fishsoup.net:8443/deltas/
 # When extract_icons is set for an index, icons are saved to icons_dir and labels are
 # rewritten in the index from a data: URL to an URL formed from icons_uri
 icons_dir: ${OUTPUT_DIR:out}/icons/
@@ -45,12 +49,14 @@ indexes:
                 registry: registry.access.redhat.com
                 tag: latest
                 extract_icons: True
+                delta_keep_days: 90
         amd64:
                 output: ${OUTPUT_DIR:out}/pyxis/flatpak-latest-amd64.json
                 registry: registry.access.redhat.com
                 architecture: amd64
                 tag: latest
                 extract_icons: True
+                delta_keep_days: 90
         # These indexes index all Flatpaks found in the rhel-8.2.0-candidate tag
         brew:
                 output: ${OUTPUT_DIR:out}/brew/flatpak-rhel-8.2.0-candidate.json

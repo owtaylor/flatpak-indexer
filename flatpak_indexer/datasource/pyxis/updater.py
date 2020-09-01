@@ -1,11 +1,17 @@
-import koji
+from collections import defaultdict
+from datetime import datetime, timezone
 import logging
 import json
 import os
-import re
 
+import koji
+import redis
+import requests
+
+from ...koji_query import query_image_build
+from ...models import (FlatpakBuildModel, RegistryModel,
+                       TagHistoryItemModel, TagHistoryModel)
 from ...utils import atomic_writer, get_retrying_requests_session, parse_date
-from ...models import ImageModel, RegistryModel
 
 
 logger = logging.getLogger(__name__)
@@ -20,36 +26,43 @@ class Registry:
         self.config = global_config.registries[name]
         self.page_size = page_size
         self.tag_indexes = []
-        self.koji_indexes = {}
+        self.koji_indexes = []
         self.registry = RegistryModel()
 
-    def make_image(self, name, image_info, all_tags, digest):
-        arch = image_info['architecture']
-        os = image_info['parsed_data']['os']
+        self.session = get_retrying_requests_session()
 
-        labels = {label['name']: label['value']
-                  for label in image_info['parsed_data'].get('labels', [])}
+        options = koji.read_config(profile_name=global_config.koji_config)
+        koji_session_opts = koji.grab_session_options(options)
+        self.koji_session = koji.ClientSession(options['server'], koji_session_opts)
 
-        return ImageModel(digest=digest,
-                          media_type=MEDIA_TYPE_MANIFEST_V2,
-                          os=os,
-                          architecture=arch,
-                          annotations={},
-                          labels=labels,
-                          tags=all_tags)
-
-    def add_image(self, name, image_info, all_tags, digest=None):
-        image = self.make_image(name, image_info, all_tags, digest)
-        self.registry.add_image(name, image)
+        self.redis_client = redis.Redis.from_url(global_config.redis_url)
 
     def add_index(self, index_config):
         if index_config.koji_tag:
-            indexes = self.koji_indexes.setdefault(index_config.koji_tag, [])
-            indexes.append(index_config)
+            self.koji_indexes.append(index_config)
         else:
             self.tag_indexes.append(index_config)
 
-    def _do_iterate_pyxis_results(self, session, url):
+    def _get_pyxis_url(self, url):
+        kwargs = {
+        }
+
+        cert = self.global_config.find_local_cert(self.global_config.pyxis_url)
+        if cert:
+            kwargs['verify'] = cert
+        else:
+            kwargs['verify'] = True
+
+        if self.global_config.pyxis_client_cert:
+            kwargs['cert'] = (self.global_config.pyxis_client_cert,
+                              self.global_config.pyxis_client_key)
+
+        response = self.session.get(url, headers={'Accept': 'application/json'}, **kwargs)
+        response.raise_for_status()
+
+        return response.json()
+
+    def _do_iterate_pyxis_results(self, url):
         page_size = self.page_size
         page = 0
         while True:
@@ -59,23 +72,7 @@ class Registry:
                 page=page)
             logger.info("Requesting {}".format(paginated_url))
 
-            kwargs = {
-            }
-
-            cert = self.global_config.find_local_cert(self.global_config.pyxis_url)
-            if cert:
-                kwargs['verify'] = cert
-            else:
-                kwargs['verify'] = self.global_config.pyxis_cert
-
-            if self.global_config.pyxis_client_cert:
-                kwargs['cert'] = (self.global_config.pyxis_client_cert,
-                                  self.global_config.pyxis_client_key)
-
-            response = session.get(paginated_url, headers={'Accept': 'application/json'}, **kwargs)
-            response.raise_for_status()
-
-            response_json = response.json()
+            response_json = self._get_pyxis_url(paginated_url)
 
             for item in response_json['data']:
                 yield item
@@ -85,140 +82,93 @@ class Registry:
 
             page += 1
 
-    def _iterate_all_repository_images(self, repository):
-        logger.info("Getting all images for {}/{}".format(self.name, repository))
+    def _get_tag_history(self, repository, tag):
+        api_url = self.global_config.pyxis_url
+        url = f'{api_url}tag-history/registry/{self.name}/repository/{repository}/tag/{tag}'
 
-        session = get_retrying_requests_session()
+        try:
+            tag_history = self._get_pyxis_url(url)
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                return []
 
-        url = '{api_url}repositories/registry/{registry}/repository/{repository}/images'.format(
-            api_url=self.global_config.pyxis_url,
-            registry=self.name,
-            repository=repository)
-
-        yield from self._do_iterate_pyxis_results(session, url)
-
-    def _iterate_repository_images(self, repository, desired_tags):
-        options = koji.read_config(profile_name=self.global_config.koji_config)
-        koji_session_opts = koji.grab_session_options(options)
-        koji_session = koji.ClientSession(options['server'], koji_session_opts)
-
-        image_by_tag_arch = {}
-
-        for image_info in self._iterate_all_repository_images(repository):
-            arch = image_info['architecture']
-
-            repository_info = None
-            for ri in image_info['repositories']:
-                if ri['repository'] == repository and \
-                   ri['registry'] == self.name:
-                    repository_info = ri
-                    break
-
-            if repository_info:
-                for tag in repository_info['tags']:
-                    tag_name = tag['name']
-                    tag_date = parse_date(tag['added_date'])
-                    if tag_name in desired_tags:
-                        key = tag_name, arch
-                        info = image_by_tag_arch.get(key)
-                        if info is None or tag_date > info[0]:
-                            image_by_tag_arch[key] = (tag_date,
-                                                      image_info,
-                                                      repository_info)
-
-        nvr_to_arch_digest_cache = {}
-
-        for (tag_name, arch), (_, image_info, repository_info) in image_by_tag_arch.items():
-            nvr = image_info["brew"]["build"]
-            arch_digest_map = nvr_to_arch_digest_cache.get(nvr)
-            if arch_digest_map is None:
-                build_id = koji_session.getBuild(nvr)['build_id']
-                arch_digest_map = self._get_arch_digest_map(koji_session, build_id)
-                nvr_to_arch_digest_cache[nvr] = arch_digest_map
-
-            all_tags = sorted({tag["name"] for tag in repository_info['tags']})
-
-            yield tag_name, arch, image_info, all_tags, arch_digest_map[arch]
+        return [(item['brew_build'], parse_date(item['start_date']))
+                for item in tag_history['history']]
 
     def _iterate_repositories(self):
         if self.config.repositories:
             yield from self.config.repositories
             return
 
-        session = get_retrying_requests_session()
         url = '{api_url}repositories?image_usage_type=Flatpak'.format(
             api_url=self.global_config.pyxis_url)
 
-        for item in self._do_iterate_pyxis_results(session, url):
+        for item in self._do_iterate_pyxis_results(url):
             if item['registry'] == self.name:
                 yield item['repository']
 
-    def iterate_images(self, desired_tags):
-        for repository in self._iterate_repositories():
-            for tag_name, arch, image_info, all_tags, digest in \
-                    self._iterate_repository_images(repository, desired_tags):
-
-                yield repository, tag_name, arch, image_info, all_tags, digest
-
-    def _iterate_images_for_nvr(self, session, nvr):
-        logger.info("Getting images for {}".format(nvr))
-
-        url = '{api_url}images/nvr/{nvr}'.format(api_url=self.global_config.pyxis_url,
-                                                 nvr=nvr)
-
-        yield from self._do_iterate_pyxis_results(session, url)
-
-    def _get_arch_digest_map(self, koji_session, build_id):
-        # The data that Pyxis returns doesn't actually contain the manifest digest
-        # of that image that would be necessary to look it up in the registry.
-        # To work around this, we go back to Koji and use the metadata stored
-        # there to find the correct manifest digest.
-        arch_digest_map = {}
-
-        for archive_info in koji_session.listArchives(build_id):
-            docker_info = archive_info.get('extra', {}).get('docker')
-            if docker_info:
-                arch = docker_info['config']['architecture']
-                digests = docker_info['digests']
-
-                digest = digests.get('application/vnd.oci.image.manifest.v1+json')
-                if digest is None:
-                    digest = digests['application/vnd.docker.distribution.manifest.v2+json']
-
-                arch_digest_map[arch] = digest
-
-        return arch_digest_map
-
-    def _iterate_nvrs(self, koji_tag):
-        options = koji.read_config(profile_name=self.global_config.koji_config)
-        koji_session_opts = koji.grab_session_options(options)
-        koji_session = koji.ClientSession(options['server'], koji_session_opts)
-
-        tagged_builds = koji_session.listTagged(koji_tag, type='image', latest=True)
+    def _iterate_flatpak_builds(self, koji_tag):
+        tagged_builds = self.koji_session.listTagged(koji_tag, type='image', latest=True)
         for tagged_build in tagged_builds:
-            build_id = tagged_build['build_id']
-            build = koji_session.getBuild(build_id)
-            image_extra = build['extra']['image']
-            is_flatpak = image_extra.get('flatpak', False)
-            if is_flatpak:
-                pull_specs = image_extra['index']['pull']
-                # All the pull specs should have the same repository,
-                # so which one we use is arbitrary
-                base, tag = re.compile(r'[:@]').split(pull_specs[0], 1)
-                _, repository = base.split('/', 1)
+            build = query_image_build(self.koji_session, self.redis_client, tagged_build['nvr'])
+            if isinstance(build, FlatpakBuildModel):
+                yield build
 
-                arch_digest_map = self._get_arch_digest_map(koji_session, build_id)
-                all_tags = [tag['name'] for tag in koji_session.listTags(build_id)]
+    def _add_build_history(self, repository, tag, architectures, build_items):
+        tag_history = TagHistoryModel(name=tag)
 
-                yield build['nvr'], repository, all_tags, arch_digest_map
+        for build, start_date in build_items:
+            n, v, r = build.nvr.rsplit('-', 2)
 
-    def iterate_koji_images(self, koji_tag):
-        session = get_retrying_requests_session()
+            for image in build.images:
+                if not (None in architectures or image.architecture in architectures):
+                    continue
 
-        for nvr, repository, all_tags, arch_digest_map in self._iterate_nvrs(koji_tag):
-            for image_info in self._iterate_images_for_nvr(session, nvr):
-                arch = image_info['architecture']
-                yield repository, koji_tag, arch, image_info, all_tags, arch_digest_map[arch]
+                image.tags = [v, f"{v}-{r}"]
+                if build == build_items[0][0]:
+                    image.tags.append(tag)
+
+                self.registry.add_image(repository, image)
+
+                item = TagHistoryItemModel(architecture=image.architecture,
+                                           date=start_date,
+                                           digest=image.digest)
+                tag_history.items.append(item)
+
+        if len(tag_history.items):
+            self.registry.repositories[repository].tag_histories[tag] = tag_history
+
+    def find_images(self):
+        desired_tags = defaultdict(set)
+        for index_config in self.tag_indexes:
+            desired_tags[index_config.tag].add(index_config.architecture)
+
+        if len(desired_tags) > 0:
+            for repository in self._iterate_repositories():
+                for tag, architectures in desired_tags.items():
+                    history_items = self._get_tag_history(repository, tag)
+                    if len(history_items) == 0:
+                        continue
+
+                    build_items = [(query_image_build(self.koji_session,
+                                                      self.redis_client,
+                                                      nvr), start_date)
+                                   for (nvr, start_date) in history_items]
+
+                    self._add_build_history(repository, tag, architectures, build_items)
+
+        desired_koji_tags = defaultdict(set)
+        for index_config in self.koji_indexes:
+            desired_koji_tags[index_config.koji_tag].add(index_config.architecture)
+
+        if len(desired_koji_tags) > 0:
+            koji_tag_start_date = datetime.fromtimestamp(0, timezone.utc)
+
+            for koji_tag, architectures in desired_koji_tags.items():
+                for build in self._iterate_flatpak_builds(koji_tag):
+                    build_items = [(build, koji_tag_start_date)]
+
+                    self._add_build_history(build.repository, koji_tag, architectures, build_items)
 
     def write(self):
         filename = os.path.join(self.global_config.work_dir, self.config.name + ".json")
@@ -251,30 +201,7 @@ class PyxisUpdater(object):
             registry.add_index(index_config)
 
         for registry in registries.values():
-            desired_tags = {index_config.tag for index in registry.tag_indexes}
-
-            if len(registry.tag_indexes) > 0:
-                for repository, tag_name, arch, image_info, all_tags, digest in \
-                        registry.iterate_images(desired_tags):
-
-                    for index_config in registry.tag_indexes:
-                        if (tag_name == index_config.tag and
-                            (index_config.architecture is None or
-                             arch == index_config.architecture)):
-
-                            registry.add_image(repository, image_info, all_tags, digest=digest)
-                            break
-
-            for koji_tag, indexes in registry.koji_indexes.items():
-                for repository, tag_name, arch, image_info, all_tags, digest in \
-                        registry.iterate_koji_images(koji_tag):
-
-                    for index_config in indexes:
-                        if index_config.architecture is None or \
-                               arch == index_config.architecture:
-                            registry.add_image(repository, image_info, all_tags, digest=digest)
-                            break
-
+            registry.find_images()
             registry.write()
 
     def stop(self):

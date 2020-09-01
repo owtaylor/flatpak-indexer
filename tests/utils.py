@@ -52,9 +52,33 @@ _TEST_ICON_DATA = \
     sEV9x7D90uN/tPh70+X3X82aXIZ8Z5vMAAAAAElFTkSuQmCC""".replace('\n', '')
 
 
+_AISLERIOT_LABELS = {
+    "org.flatpak.ref": "app/org.gnome.Aisleriot/x86_64/stable",
+    "org.freedesktop.appstream.icon-64": "data:image/png;base64," + _TEST_ICON_DATA,
+    "org.freedesktop.appstream.icon-128": "https://www.example.com/icons/aisleriot.png",
+}
+
+
+_AISLERIOT2_LABELS = {
+    "org.flatpak.ref": "app/org.gnome.Aisleriot2/x86_64/stable",
+    "org.freedesktop.appstream.icon-64": "data:image/png;base64," + _TEST_ICON_DATA,
+}
+
+
+def _pyxis_labels(labels):
+    return [
+        {
+            'name': key,
+            'value': value
+        }
+        for key, value in labels.items()
+    ]
+
+
 _KOJI_BUILDS = [
     {
         'build_id': 1063042,
+        'completion_ts': 1598464962.42521,
         'extra': {
             'image': {
                 'flatpak': True,
@@ -70,10 +94,16 @@ _KOJI_BUILDS = [
                         'registry-proxy.engineering.redhat.com/rh-osbs/aisleriot:' +
                         'el8-8020020200121102609.1'],
                     'tags': ['el8-8020020200121102609.1'],
-                    'unique_tags': ['rhel-8.2.0-candidate-73622-20200121110852']},
+                },
+                'modules': ['aisleriot-el8-8020020200121102609'],
             }
         },
+        'name': 'aisleriot-container',
         'nvr': 'aisleriot-container-el8-8020020200121102609.1',
+        'owner_name': 'jdoe',
+        'package_id': 22,
+        'source': 'git://pkgs.devel.redhat.com/containers/aisleriot#AISLERIOT_GIT_DIGEST',
+        '_TYPE': 'image',
         '_TAGS': ['release-candidate'],
         '_ARCHIVES': [
             {
@@ -81,20 +111,83 @@ _KOJI_BUILDS = [
                     'docker': {
                         'config': {
                             'architecture': 'amd64',
+                            'config': {
+                                'Labels': _AISLERIOT_LABELS,
+                            },
+                            'os': 'linux',
+                            'rootfs': {
+                                'diff_ids': ['sha256:5a1ad']
+                            },
                         },
                         'digests': {
                             'application/vnd.docker.distribution.manifest.v2+json':
                             'sha256:' +
                                 'bo1dfacec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb',
-                        }
+                        },
+                        'repositories': [
+                            'registry-proxy.engineering.redhat/rh-osbs/aisleriot:build-1234-x86_64'
+                        ]
+                    },
+                    'image': {
+                        'arch': 'x86_64',
                     }
-                }
+                },
+                'id': 15321,
             }
         ]
     },
     {
+        'build_id': 54321,
+        'completion_ts': 1598464000.,
+        'extra': {
+            'typeinfo': {
+                'module': {
+                    'modulemd_str': 'xxxxx',
+                },
+            }
+        },
+        'name': 'aisleriot',
+        'nvr': 'aisleriot-el8-8020020200121102609.73699f59',
+        'owner_name': 'jdoe',
+        'source': 'git://pkgs.devel.redhat.com/modules/aisleriot#AISLERIOT_MODULE_DIGEST',
+        'package_id': 21,
+        '_TYPE': 'module',
+        '_TAGS': [],
+        '_ARCHIVES': [
+            {
+                'filename': 'modulemd.txt',
+                'id': 1001,
+            },
+        ],
+    },
+    {
         'build_id': 1063043,
+        'completion_ts': 1598465000.0,
+        'extra': {
+            'image': {
+                'flatpak': True,
+                'index': {
+                    'digests': {'application/vnd.docker.distribution.manifest.list.v2+json':
+                                'sha256:' +
+                                'AISLERIOT2_DIGEST'},
+
+                    'floating_tags': ['latest', 'el8'],
+                    'pull': [
+                        'registry-proxy.engineering.redhat.com/rh-osbs/aisleriot2@' +
+                        'sha256:AISLERIOT2_DIGEST',
+                        'registry-proxy.engineering.redhat.com/rh-osbs/aisleriot2:' +
+                        'el8-8020020200121102609.1'],
+                    'tags': ['el8-8020020200121102609.1'],
+                },
+                'modules': ['aisleriot-el8-8020020200121102609'],
+            }
+        },
+        'name': 'aisleriot2-container',
         'nvr': 'aisleriot2-container-el8-8020020200121102609.1',
+        'owner_name': 'jdoe',
+        'package_id': 23,
+        'source': 'git://pkgs.devel.redhat.com/containers/aisleriot2#AISLERIOT2_GIT_DIGEST',
+        '_TYPE': 'image',
         '_TAGS': [],
         '_ARCHIVES': [
             {
@@ -102,20 +195,56 @@ _KOJI_BUILDS = [
                     'docker': {
                         'config': {
                             'architecture': 'amd64',
+                            'config': {
+                                'Labels': _AISLERIOT2_LABELS,
+                            },
+                            'os': 'linux',
+                            'rootfs': {
+                                'diff_ids': ['sha256:5a1ad']
+                            },
                         },
                         'digests': {
                             'application/vnd.docker.distribution.manifest.v2+json':
                             'sha256:' +
                                 '5eaf00d1c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb',
-                        }
+                        },
+                        'repositories': [
+                            'registry-proxy.engineering.redhat/rh-osbs/aisleriot2:build-3456-x86_64'
+                        ]
+                    },
+                    'image': {
+                        'arch': 'x86_64',
                     }
-                }
+                },
+                'id': 16321,
             }
         ]
     },
     {
         'build_id': 1063044,
+        'completion_ts': 1598466000.0,
+        'extra': {
+            'image': {
+                'index': {
+                    'digests': {'application/vnd.docker.distribution.manifest.list.v2+json':
+                                'sha256:TESTREPO_DIGEST'},
+
+                    'floating_tags': ['latest', 'el8'],
+                    'pull': [
+                        'registry-proxy.engineering.redhat.com/rh-osbs/testrepo@' +
+                        'sha256:TESTREPO_DIGEST',
+                        'registry-proxy.engineering.redhat.com/rh-osbs/testrepo:' +
+                        '1.2.3-1'],
+                    'tags': ['1.2.3-1'],
+                }
+            }
+        },
+        'name': 'testrepo-container',
         'nvr': 'testrepo-container-1.2.3-1',
+        'owner_name': 'jdoe',
+        'package_id': 24,
+        'source': 'git://pkgs.devel.redhat.com/containers/testrepo#TESTREPO_GIT_DIGEST',
+        '_TYPE': 'image',
         '_TAGS': [],
         '_ARCHIVES': [
             {
@@ -123,28 +252,54 @@ _KOJI_BUILDS = [
                     'docker': {
                         'config': {
                             'architecture': 'amd64',
+                            'config': {
+                            },
+                            'os': 'linux',
+                            'rootfs': {
+                                'diff_ids': ['sha256:5a1ad']
+                            },
                         },
                         'digests': {
                             'application/vnd.docker.distribution.manifest.v2+json':
                             'sha256:' +
                                 'babb1ed1c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb',
-                        }
+                        },
+                        'repositories': [
+                            'registry-proxy.engineering.redhat/rh-osbs/testrepo:build-6789-x86_64'
+                        ]
+                    },
+                    'image': {
+                        'arch': 'x86_64',
                     }
-                }
+                },
+                'id': 17321,
             },
             {
                 'extra': {
                     'docker': {
                         'config': {
                             'architecture': 'ppc64le',
+                            'config': {
+                            },
+                            'os': 'linux',
+                            'rootfs': {
+                                'diff_ids': ['sha256:5a1ad']
+                            },
                         },
                         'digests': {
                             'application/vnd.docker.distribution.manifest.v2+json':
                             'sha256:' +
                                 'fl055ed1c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb',
-                        }
+                        },
+                        'repositories': [
+                            'registry-proxy.engineering.redhat/rh-osbs/testrepo:build-6789-ppc64le'
+                        ]
+                    },
+                    'image': {
+                        'arch': 'ppc64le',
                     }
-                }
+                },
+                'id': 17322,
             },
         ]
     }
@@ -170,6 +325,11 @@ _REPOSITORIES = [
     {
         'registry': 'registry.example.com',
         'repository': 'aisleriot2',
+        'image_usage_type': 'Flatpak',
+    },
+    {
+        'registry': 'registry.example.com',
+        'repository': 'aisleriot3',
         'image_usage_type': 'Flatpak',
     }
 ]
@@ -217,20 +377,7 @@ _REPO_IMAGES = [
         'parsed_data': {
             'architecture': 'amd64',
             'os': 'linux',
-            'labels': [
-                {
-                    "name": "org.flatpak.ref",
-                    "value": "app/org.gnome.Aisleriot/x86_64/stable",
-                },
-                {
-                    "name": "org.freedesktop.appstream.icon-64",
-                    "value": "data:image/png;base64," + _TEST_ICON_DATA,
-                },
-                {
-                    "name": "org.freedesktop.appstream.icon-128",
-                    "value": "https://www.example.com/icons/aisleriot.png",
-                }
-            ],
+            'labels': _pyxis_labels(_AISLERIOT_LABELS)
         },
         'repositories': [
             {
@@ -255,16 +402,7 @@ _REPO_IMAGES = [
         'parsed_data': {
             'architecture': 'amd64',
             'os': 'linux',
-            'labels': [
-                {
-                    "name": "org.flatpak.ref",
-                    "value": "app/org.gnome.Aisleriot2/x86_64/stable",
-                },
-                {
-                    "name": "org.freedesktop.appstream.icon-64",
-                    "value": "data:image/png;base64," + _TEST_ICON_DATA,
-                },
-            ],
+            'labels': _pyxis_labels(_AISLERIOT2_LABELS),
         },
         'repositories': [
             {
@@ -304,6 +442,43 @@ _REPO_IMAGES = [
             }
         ]
     }
+]
+
+
+_TAG_HISTORIES = [
+    {
+        "history": [
+            {
+                "brew_build": "aisleriot-container-el8-8020020200121102609.1",
+                "start_date": "2020-07-23T19:30:04+00:00"
+            },
+        ],
+        "registry": "registry.example.com",
+        "repository": "aisleriot",
+        "tag": "latest",
+    },
+    {
+        "history": [
+            {
+                "brew_build": "aisleriot2-container-el8-8020020200121102609.1",
+                "start_date": "2020-07-23T19:30:04+00:00"
+            },
+        ],
+        "registry": "registry.example.com",
+        "repository": "aisleriot2",
+        "tag": "latest",
+    },
+    {
+        "history": [
+            {
+                "brew_build": "testrepo-container-1.2.3-1",
+                "start_date": "2020-07-23T19:30:04+00:00"
+            },
+        ],
+        "registry": "registry.example.com",
+        "repository": "testrepo",
+        "tag": "latest",
+    },
 ]
 
 
@@ -377,6 +552,31 @@ def _get_repositories(request):
     return _paged_result(params, repos)
 
 
+_GET_TAG_HISTORY_RE = re.compile(
+    r'^https://pyxis.example.com/' +
+    r'v1/tag-history/registry/([A-Za-z0-9.]+)/repository/([A-Za-z0-9.]+)/tag/([A-Za-z0-9.]+)')
+
+
+def _get_tag_history(request):
+    parsed = urlparse(request.url)
+
+    m = _GET_TAG_HISTORY_RE.match('https://pyxis.example.com' + parsed.path)
+    assert m is not None
+
+    for tag_history in _TAG_HISTORIES:
+        if (tag_history['registry'] == m.group(1) and
+                tag_history['repository'] == m.group(2) and
+                tag_history['tag'] == m.group(3)):
+            return (200, {}, json.dumps(tag_history))
+
+    return (404, {}, json.dumps({
+        "detail": "The requested URL was not found on the server.",
+        "status": 404,
+        "title": "Not Found",
+        "type": "about:blank"
+    }))
+
+
 def mock_pyxis():
     responses.add_callback(responses.GET,
                            _GET_IMAGES_RE,
@@ -393,6 +593,49 @@ def mock_pyxis():
                            callback=_get_repositories,
                            content_type='application/json',
                            match_querystring=False)
+    responses.add_callback(responses.GET,
+                           _GET_TAG_HISTORY_RE,
+                           callback=_get_tag_history,
+                           content_type='application/json',
+                           match_querystring=False)
+
+
+def _koji_get_build(build_id):
+    if isinstance(build_id, int):
+        key = 'build_id'
+    else:
+        key = 'nvr'
+
+    for build in _KOJI_BUILDS:
+        if build[key] == build_id:
+            return build
+
+    raise RuntimeError("Build {} not found".format(build_id))
+
+
+def _koji_get_package_id(name):
+    for build in _KOJI_BUILDS:
+        if build['name'] == name:
+            return build['package_id']
+
+    raise RuntimeError("Package {} not found".format(name))
+
+
+def _koji_list_archives(build_id):
+    for build in _KOJI_BUILDS:
+        if build['build_id'] == build_id:
+            return build['_ARCHIVES']
+
+    raise RuntimeError("Build {} not found".format(build_id))
+
+
+def _koji_list_builds(build_id, type=None):
+    result = []
+    for build in _KOJI_BUILDS:
+        if type is None or build['_TYPE'] == type:
+            result.append(build)
+
+    return result
 
 
 def _koji_list_tagged(tag, type, latest):
@@ -410,31 +653,10 @@ def _koji_list_tagged(tag, type, latest):
     return result
 
 
-def _koji_get_build(build_id):
-    if isinstance(build_id, int):
-        key = 'build_id'
-    else:
-        key = 'nvr'
-
-    for build in _KOJI_BUILDS:
-        if build[key] == build_id:
-            return build
-
-    raise RuntimeError("Build {} not found".format(build_id))
-
-
 def _koji_list_tags(build_id):
     for build in _KOJI_BUILDS:
         if build['build_id'] == build_id:
             return [{'name': t} for t in build['_TAGS']]
-
-    raise RuntimeError("Build {} not found".format(build_id))
-
-
-def _koji_list_archives(build_id):
-    for build in _KOJI_BUILDS:
-        if build['build_id'] == build_id:
-            return build['_ARCHIVES']
 
     raise RuntimeError("Build {} not found".format(build_id))
 
@@ -451,10 +673,12 @@ def mock_brew(f):
             session = MagicMock()
             ClientSession.return_value = session
 
-            session.listTagged.side_effect = _koji_list_tagged
             session.getBuild.side_effect = _koji_get_build
-            session.listTags.side_effect = _koji_list_tags
+            session.getPackageID.side_effect = _koji_get_package_id
             session.listArchives.side_effect = _koji_list_archives
+            session.listBuilds.side_effect = _koji_list_builds
+            session.listTagged.side_effect = _koji_list_tagged
+            session.listTags.side_effect = _koji_list_tags
 
             return f(*args, **kwargs)
 
