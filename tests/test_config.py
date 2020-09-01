@@ -96,6 +96,19 @@ def test_str_list_type(tmp_path):
         get_config(tmp_path, config_data)
 
 
+def test_dict_list_type(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    config_data['local_certs'] = "FOO"
+    with raises(ConfigError,
+                match="local_certs must be a mapping with string values"):
+        get_config(tmp_path, config_data)
+
+    config_data['local_certs'] = {"FOO": 1}
+    with raises(ConfigError,
+                match="local_certs must be a mapping with string values"):
+        get_config(tmp_path, config_data)
+
+
 def test_environment_variable(tmp_path):
     os.environ["DOMAIN_NAME"] = 'pyxis.example.com'
     CONFIG = {
@@ -133,15 +146,20 @@ def test_environment_variable_missing(tmp_path):
 
 def test_cert_relative(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
-    config_data['pyxis_cert'] = 'test.crt'
+    config_data['local_certs'] = {
+        'pyxis.example.com': 'test.crt'
+    }
     conf = get_config(tmp_path, config_data)
-    assert os.path.isabs(conf.pyxis_cert)
-    assert os.path.exists(conf.pyxis_cert)
+    cert = conf.find_local_cert('https://pyxis.example.com')
+    assert os.path.isabs(cert)
+    assert os.path.exists(cert)
 
 
 def test_cert_missing(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
-    config_data['pyxis_cert'] = str(tmp_path / "nothere.crt")
+    config_data['local_certs'] = {
+        'pyxis.example.com': str(tmp_path / "nothere.crt")
+    }
     with raises(ConfigError, match="nothere.crt does not exist"):
         get_config(tmp_path, config_data)
 

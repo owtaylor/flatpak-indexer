@@ -62,8 +62,9 @@ class Registry:
             kwargs = {
             }
 
-            if self.global_config.pyxis_cert is None:
-                kwargs['verify'] = True
+            cert = self.global_config.find_local_cert(self.global_config.pyxis_url)
+            if cert:
+                kwargs['verify'] = cert
             else:
                 kwargs['verify'] = self.global_config.pyxis_cert
 

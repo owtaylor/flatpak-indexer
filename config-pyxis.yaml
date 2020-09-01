@@ -1,13 +1,16 @@
 #pyxis_url: https://catalog.redhat.com/api/containers/v1
 pyxis_url: https://pyxis.engineering.redhat.com/v1
-# if missing, system trust root is used; if relative, looked up in included certs
-pyxis_cert: RH-IT-Root-CA.crt
 # these define a client certificate/key pair to authenticate to pyxis; this
 # shows environment variable substitution with a fallback
 pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
 pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
 # name of a Koji config section
 koji_config: brew
+# Allowing overriding the system trust DB for https connections to certain hosts;
+# if relative, the path is looked up in included certs
+local_certs:
+  pyxis.engineering.redhat.com: RH-IT-Root-CA.crt
+  registry-proxy.engineering.redhat.com: RH-IT-Root-CA.crt
 # This is a directory that is used to store intermediate extracted information
 # passed from the data source to the indexer
 work_dir: ${WORK_DIR:work}

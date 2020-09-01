@@ -42,7 +42,8 @@ def test_download_layer(registry, tmp_path):
     """
     manifest_digest, test_layer = registry.add_fake_image('repo1', 'latest')
 
-    registry_client = RegistryClient('https://registry.example.com')
+    registry_client = RegistryClient('https://registry.example.com',
+                                     ca_cert='test.crt')
     out_path = tmp_path / "layer"
     registry_client.download_layer('repo1', manifest_digest,
                                    test_layer.diff_id,
@@ -77,6 +78,40 @@ def test_download_layer_progress(registry, tmp_path):
     assert total_bytes > 0
     # Expect a callback for every chunk
     assert bytes_read == total_bytes
+
+
+@mock_registry(flags='bearer_auth')
+def test_download_layer_bearer_auth(registry, tmp_path):
+    """
+    Test redirecting in response to UNAUTHORIZED
+    """
+    manifest_digest, layer = registry.add_fake_image('repo1', 'latest')
+
+    registry_client = RegistryClient('https://registry.example.com')
+    registry_client.download_layer('repo1', manifest_digest, layer.diff_id,
+                                   str(tmp_path / "layer"))
+
+
+@pytest.mark.parametrize('flags', [
+    # Test when we don't have creds to get a token
+    'bearer_auth',
+    # Or with an WWW-Authenticate header we can't handle
+    'bearer_auth_unknown_type',
+    # Or another type of WWW-Authenticate we can't handle
+    'bearer_auth_no_realm',
+])
+@mock_registry(required_creds=('someuser', 'somepassword'))
+def test_download_layer_bearer_auth_unauthorized(registry, tmp_path, flags):
+    """
+    Test bad outcomes when redirecting in response to UNAUTHORIZED
+    """
+    registry.flags = flags
+    manifest_digest, layer = registry.add_fake_image('repo1', 'latest')
+
+    registry_client = RegistryClient('https://registry.example.com')
+    with pytest.raises(requests.exceptions.HTTPError, match=r'401 Client Error'):
+        registry_client.download_layer('repo1', manifest_digest, layer.diff_id,
+                                       str(tmp_path / "layer"))
 
 
 @mock_registry(required_creds=('someuser', 'somepassword'))

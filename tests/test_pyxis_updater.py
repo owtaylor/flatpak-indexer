@@ -53,7 +53,7 @@ def test_pyxis_updater(tmp_path, server_cert, client_cert):
 
     config = get_config(tmp_path, CONFIG)
     if server_cert:
-        config.pyxis_cert = 'test.crt'
+        config.local_certs['pyxis.example.com'] = 'test.crt'
     if client_cert:
         config.pyxis_client_cert, config.pyxis_client_key = setup_client_cert(tmp_path)
 

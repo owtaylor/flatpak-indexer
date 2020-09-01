@@ -1,7 +1,8 @@
 from enum import Enum
 import os
-import yaml
+from urllib.parse import urlparse
 
+import yaml
 
 from .utils import substitute_env_vars
 
@@ -104,6 +105,13 @@ class Lookup:
 
         return [substitute_env_vars(v) for v in val]
 
+    def get_str_dict(self, key, default=Defaults.REQUIRED):
+        val = self._get(key, default)
+        if not isinstance(val, dict) or not all(isinstance(v, str) for v in val.values()):
+            raise ConfigError("{} must be a mapping with string values".format(self._get_path(key)))
+
+        return {substitute_env_vars(k): substitute_env_vars(v) for k, v in val.items()}
+
 
 class Config:
     def __init__(self, path):
@@ -120,14 +128,7 @@ class Config:
         self.pyxis_url = lookup.get_str('pyxis_url', None)
         if self.pyxis_url is not None and not self.pyxis_url.endswith('/'):
             self.pyxis_url += '/'
-        self.pyxis_cert = lookup.get_str('pyxis_cert', None)
-        if self.pyxis_cert is not None:
-            if not os.path.isabs(self.pyxis_cert):
-                cert_dir = os.path.join(os.path.dirname(__file__), 'certs')
-                self.pyxis_cert = os.path.join(cert_dir, self.pyxis_cert)
 
-            if not os.path.exists(self.pyxis_cert):
-                raise ConfigError("pyxis_cert: {} does not exist".format(self.pyxis_cert))
         self.pyxis_client_cert = lookup.get_str('pyxis_client_cert', None)
         self.pyxis_client_key = lookup.get_str('pyxis_client_key', None)
 
@@ -145,6 +146,18 @@ class Config:
                     "pyxis_client_key: {} does not exist".format(self.pyxis_client_key))
 
         self.koji_config = lookup.get_str('koji_config')
+
+        local_certs = lookup.get_str_dict('local_certs', {})
+        self.local_certs = {}
+        for k, v in local_certs.items():
+            if not os.path.isabs(v):
+                cert_dir = os.path.join(os.path.dirname(__file__), 'certs')
+                v = os.path.join(cert_dir, v)
+
+            if not os.path.exists(v):
+                raise ConfigError("local_certs: {} does not exist".format(v))
+
+            self.local_certs[k] = v
 
         self.work_dir = lookup.get_str('work_dir')
 
@@ -233,3 +246,6 @@ class Config:
                                       .format(index_config.name))
 
         self.daemon = DaemonConfig(Lookup(yml.get('daemon', {}), 'daemon'))
+
+    def find_local_cert(self, url):
+        return self.local_certs.get(urlparse(url).hostname)

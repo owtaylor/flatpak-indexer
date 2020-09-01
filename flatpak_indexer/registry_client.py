@@ -47,10 +47,19 @@ CHUNK_SIZE = 64 * 1024
 PROGRESS_INTERVAL = 1
 
 
+class BearerAuth(requests.auth.AuthBase):
+    def __init__(self, token):
+        self.token = token
+
+    def __call__(self, r):
+        r.headers['Authorization'] = 'Bearer ' + self.token
+        return r
+
+
 class RegistrySession(object):
     """Wrapper around requests.Session adding docker-specific behavior."""
 
-    def __init__(self, registry, insecure=False, creds=None, cert_dir=None):
+    def __init__(self, registry, creds=None, cert_dir=None, ca_cert=None):
         """
         Initialize the RegistrySession.
 
@@ -58,15 +67,15 @@ class RegistrySession(object):
             registry_url (str): the base URL for the registry
             creds (str): user:password (may be None).
             cert_dir (str): A path to directory holding client certificates, or None.
+           ca_cert (str): A path to a bundle of trusted ca certificates
         """
         self.registry_url = registry
 
         parsed = urlparse(self.registry_url)
         self.registry_hostport = parsed.hostname + (f":{parsed.port}" if parsed.port else "")
 
-        self.insecure = insecure
-
         self.cert = self._find_cert(cert_dir)
+        self.ca_cert = ca_cert
 
         self.auth = None
         if creds is not None:
@@ -141,6 +150,8 @@ class RegistrySession(object):
         """
         kwargs['auth'] = self.auth
         kwargs['cert'] = self.cert
+        if self.ca_cert:
+            kwargs['verify'] = self.ca_cert
 
         return f(self.registry_url + relative_url, *args, **kwargs)
 
@@ -160,7 +171,7 @@ class RegistrySession(object):
 class RegistryClient(object):
     """The source or destination of a copy operation to a docker registry."""
 
-    def __init__(self, registry_url, creds=None, cert_dir=None):
+    def __init__(self, registry_url, creds=None, cert_dir=None, ca_cert=None):
         """
         Initialize the registry spec.
 
@@ -168,8 +179,10 @@ class RegistryClient(object):
            registry_url (str): the base URL for the registry
            creds (str): user:password (may be None).
            cert_dir (str): A path to directory holding client certificates, or None.
+           ca_cert (str): A path to a bundle of trusted ca certificates
         """
-        self.session = RegistrySession(registry_url, creds=creds, cert_dir=cert_dir)
+        self.session = RegistrySession(registry_url,
+                                       creds=creds, cert_dir=cert_dir, ca_cert=ca_cert)
 
     def download_blob(self, repository, digest, size, blob_path,
                       progress_callback=None):
