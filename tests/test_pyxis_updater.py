@@ -85,6 +85,7 @@ def test_pyxis_updater(tmp_path, server_cert, client_cert):
 REPOSITORY_OVERRIDE_CONFIG = yaml.safe_load("""
 work_dir: ${WORK_DIR}
 pyxis_url: https://pyxis.example.com/v1
+redis_url: redis://localhost
 koji_config: brew
 registries:
     registry.example.com:
@@ -128,6 +129,7 @@ def test_pyxis_updater_repository_override(tmp_path):
 KOJI_CONFIG = yaml.safe_load("""
 work_dir: ${WORK_DIR}
 pyxis_url: https://pyxis.example.com/v1
+redis_url: redis://localhost
 koji_config: brew
 registries:
     brew:

@@ -133,7 +133,7 @@ class Config:
         self.pyxis_client_cert = lookup.get_str('pyxis_client_cert', None)
         self.pyxis_client_key = lookup.get_str('pyxis_client_key', None)
 
-        self.redis_url = lookup.get_str('redis_url', None)
+        self.redis_url = lookup.get_str('redis_url')
 
         if (not self.pyxis_client_cert) != (not self.pyxis_client_key):
             raise ConfigError("pyxis_client_cert and pyxis_client_key must be set together")
@@ -186,12 +186,6 @@ class Config:
                 raise ConfigError("registry/{}: datasource must be 'pyxis' or 'fedora'"
                                   .format(registry_config.name))
 
-            if registry_config.datasource == 'fedora':
-                if self.redis_url is None:
-                    raise ConfigError(("registry/{}: " +
-                                       "redis_url must be configured for the fedora datasource")
-                                      .format(registry_config.name))
-
             if registry_config.datasource == 'pyxis':
                 if self.pyxis_url is None:
                     raise ConfigError(("registry/{}: " +
@@ -223,10 +217,6 @@ class Config:
                 if self.deltas_dir is None:
                     raise ConfigError(("indexes/{}: delta_keep_days is set, " +
                                        "but no deltas_dir is configured")
-                                      .format(index_config.name))
-                if self.redis_url is None:
-                    raise ConfigError(("indexes/{}: delta_keep_days is set, " +
-                                       "but no redis_url is configured")
                                       .format(index_config.name))
 
             if registry_config.datasource == 'pyxis':

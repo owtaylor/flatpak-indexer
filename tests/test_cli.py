@@ -124,6 +124,7 @@ def test_index(tmp_path, caplog, verbose):
 
 DIFFER_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
+redis_url: redis://localhost
 koji_config: brew
 deltas_dir: ${OUTPUT_DIR}/deltas/
 deltas_uri: https://flatpaks.fedoraproject.org/deltas

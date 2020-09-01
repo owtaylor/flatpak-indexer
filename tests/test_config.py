@@ -113,6 +113,7 @@ def test_environment_variable(tmp_path):
     os.environ["DOMAIN_NAME"] = 'pyxis.example.com'
     CONFIG = {
         'pyxis_url': 'https://${DOMAIN_NAME}/v1',
+        'redis_url': 'redis://localhost',
         'work_dir': '/flatpak-work',
         'koji_config': 'brew',
     }
@@ -125,6 +126,7 @@ def test_environment_variable_default(tmp_path):
         del os.environ["DOMAIN_NAME"]
     CONFIG = {
         'pyxis_url': 'https://${DOMAIN_NAME:pyxis.example.com}/v1',
+        'redis_url': 'redis://localhost',
         'work_dir': '/flatpak-work',
         'koji_config': 'brew',
     }
@@ -214,11 +216,11 @@ def test_pyxis_url_missing(tmp_path):
         get_config(tmp_path, config_data)
 
 
-def test_redis_url_missing_fedora(tmp_path):
+def test_redis_url_missing(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
     del config_data['redis_url']
     with raises(ConfigError,
-                match='registry/fedora: redis_url must be configured for the fedora datasource'):
+                match='A value is required for redis_url'):
         get_config(tmp_path, config_data)
 
 
@@ -309,17 +311,6 @@ def test_deltas_dir_missing(tmp_path):
     with raises(ConfigError,
                 match=("indexes/fedora-testing: " +
                        "delta_keep_days is set, but no deltas_dir is configured")):
-        get_config(tmp_path, config_data)
-
-
-def test_redis_url_missing_deltas(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    del config_data['redis_url']
-    del config_data['registries']['fedora']
-    del config_data['indexes']['fedora-testing']
-    config_data['indexes']['amd64']['delta_keep_days'] = 7
-    with raises(ConfigError,
-                match="indexes/amd64: delta_keep_days is set, but no redis_url is configured"):
         get_config(tmp_path, config_data)
 
 
