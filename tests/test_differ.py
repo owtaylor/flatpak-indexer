@@ -77,7 +77,7 @@ def check_success(key):
     assert result.message == ""
 
 
-def check_failure(key):
+def check_failure(key, status, message):
     redis_client = redis.Redis.from_url("redis://localhost")
 
     assert redis_client.scard('tardiff:pending') == 0
@@ -87,9 +87,9 @@ def check_failure(key):
     result_raw = redis_client.get(f"tardiff:result:{key}")
     result = TardiffResultModel.from_json_text(result_raw)
 
-    assert result.status == "diff-error"
+    assert result.status == status
     assert result.digest == ""
-    assert result.message == "tardiff failed"
+    assert result.message == message
 
 
 @mock_redis
@@ -111,6 +111,37 @@ def test_differ(registry, config):
 
 @mock_redis
 @mock_registry(registry='registry.fedoraproject.org')
+@pytest.mark.parametrize('fail_from, fail_to', [
+    (True, False),
+    (False, True),
+])
+def test_differ_tardiff_download_error(registry, config, fail_from, fail_to):
+    if fail_from:
+        old_manifest_digest, old_diff_id = 'sha256:not-there', 'whatever'
+    else:
+        old_manifest_digest, old_layer = registry.add_fake_image('ghex', 'latest',
+                                                                 layer_contents=b"GARBAGE")
+        old_diff_id = old_layer.diff_id
+
+    if fail_to:
+        new_manifest_digest, new_diff_id = 'sha256:not-there', 'whatever'
+    else:
+        new_manifest_digest, new_layer = registry.add_fake_image('ghex', 'latest',
+                                                                 layer_contents=b"GARBAGE")
+        new_diff_id = new_layer.diff_id
+
+    key = queue_task(old_manifest_digest, old_diff_id,
+                     new_manifest_digest, new_diff_id)
+
+    differ = Differ(config)
+    differ.run(max_tasks=1)
+
+    check_failure(key, 'download-error',
+                  "downloading from layer failed" if fail_from else "downloading to layer failed")
+
+
+@mock_redis
+@mock_registry(registry='registry.fedoraproject.org')
 def test_differ_tardiff_failure(registry, config):
     old_manifest_digest, old_layer = registry.add_fake_image('ghex', 'latest',
                                                              layer_contents=b"GARBAGE")
@@ -122,7 +153,7 @@ def test_differ_tardiff_failure(registry, config):
     differ = Differ(config)
     differ.run(max_tasks=1)
 
-    check_failure(key)
+    check_failure(key, 'diff-error', "tardiff failed")
 
 
 @mock_redis

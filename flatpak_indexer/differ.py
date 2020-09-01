@@ -6,6 +6,7 @@ import tempfile
 import time
 
 import redis
+import requests
 
 from .models import TardiffSpecModel, TardiffResultModel
 from .registry_client import RegistryClient
@@ -79,10 +80,26 @@ class Differ:
             def progress(*args):
                 self.redis_client.zadd('tardiff:progress', {task: datetime.now().timestamp()})
 
-            self._download_layer(spec.from_image, spec.from_diff_id,
-                                 from_path, progress_callback=progress)
-            self._download_layer(spec.to_image, spec.to_diff_id,
-                                 to_path, progress_callback=progress)
+            try:
+                self._download_layer(spec.from_image, spec.from_diff_id,
+                                     from_path, progress_callback=progress)
+            except (requests.exceptions.HTTPError, requests.exceptions.SSLError) as e:
+                logger.info("Failed to download from layer: %s", str(e))
+                return TardiffResultModel(status="download-error",
+                                          digest="",
+                                          size=0,
+                                          message="downloading from layer failed")
+
+            try:
+                self._download_layer(spec.to_image, spec.to_diff_id,
+                                     to_path, progress_callback=progress)
+            except (requests.exceptions.HTTPError, requests.exceptions.SSLError) as e:
+                logger.info("Failed to download to layer: %s", str(e))
+                return TardiffResultModel(status="download-error",
+                                          digest="",
+                                          size=0,
+                                          message="downloading to layer failed")
+
             args = ["tar-diff", from_path, to_path, result_path.name]
             logger.info("Calling %s", args)
             p = subprocess.Popen(args)
