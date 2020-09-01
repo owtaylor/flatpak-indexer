@@ -70,7 +70,8 @@ class Lookup:
             try:
                 return self.attrs[key]
             except KeyError:
-                raise ConfigError("A value is required for {}".format(self._get_path(key)))
+                raise ConfigError("A value is required for {}".format(self._get_path(key))) \
+                    from None
         else:
             return self.attrs.get(key, default)
 
