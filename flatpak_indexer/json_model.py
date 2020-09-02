@@ -221,8 +221,11 @@ def _make_model_field(name, type_):
     else:
         json_name = ''.join(x.capitalize() for x in name.split('_'))
 
-    # could use typing_inspect PyPI module
-    if str(type_).startswith('typing.Optional['):
+    # could use typing_inspect PyPI module; this hack is especially ugly
+    # since the string representation changed from python-3.8 to python-3.9
+    type_str = str(type_)
+    if (type_str.startswith('typing.Optional[') or
+            (type_str.startswith('typing.Union[') and type_str.endswith(', NoneType]'))):
         type_ = typing.get_args(type_)[0]
         optional = True
     else:
