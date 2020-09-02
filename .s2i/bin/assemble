@@ -1,0 +1,13 @@
+#!/bin/bash
+
+/usr/libexec/s2i/assemble
+rc=$?
+
+if [ $rc -ne 0 ]; then
+   exit $rc
+fi
+
+if [ "${FLATPAK_INDEXER_UPDATE_TEST_DATA:+set}" = set ] ; then
+   cd /opt/app-root/src
+   exec ./tools/update-test-data.sh --from-cache
+fi
