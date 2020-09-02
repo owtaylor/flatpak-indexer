@@ -54,7 +54,8 @@ class Downloader:
             self._load_build_ids(self.base)
             self._load_update_info(self.base)
 
-        options = koji.read_config(profile_name='koji')
+        koji_config_file = os.path.join(os.path.dirname(__file__), '../koji.conf')
+        options = koji.read_config(profile_name='fedora', user_config=koji_config_file)
         session_opts = koji.grab_session_options(options)
         self.koji_session = koji.ClientSession(options['server'], session_opts)
 
