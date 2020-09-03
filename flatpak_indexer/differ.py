@@ -9,6 +9,7 @@ import redis
 import requests
 
 from .models import TardiffSpecModel, TardiffResultModel
+from .redis_utils import get_redis_client
 from .registry_client import RegistryClient
 from .utils import path_for_digest, TemporaryPathname
 
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 class Differ:
     def __init__(self, config):
         self.config = config
-        self.redis_client = redis.Redis.from_url(self.config.redis_url)
+        self.redis_client = get_redis_client(config)
 
     def _wait_for_task(self, pubsub):
         got_message = False

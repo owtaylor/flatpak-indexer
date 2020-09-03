@@ -12,7 +12,7 @@ def mock_redis(f):
     def wrapper(*args, **kwargs):
         server = fakeredis.FakeServer()
 
-        def from_url(url):
+        def from_url(url, **kwargs):
             return fakeredis.FakeStrictRedis(server=server)
 
         with patch('redis.Redis.from_url', side_effect=from_url):

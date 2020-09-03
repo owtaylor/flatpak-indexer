@@ -1,7 +1,9 @@
 # name of a Koji config section
 koji_config: fedora
-# URL to a local Redis index for caching
+# URL to a local Redis index for caching and queuing
 redis_url: ${REDIS_URL:redis://localhost:6379}
+# Optional password to connect to Redis
+# redis_password: BRICK_SPINE_HORSE
 deltas_dir: ${OUTPUT_DIR:out}/deltas/
 deltas_uri: https://flatpaks.local.fishsoup.net:8443/deltas/
 # When extract_icons is set for an index, icons are saved to icons_dir and labels are

@@ -3,12 +3,12 @@ from datetime import datetime, timezone
 import logging
 
 import koji
-import redis
 import requests
 
 from ...koji_query import query_image_build
 from ...models import (FlatpakBuildModel, RegistryModel,
                        TagHistoryItemModel, TagHistoryModel)
+from ...redis_utils import get_redis_client
 from ...utils import get_retrying_requests_session, parse_date
 
 
@@ -33,7 +33,7 @@ class Registry:
         koji_session_opts = koji.grab_session_options(options)
         self.koji_session = koji.ClientSession(options['server'], koji_session_opts)
 
-        self.redis_client = redis.Redis.from_url(global_config.redis_url)
+        self.redis_client = get_redis_client(global_config)
 
     def add_index(self, index_config):
         if index_config.koji_tag:

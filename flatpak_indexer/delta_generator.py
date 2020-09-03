@@ -6,6 +6,7 @@ import redis
 import time
 
 from .models import TardiffImageModel, TardiffResultModel, TardiffSpecModel
+from .redis_utils import get_redis_client
 from .utils import atomic_writer, parse_pull_spec, path_for_digest, uri_for_digest
 
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 class DeltaGenerator:
     def __init__(self, config, progress_timeout_seconds=60):
         self.config = config
-        self.redis_client = redis.Redis.from_url(config.redis_url)
+        self.redis_client = get_redis_client(config)
         self.progress_timeout_seconds = progress_timeout_seconds
 
         self.now = datetime.utcnow().replace(tzinfo=timezone.utc)

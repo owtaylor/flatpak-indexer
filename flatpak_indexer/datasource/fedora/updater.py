@@ -1,11 +1,11 @@
 import koji
-import redis
 
-from ...utils import unparse_pull_spec
+from ...koji_query import query_image_build
 from ...models import RegistryModel, TagHistoryModel, TagHistoryItemModel
+from ...redis_utils import get_redis_client
+from ...utils import unparse_pull_spec
 
 from .bodhi_change_monitor import BodhiChangeMonitor
-from ...koji_query import query_image_build
 from .bodhi_query import (list_updates, refresh_all_updates,
                           refresh_update_status, reset_update_cache)
 
@@ -36,7 +36,7 @@ class FedoraUpdater(object):
     def __init__(self, config):
         self.conf = config
 
-        self.redis_client = redis.Redis.from_url(self.conf.redis_url)
+        self.redis_client = get_redis_client(config)
         self.change_monitor = None
 
         options = koji.read_config(profile_name=self.conf.koji_config)

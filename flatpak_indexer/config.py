@@ -134,6 +134,7 @@ class Config:
         self.pyxis_client_key = lookup.get_str('pyxis_client_key', None)
 
         self.redis_url = lookup.get_str('redis_url')
+        self.redis_password = lookup.get_str('redis_password', None)
 
         if (not self.pyxis_client_cert) != (not self.pyxis_client_key):
             raise ConfigError("pyxis_client_cert and pyxis_client_key must be set together")
