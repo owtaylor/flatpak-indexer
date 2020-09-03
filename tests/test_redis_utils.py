@@ -8,8 +8,8 @@ from .utils import get_config
 
 
 CONFIG = yaml.safe_load("""
-redis_url: redis://localhost
-redis_password: BRICK_SPINE_HORSE
+redis_url: redis://localhost:6379
+redis_password: BRICK+SPINE+HORSE
 koji_config: brew
 """)
 
@@ -19,7 +19,7 @@ def config(tmp_path):
     return get_config(tmp_path, CONFIG)
 
 
-@mock_redis
+@mock_redis(expect_url='redis://:BRICK%2BSPINE%2BHORSE@localhost:6379')
 def test_get_redis_client(config):
     redis_client = get_redis_client(config)
     redis_client.set("foo", b'42')
