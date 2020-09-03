@@ -13,10 +13,13 @@ from flatpak_indexer.utils import (atomic_writer,
                                    parse_pull_spec,
                                    unparse_pull_spec,
                                    path_for_digest,
+                                   run_with_stats,
                                    substitute_env_vars,
                                    SubstitutionError,
                                    TemporaryPathname,
                                    uri_for_digest)
+
+from .utils import timeout_first_popen_wait
 
 
 def test_retrying_requests_session():
@@ -171,3 +174,28 @@ def test_path_for_digest(tmp_path):
 def test_uri_for_digest():
     assert (uri_for_digest('https://example.com/files/', 'sha256:abcd', '.png') ==
             "https://example.com/files/ab/cd.png")
+
+
+def test_run_with_stats():
+    res, stats = run_with_stats(['/bin/true'])
+    assert res == 0
+    assert stats.max_mem_kib > 0
+    assert type(stats.elapsed_time_s) == float
+    assert type(stats.system_time_s) == float
+    assert type(stats.user_time_s) == float
+
+    res, stats = run_with_stats(['/bin/false'])
+    assert res != 0
+    assert stats is not None
+
+    with timeout_first_popen_wait():
+        progress_called = False
+
+        def progress():
+            nonlocal progress_called
+            progress_called = True
+
+        res, stats = run_with_stats(['/bin/true'], progress_callback=progress)
+        assert res == 0
+        assert stats is not None
+        assert progress_called

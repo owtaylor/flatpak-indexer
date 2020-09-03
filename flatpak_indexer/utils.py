@@ -1,10 +1,13 @@
 import codecs
+from collections import namedtuple
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from functools import reduce
 import hashlib
 import logging
 import os
 import re
+import subprocess
 from tempfile import NamedTemporaryFile
 from urllib.parse import urljoin
 
@@ -217,3 +220,38 @@ def path_for_digest(base_dir, digest, extension, create_subdir=False):
             os.mkdir(full_subdir)
 
     return os.path.join(base_dir, subdir, filename)
+
+
+ProcessStats = namedtuple('ProcessStas',
+                          ['max_mem_kib',
+                           'elapsed_time_s',
+                           'system_time_s',
+                           'user_time_s'])
+
+
+def run_with_stats(args, progress_callback=None):
+    with TemporaryPathname() as time_file:
+        time_args = ['time', '-q', '--format=%M %e %S %U', f'--output={time_file.name}'] + args
+        p = subprocess.Popen(time_args)
+
+        while True:
+            try:
+                result = p.wait(timeout=1)
+                break
+            except subprocess.TimeoutExpired:
+                pass
+
+            if progress_callback:
+                progress_callback()
+
+        with open(time_file.name, "r") as f:
+            y = f.read()
+            max_mem, elapsed_time, system_time, user_time = \
+                [x for x in y.strip().split()]
+
+            stats = ProcessStats(max_mem_kib=float(max_mem),
+                                 elapsed_time_s=float(elapsed_time),
+                                 system_time_s=float(system_time),
+                                 user_time_s=float(user_time))
+
+        return result, stats
