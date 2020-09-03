@@ -1,6 +1,5 @@
 import logging
 import os
-import subprocess
 import threading
 import time
 from unittest.mock import MagicMock, patch
@@ -14,7 +13,7 @@ from flatpak_indexer.models import TardiffImageModel, TardiffResultModel, Tardif
 
 from .redis import mock_redis
 from .registry import mock_registry
-from .utils import get_config
+from .utils import get_config, timeout_first_popen_wait
 
 
 CONFIG = yaml.safe_load("""
@@ -158,26 +157,13 @@ def test_differ_tardiff_failure(registry, config):
 @mock_redis
 @mock_registry(registry='registry.fedoraproject.org')
 def test_differ_tardiff_slow(registry, config):
-    old_manifest_digest, old_layer = registry.add_fake_image('ghex', 'latest',
-                                                             layer_contents=b"GARBAGE")
+    old_manifest_digest, old_layer = registry.add_fake_image('ghex', 'latest')
     new_manifest_digest, new_layer = registry.add_fake_image('ghex', 'latest')
 
     key = queue_task(old_manifest_digest, old_layer.diff_id,
                      new_manifest_digest, new_layer.diff_id)
 
-    count = 0
-
-    def timeout_wait(timeout=0):
-        nonlocal count
-        count += 1
-        if count == 1:
-            raise subprocess.TimeoutExpired("something", timeout)
-        else:
-            return 0
-
-    with patch('subprocess.Popen.wait') as m:
-        m.side_effect = timeout_wait
-
+    with timeout_first_popen_wait():
         differ = Differ(config)
         differ.run(max_tasks=1)
 

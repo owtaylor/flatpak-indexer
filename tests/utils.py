@@ -1,8 +1,10 @@
+from contextlib import contextmanager
 from functools import partial, update_wrapper, wraps
 import inspect
 import json
 import os
 import re
+import subprocess
 from tempfile import NamedTemporaryFile
 from unittest.mock import DEFAULT, MagicMock, patch
 from urllib.parse import parse_qs, urlparse
@@ -733,3 +735,25 @@ class WithArgDecorator:
             return result
         else:
             return wrapper
+
+
+class ImpatientPopen(subprocess.Popen):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._orig_wait = self.wait
+        self.wait = MagicMock(wraps=self.wait)
+        self.wait.side_effect = self.fail_first_wait
+
+    def fail_first_wait(self, timeout=None):
+        if timeout is not None:
+            self.wait.side_effect = None
+            raise subprocess.TimeoutExpired(str(self.args), timeout)
+        else:
+            self._orig_wait()
+
+
+@contextmanager
+def timeout_first_popen_wait():
+    with patch('subprocess.Popen', side_effect=ImpatientPopen):
+        yield
