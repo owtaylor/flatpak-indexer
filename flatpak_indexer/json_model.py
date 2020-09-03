@@ -89,6 +89,11 @@ class IntegerField(ScalarField):
     from_json = int
 
 
+class FloatField(ScalarField):
+    to_json = float
+    from_json = float
+
+
 class StringField(ScalarField):
     to_json = str
     from_json = str
@@ -249,6 +254,8 @@ def _make_model_field(name, type_):
             return StringField(name, json_name, optional=optional)
         elif type_ == int:
             return IntegerField(name, json_name, optional=optional)
+        elif type_ == float:
+            return FloatField(name, json_name, optional=optional)
         elif type_ == datetime:
             return DateTimeField(name, json_name, optional=optional)
 

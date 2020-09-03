@@ -33,6 +33,19 @@ def test_integer_field():
     assert from_json.f1 == 42
 
 
+def test_float_field():
+    class FloatStuff(BaseModel):
+        f1: float
+
+    obj = FloatStuff(f1=42.5)
+    JSON = {"F1": 42.5}
+
+    assert obj.to_json() == JSON
+
+    from_json = FloatStuff.from_json(JSON)
+    assert from_json.f1 == 42.5
+
+
 class DateTimeStuff(BaseModel):
     f1: datetime
 
