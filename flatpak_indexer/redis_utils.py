@@ -2,6 +2,7 @@ from urllib.parse import quote, urlparse, urlunparse
 
 import redis
 
+
 def get_redis_client(config):
     url = config.redis_url
 
@@ -15,6 +16,7 @@ def get_redis_client(config):
         if parts.port is not None:
             netloc += f':{parts.port}'
 
-        url = urlunparse((parts.scheme, netloc, parts.path, parts.params, parts.query, parts.fragment))
+        url = urlunparse((parts.scheme, netloc,
+                          parts.path, parts.params, parts.query, parts.fragment))
 
     return redis.Redis.from_url(url, decode_components=True)
