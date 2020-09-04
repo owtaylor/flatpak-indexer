@@ -11,7 +11,7 @@ import requests
 from .models import TardiffSpecModel, TardiffResultModel
 from .redis_utils import get_redis_client
 from .registry_client import RegistryClient
-from .utils import path_for_digest, TemporaryPathname
+from .utils import path_for_digest, run_with_stats, TemporaryPathname
 
 
 logger = logging.getLogger(__name__)
@@ -91,6 +91,8 @@ class Differ:
                                           size=0,
                                           message="downloading from layer failed")
 
+            from_size = os.stat(from_path).st_size
+
             try:
                 self._download_layer(spec.to_image, spec.to_diff_id,
                                      to_path, progress_callback=progress)
@@ -101,17 +103,11 @@ class Differ:
                                           size=0,
                                           message="downloading to layer failed")
 
+            to_size = os.stat(to_path).st_size
+
             args = ["tar-diff", from_path, to_path, result_path.name]
             logger.info("Calling %s", args)
-            p = subprocess.Popen(args)
-            while True:
-                try:
-                    result = p.wait(timeout=1)
-                    break
-                except subprocess.TimeoutExpired:
-                    pass
-
-                progress()
+            result, stats = run_with_stats(args, progress_callback=progress)
 
             if result == 0:
                 output = subprocess.check_output(["sha256sum", result_path.name], encoding="utf-8")
@@ -127,7 +123,13 @@ class Differ:
                 result = TardiffResultModel(status="success",
                                             digest=digest,
                                             size=size,
-                                            message="")
+                                            message="",
+                                            from_size=from_size,
+                                            to_size=to_size,
+                                            max_mem_kib=stats.max_mem_kib,
+                                            elapsed_time_s=stats.elapsed_time_s,
+                                            user_time_s=stats.user_time_s,
+                                            system_time_s=stats.system_time_s)
             else:
                 logger.info("tar-diff exited with status=%d", result)
                 result = TardiffResultModel(status="diff-error",

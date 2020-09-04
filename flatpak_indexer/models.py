@@ -107,3 +107,11 @@ class TardiffResultModel(BaseModel):
     digest: str
     size: int
     message: str
+
+    from_size: Optional[int]
+    to_size: Optional[int]
+
+    max_mem_kib: Rename[Optional[float], "MaxMemKiB"]  # noqa: F821
+    elapsed_time_s: Optional[float]
+    user_time_s: Optional[float]
+    system_time_s: Optional[float]

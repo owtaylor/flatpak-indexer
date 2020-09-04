@@ -60,7 +60,7 @@ def queue_task(from_ref, from_diff_id, to_ref, to_diff_id,
     return key
 
 
-def check_success(key):
+def check_success(key, old_layer, new_layer):
     redis_client = redis.Redis.from_url("redis://localhost")
 
     assert redis_client.scard('tardiff:pending') == 0
@@ -72,7 +72,13 @@ def check_success(key):
 
     assert result.status == "success"
     assert result.digest.startswith("sha256")
+    assert result.from_size == old_layer.size
+    assert result.to_size == new_layer.size
     assert result.message == ""
+    assert result.max_mem_kib > 0
+    assert type(result.elapsed_time_s) == float
+    assert type(result.user_time_s) == float
+    assert type(result.system_time_s) == float
 
 
 def check_failure(key, status, message):
@@ -104,7 +110,7 @@ def test_differ(registry, config):
     differ = Differ(config)
     differ.run(max_tasks=1)
 
-    check_success(key)
+    check_success(key, old_layer, new_layer)
 
 
 @mock_redis
@@ -167,7 +173,7 @@ def test_differ_tardiff_slow(registry, config):
         differ = Differ(config)
         differ.run(max_tasks=1)
 
-    check_success(key)
+    check_success(key, old_layer, new_layer)
 
 
 @mock_redis
@@ -205,7 +211,7 @@ def test_differ_wait(registry, config):
     finally:
         fill_queue_thread.join()
 
-    check_success(key)
+    check_success(key, old_layer, new_layer)
 
 
 class IffyPubSub(redis.client.PubSub):
@@ -265,4 +271,4 @@ def test_differ_connection_error(registry, config, fail_first_method, caplog):
         else:
             assert "Disconnected from Redis, sleeping for 0.05 seconds" in caplog.text
 
-    check_success(key)
+    check_success(key, old_layer, new_layer)
