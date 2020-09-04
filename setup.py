@@ -2,8 +2,8 @@ import os
 from setuptools import setup
 
 data_files = []
-if os.environ.get('FLATPAK_INDEXER_INSTALL_TAR_DIFF'):
-    data_files.append(('bin', ['bin/tar-diff']))
+if os.environ.get('FLATPAK_INDEXER_INSTALL_BINARIES'):
+    data_files.append(('bin', ['bin/tar-diff', 'bin/time']))
 
 setup(name='flatpak-indexer',
       version='0.1',

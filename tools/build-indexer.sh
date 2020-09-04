@@ -22,6 +22,7 @@ s2i build --copy --as-dockerfile=$work/Dockerfile $origin ubi8/python-38 flatpak
 tmp_container=$(podman create flatpak-indexer-tar-diff)
 mkdir -p -m 0755 $work/upload/src/bin
 podman cp $tmp_container:/opt/app-root/tar-diff $work/upload/src/bin/tar-diff
+podman cp $tmp_container:/usr/bin/time $work/upload/src/bin/time
 
 tmp_tag="flatpak-indexer:$(date +%Y%m%d-%H%M%S)"
 podman build $work -t $tmp_tag
