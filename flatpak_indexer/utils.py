@@ -2,7 +2,6 @@ import codecs
 from collections import namedtuple
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from functools import reduce
 import hashlib
 import logging
 import os
