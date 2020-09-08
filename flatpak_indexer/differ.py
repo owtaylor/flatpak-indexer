@@ -110,6 +110,10 @@ class Differ:
             result, stats = run_with_stats(args, progress_callback=progress)
 
             if result == 0:
+                logger.info("tar-diff: elapsed=%ss, user=%ss, system=%ss, maximum RSS=%s kIB",
+                            stats.elapsed_time_s, stats.user_time_s, stats.system_time_s,
+                            stats.max_mem_kib)
+
                 output = subprocess.check_output(["sha256sum", result_path.name], encoding="utf-8")
                 digest = 'sha256:' + output.strip().split()[0]
                 size = os.stat(result_path.name).st_size
