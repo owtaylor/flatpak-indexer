@@ -219,6 +219,29 @@ def test_unexpected_types():
             f: set
 
 
+def test_class_from_json():
+    class BaseClassStuff(BaseModel):
+        f1: str
+
+        @classmethod
+        def class_from_json(cls, data):
+            if 'F2' in data:
+                return DerivedClassStuff
+            else:
+                return BaseClassStuff
+
+    class DerivedClassStuff(BaseClassStuff):
+        f2: int
+
+    base_obj = BaseClassStuff(f1="foo")
+    base_obj2 = BaseClassStuff.from_json_text(base_obj.to_json_text())
+    assert isinstance(base_obj2, BaseClassStuff)
+
+    derived_obj = DerivedClassStuff(f1="foo", f2=42)
+    derived_obj2 = BaseClassStuff.from_json_text(derived_obj.to_json_text())
+    assert isinstance(derived_obj2, DerivedClassStuff)
+
+
 def test_to_json_text():
     obj = StringStuff(f1="foo")
     new_obj = obj.from_json_text(obj.to_json_text())

@@ -300,7 +300,16 @@ class BaseModel(metaclass=BaseModelMeta):
         return json.dumps(self.to_json())
 
     @classmethod
+    def class_from_json(cls, data):
+        # Perhaps this would be better if a type-tag-field was required
+        # with declarative tag => subclass.
+        """Returns the appropriate subclass to instantiate for the data"""
+        return cls
+
+    @classmethod
     def from_json(cls, data):
+        cls = cls.class_from_json(data)
+
         result = cls.__new__(cls)
         for field in cls.__fields__.values():
             setattr(result, field.python_name, field.python_value(data))
