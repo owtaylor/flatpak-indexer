@@ -68,6 +68,13 @@ class KojiBuildModel(BaseModel):
 class ImageBuildModel(KojiBuildModel):
     images: List[ImageModel]
 
+    @classmethod
+    def class_from_json(cls, data):
+        if 'ModuleBuilds' in data:
+            return FlatpakBuildModel
+        else:
+            return ImageBuildModel
+
     @cached_property
     def repository(self):
         _, repository, _ = parse_pull_spec(self.images[0].pull_spec)

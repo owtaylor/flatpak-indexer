@@ -11,6 +11,8 @@ from flatpak_indexer.koji_query import (list_flatpak_builds,
                                         query_tag_builds,
                                         refresh_flatpak_builds,
                                         refresh_tag_builds)
+from flatpak_indexer.models import FlatpakBuildModel
+
 from .koji import make_koji_session
 from .redis import make_redis_client
 
@@ -95,6 +97,8 @@ def test_query_image_build(caplog):
     build = query_image_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
     assert "Calling koji.getBuild" in caplog.text
 
+    assert isinstance(build, FlatpakBuildModel)
+
     assert build.nvr == 'baobab-master-3220200331145937.2'
     assert build.repository == 'baobab'
 
@@ -108,8 +112,10 @@ def test_query_image_build(caplog):
     ]
 
     caplog.clear()
-    query_image_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
+    build2 = query_image_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
     assert "Calling koji.getBuild" not in caplog.text
+
+    assert isinstance(build2, FlatpakBuildModel)
 
 
 def test_query_image_build_missing_digest():

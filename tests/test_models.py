@@ -1,4 +1,4 @@
-from flatpak_indexer.models import ImageModel, ImageBuildModel, RegistryModel
+from flatpak_indexer.models import FlatpakBuildModel, ImageModel, ImageBuildModel, RegistryModel
 
 
 IMAGE1 = {
@@ -53,6 +53,17 @@ IMAGE_BUILD = {
     'Images': [IMAGE1]
 }
 
+FLATPAK_BUILD = {
+    'BuildId': 12345,
+    'Nvr': 'testrepo-1.2.3-1',
+    'Source': 'git://src.fedoraproject.org/flatpaks/baobab#BAOBAB_GIT_DIGEST',
+    'CompletionTime': '2020-07-31T16:26:22+00:00',
+    'UserName': 'jdoe',
+    'Images': [IMAGE1],
+    'ModuleBuilds': ['baobab-1.2.3-3020190603102507'],
+    'PackageBuilds': ['baobab-1.2.3-1'],
+}
+
 
 def test_registry_model():
     model = RegistryModel.from_json(REGISTRY)
@@ -73,3 +84,11 @@ def test_registry_model_add_image():
 def test_image_build_repository():
     image = ImageBuildModel.from_json(IMAGE_BUILD)
     assert image.repository == 'baobab'
+
+
+def test_image_build_from_json():
+    image = ImageBuildModel.from_json(IMAGE_BUILD)
+    assert isinstance(image, ImageBuildModel)
+
+    flatpak = ImageBuildModel.from_json(FLATPAK_BUILD)
+    assert isinstance(flatpak, FlatpakBuildModel)
