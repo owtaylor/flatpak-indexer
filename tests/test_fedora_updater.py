@@ -75,7 +75,7 @@ def test_fedora_updater(mock_connection, tmp_path):
 
     data = registry_data['registry.example.com']
 
-    assert len(data.repositories) == 5
+    assert len(data.repositories) == 6
 
     eog_repository = data.repositories['eog']
     assert len(eog_repository.images) == 1

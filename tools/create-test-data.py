@@ -354,7 +354,8 @@ def main(output, base):
                                 releases=['F30F'], date="2019-08-01 00:00:00")
 
     # A more recent Flatpak with labels
-    downloader.download_build(nvr='baobab-master-3220200331145937.2')
+    downloader.download_updates('flatpak', 'baobab',
+                                releases=['F32F'], date="2020-08-15 00:00:00")
 
     # Module with multiple contexts
     downloader.download_build(nvr='django-1.6-20180828135711.9c690d0e')

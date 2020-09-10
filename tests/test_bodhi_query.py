@@ -144,7 +144,7 @@ def test_bodhi_query_flatpak_updates_all():
     refresh_all_updates(koji_session, redis_client, 'flatpak')
 
     updates = list_updates(redis_client, 'flatpak')
-    assert len(updates) == 8
+    assert len(updates) == 10
 
     build_map = {u.update_id: [b.rsplit('-', 2)[0] for b in u.builds] for u in updates}
 
@@ -156,7 +156,9 @@ def test_bodhi_query_flatpak_updates_all():
         'FEDORA-FLATPAK-2019-a922b417ed': ['feedreader'],
         'FEDORA-FLATPAK-2019-adc833ad33': ['gnome-weather'],
         'FEDORA-FLATPAK-2019-d84b882193': ['feedreader'],
-        'FEDORA-FLATPAK-2019-f531f062df': ['gnome-clocks']
+        'FEDORA-FLATPAK-2019-f531f062df': ['gnome-clocks'],
+        'FEDORA-FLATPAK-2020-c3101996a6': ['baobab'],
+        'FEDORA-FLATPAK-2020-dfd7272b06': ['baobab'],
     }
 
 
