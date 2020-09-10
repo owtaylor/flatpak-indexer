@@ -36,6 +36,20 @@ indexes:
                 tag: latest
                 bodhi_status: stable
                 extract_icons: True
+        latest-amd64-annotations:
+                output: ${OUTPUT_DIR:out}/fedora/flatpak-latest-amd64-annotations.json
+                registry: fedora
+                architecture: amd64
+                tag: latest
+                bodhi_status: stable
+                extract_icons: True
+                # Flatpak 1.4 and older expects Flatpak metadata in image annotations,
+                # not in labels. If the set of Flatpaks being indexed has both,
+                # then writing two sets of indexes with an appropriate HTTP configuration
+                # allows compatibility with both older and newer clients. When
+                # flatpak_annotations is set to True, the index will be written with
+                # flatpak-specific labels moved to annotations.
+                flatpak_annotations: True
         stable:
                 # path to the output location - environment variable substitions
                 # are possible for all strings

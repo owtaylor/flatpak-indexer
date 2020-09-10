@@ -83,6 +83,14 @@ class IndexWriter:
         if uri is not None:
             labels[key] = uri
 
+    def move_flatpak_labels(self, image):
+        to_move = [k for k in image.labels.keys()
+                   if k.startswith('org.flatpak.') or k.startswith('org.freedesktop.')]
+
+        for k in to_move:
+            image.annotations[k] = image.labels[k]
+            del image.labels[k]
+
     def add_image(self, name, image, delta_manifest_url):
         image = copy.copy(image)
 
@@ -99,6 +107,9 @@ class IndexWriter:
 
         if delta_manifest_url:
             image.labels['io.github.containers.DeltaUrl'] = delta_manifest_url
+
+        if self.config.flatpak_annotations:
+            self.move_flatpak_labels(image)
 
         self.extract_icon(image.labels, 'org.freedesktop.appstream.icon-64')
         self.extract_icon(image.labels, 'org.freedesktop.appstream.icon-128')

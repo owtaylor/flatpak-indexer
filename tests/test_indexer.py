@@ -181,6 +181,12 @@ indexes:
         tag: latest
         bodhi_status: stable
         delta_keep_days: 10000
+    latest-annotations:
+        registry: fedora
+        output: ${OUTPUT_DIR}/test/flatpak-latest-annotations.json
+        tag: latest
+        bodhi_status: stable
+        flatpak_annotations: true
     testing:
         registry: fedora
         output: ${OUTPUT_DIR}/test/flatpak-testing.json
@@ -232,3 +238,23 @@ def test_indexer_fedora(mock_connection, tmp_path):
     feedreader_repository = [r for r in data['Results'] if r['Name'] == 'feedreader'][0]
     assert len(feedreader_repository['Images']) == 1
     assert feedreader_repository['Images'][0]['Tags'] == ['latest']
+
+    baobab_repository = [r for r in data['Results'] if r['Name'] == 'baobab'][0]
+    assert len(baobab_repository['Images']) == 1
+
+    baobab_image = baobab_repository['Images'][0]
+    assert baobab_image['Labels']['org.flatpak.ref'] == 'app/org.gnome.Baobab/x86_64/stable'
+    assert 'Annotations' not in baobab_image
+
+    # Now check that the index with flatpak_annotations set has the Flatpak
+    # metadata in the annotations, not in the labels.
+
+    with open(tmp_path / "test/flatpak-latest-annotations.json") as f:
+        data = json.load(f)
+
+    baobab_repository = [r for r in data['Results'] if r['Name'] == 'baobab'][0]
+    assert len(baobab_repository['Images']) == 1
+
+    baobab_image = baobab_repository['Images'][0]
+    assert 'org.gnome.baobab' not in baobab_image['Labels']
+    assert baobab_image['Annotations']['org.flatpak.ref'] == 'app/org.gnome.Baobab/x86_64/stable'

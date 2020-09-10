@@ -35,6 +35,7 @@ class IndexConfig:
         self.architecture = lookup.get_str('architecture', None)
         self.delta_keep_days = lookup.get_int('delta_keep_days', 0)
         self.extract_icons = lookup.get_bool('extract_icons', False)
+        self.flatpak_annotations = lookup.get_bool('flatpak_annotations', False)
 
     @property
     def output_tag(self):
