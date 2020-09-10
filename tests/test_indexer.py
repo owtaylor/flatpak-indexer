@@ -46,6 +46,14 @@ indexes:
         output: ${OUTPUT_DIR}/test/flatpak-amd64.json
         tag: latest
         extract_icons: true
+    amd64-annotations:
+        delta_keep_days: 7
+        architecture: amd64
+        registry: registry.example.com
+        output: ${OUTPUT_DIR}/test/flatpak-amd64-annotations.json
+        tag: latest
+        extract_icons: true
+        flatpak_annotations: true
     all:
         registry: registry.example.com
         output: ${OUTPUT_DIR}/test/flatpak.json
@@ -96,6 +104,8 @@ def test_indexer(tmp_path):
     assert aisleriot_image['Labels']['org.freedesktop.appstream.icon-128'] == \
         "https://www.example.com/icons/aisleriot.png"
 
+    assert aisleriot_image.get('Annotations', {}).get('org.flatpak.ref') is None
+
     assert 'PullSpec' not in aisleriot_image
     assert 'DiffIds' not in aisleriot_image
 
@@ -105,6 +115,21 @@ def test_indexer(tmp_path):
     assert (tmp_path / 'icons' / icon_subpath[0] / icon_subpath[1]).exists()
 
     assert not (tmp_path / "icons" / "ba" / "bbled.png").exists()
+
+    # Now check that the index with flatpak_annotations set has the Flatpak
+    # metadata in the annotations, not in the labels.
+
+    with open(tmp_path / "test/flatpak-amd64-annotations.json") as f:
+        amd64_data = json.load(f)
+
+    aisleriot_repository = [r for r in amd64_data['Results'] if r['Name'] == 'aisleriot'][0]
+    aisleriot_image = aisleriot_repository['Images'][0]
+    assert aisleriot_image['Annotations']['org.flatpak.ref'] == \
+        'app/org.gnome.Aisleriot/x86_64/stable'
+    assert aisleriot_image.get('Labels', {}).get('org.flatpak.ref') is None
+
+    icon_url = aisleriot_image['Annotations']['org.freedesktop.appstream.icon-64']
+    assert icon_url.startswith('https://flatpaks.example.com/icons')
 
 
 def test_indexer_missing_data_source(tmp_path):
@@ -181,12 +206,6 @@ indexes:
         tag: latest
         bodhi_status: stable
         delta_keep_days: 10000
-    latest-annotations:
-        registry: fedora
-        output: ${OUTPUT_DIR}/test/flatpak-latest-annotations.json
-        tag: latest
-        bodhi_status: stable
-        flatpak_annotations: true
     testing:
         registry: fedora
         output: ${OUTPUT_DIR}/test/flatpak-testing.json
@@ -244,17 +263,3 @@ def test_indexer_fedora(mock_connection, tmp_path):
 
     baobab_image = baobab_repository['Images'][0]
     assert baobab_image['Labels']['org.flatpak.ref'] == 'app/org.gnome.Baobab/x86_64/stable'
-    assert 'Annotations' not in baobab_image
-
-    # Now check that the index with flatpak_annotations set has the Flatpak
-    # metadata in the annotations, not in the labels.
-
-    with open(tmp_path / "test/flatpak-latest-annotations.json") as f:
-        data = json.load(f)
-
-    baobab_repository = [r for r in data['Results'] if r['Name'] == 'baobab'][0]
-    assert len(baobab_repository['Images']) == 1
-
-    baobab_image = baobab_repository['Images'][0]
-    assert 'org.gnome.baobab' not in baobab_image['Labels']
-    assert baobab_image['Annotations']['org.flatpak.ref'] == 'app/org.gnome.Baobab/x86_64/stable'

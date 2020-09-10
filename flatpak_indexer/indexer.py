@@ -98,6 +98,7 @@ class IndexWriter:
         image.diff_ids = []
         image.pull_spec = None
 
+        image.annotations = copy.copy(image.annotations)
         image.labels = copy.copy(image.labels)
 
         if self.registry_config.force_flatpak_token:
@@ -108,11 +109,11 @@ class IndexWriter:
         if delta_manifest_url:
             image.labels['io.github.containers.DeltaUrl'] = delta_manifest_url
 
-        if self.config.flatpak_annotations:
-            self.move_flatpak_labels(image)
-
         self.extract_icon(image.labels, 'org.freedesktop.appstream.icon-64')
         self.extract_icon(image.labels, 'org.freedesktop.appstream.icon-128')
+
+        if self.config.flatpak_annotations:
+            self.move_flatpak_labels(image)
 
         self.registry.add_image(name, image)
 
