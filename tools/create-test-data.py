@@ -335,6 +335,17 @@ def main(output, base):
     downloader.download_updates('flatpak', 'quadrapassel')
     downloader.download_build(nvr='eog-master-20180821163756.2')
 
+    # These rpm builds are used when testing modification of Bodhi updates
+    for b in (["aisleriot-3.22.5-1.fc28",
+               "aisleriot-3.22.6-1.fc29",
+               "aisleriot-3.22.7-1.fc29",
+               "bijiben-3.28.1-1.fc28",
+               "bijiben-3.28.2-1.fc28",
+               "bijiben-3.30.0-1.fc29",
+               "bijiben-3.30.1-1.fc29",
+               "bijiben-3.30.2-1.fc29"]):
+        downloader.download_build(nvr=b)
+
     # There is a F30 update including gnome-clocks and gnome-weather, use this
     # to test multi-Flatpak updates
     downloader.download_updates('flatpak', 'gnome-clocks',

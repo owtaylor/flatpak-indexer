@@ -14,12 +14,21 @@ _updates = []
 
 def load_updates():
     if len(_updates) == 0:
+        build_dir = os.path.join(os.path.dirname(__file__), '../test-data/builds')
+        build_nvrs = {f[0:-8] for f in os.listdir(build_dir)}
+
         data_dir = os.path.join(os.path.dirname(__file__), '../test-data/updates')
         for child in os.listdir(data_dir):
             if not child.endswith('.json.gz'):
                 continue
+
             with gzip.open(os.path.join(data_dir, child), 'rt') as f:
-                _updates.append(json.load(f))
+                data = json.load(f)
+
+                # Strip out any builds not in the test data
+                data['builds'] = [x for x in data['builds'] if x['nvr'] in build_nvrs]
+
+                _updates.append(data)
 
     return _updates
 
