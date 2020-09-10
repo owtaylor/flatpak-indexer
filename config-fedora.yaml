@@ -50,7 +50,7 @@ indexes:
                 # flatpak_annotations is set to True, the index will be written with
                 # flatpak-specific labels moved to annotations.
                 flatpak_annotations: True
-        stable:
+        testing:
                 # path to the output location - environment variable substitions
                 # are possible for all strings
                 output: ${OUTPUT_DIR:out}/fedora/flatpak-testing.json
@@ -58,7 +58,7 @@ indexes:
                 tag: testing
                 bodhi_status: testing
                 extract_icons: True
-        stable-amd64:
+        testing-amd64:
                 output: ${OUTPUT_DIR:out}/fedora/flatpak-testing-amd64.json
                 registry: fedora
                 architecture: amd64
