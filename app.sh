@@ -1,6 +1,8 @@
 #!/bin/sh
 
-[ -d $OUTPUT_DIR/icons ] || mkdir -p -m 0755 $OUTPUT_DIR/icons
+for d in deltas icons ; do
+    [ -d $OUTPUT_DIR/$d ] || mkdir -p -m 0755 $OUTPUT_DIR/$d
+done
 
 command=${FLATPAK_INDEXER_COMMAND:-daemon}
 
