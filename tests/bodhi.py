@@ -58,7 +58,8 @@ def _check_date(update, name, since):
 
 
 class MockBodhi:
-    def __init__(self, modify=None):
+    def __init__(self, flags=None, modify=None):
+        self.flags = flags or []
         self.modify = modify
 
     def get_updates_callback(self, request):
@@ -100,6 +101,13 @@ class MockBodhi:
 
             matched_updates.append(update)
 
+        # The ghost_update flags emulates the problem in
+        # https://github.com/fedora-infra/bodhi/issues/4130 where deduplication happens
+        # after paging.
+        if 'ghost_updates' in self.flags:
+            duplicated_update = matched_updates[rows_per_page - 1]
+            matched_updates[rows_per_page - 1:0] = [duplicated_update] * 3
+
         # Sort in descending order by date_submitted
         matched_updates.sort(key=lambda x: parse_date_value(update['date_submitted']),
                              reverse=True)
@@ -107,11 +115,22 @@ class MockBodhi:
         pages = (len(matched_updates) + rows_per_page - 1) // rows_per_page
         paged_updates = matched_updates[(page - 1) * rows_per_page:page * rows_per_page]
 
+        if 'ghost_updates' in self.flags:
+            # Deduplicate preserving order
+            paged_updates = list({x['updateid']: x for x in paged_updates}.values())
+
+        # If something changes during page requests, total could be greater than the
+        # number of updates we see
+
+        total = len(matched_updates)
+        if 'bad_total' in self.flags:
+            total += 1
+
         return (200, {}, json.dumps({
             'page': page,
             'pages': pages,
             'rows_per_page': rows_per_page,
-            'total': len(matched_updates),
+            'total': total,
             'updates': paged_updates
         }))
 

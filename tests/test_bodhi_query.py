@@ -2,6 +2,8 @@ import copy
 from datetime import datetime
 import logging
 
+import pytest
+
 from flatpak_indexer.datasource.fedora.bodhi_query import (list_updates, refresh_all_updates,
                                                            refresh_update_status, refresh_updates,
                                                            reset_update_cache)
@@ -127,7 +129,14 @@ def test_bodhi_query_flatpak_updates():
 
 
 @mock_bodhi
-def test_bodhi_query_flatpak_updates_all():
+@pytest.mark.parametrize('flags', [
+    [],
+    ['bad_total'],
+    ['ghost_updates'],
+])
+def test_bodhi_query_flatpak_updates_all(bodhi_mock, flags):
+    bodhi_mock.flags = flags
+
     redis_client = make_redis_client()
     koji_session = make_koji_session()
 

@@ -104,6 +104,12 @@ def _update_updates_from_response(pipe, results, old_updates):
 def _run_query(requests_session,
                content_type, url, params, save_entities,
                results):
+    # Depending on our query parameters, we might get duplicates in the response, and might
+    # get less than rows_per_page rows in the response
+    # (https://github.com/fedora-infra/bodhi/issues/4130),
+    # so we need to track what updates we actually get to compare to 'total' in the
+    # response, which is de-duplicated
+    seen_updates = set()
     page = 1
     while True:
         params['page'] = page
@@ -116,6 +122,12 @@ def _run_query(requests_session,
         response_json = response.json()
 
         for update_json in response_json['updates']:
+            update_id = update_json['updateid']
+            if update_id in seen_updates:
+                continue
+
+            seen_updates.add(update_id)
+
             found_build = False
             for build_json in update_json['builds']:
                 package_name = build_json['nvr'].rsplit('-', 2)[0]
@@ -127,7 +139,9 @@ def _run_query(requests_session,
 
             results.append(update_json)
 
-        if response_json['page'] >= response_json['pages']:
+        # The first check avoids an extra round trip in the normal case, the second check
+        # avoids paging forever if something goes wrong
+        if len(seen_updates) >= response_json['total'] or len(response_json['updates']) == 0:
             break
         else:
             page += 1
