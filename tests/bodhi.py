@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import gzip
 import json
 import os
@@ -8,6 +9,9 @@ from iso8601 import iso8601
 import responses
 
 from flatpak_indexer.datasource.fedora.bodhi_query import parse_date_value
+
+from .utils import WithArgDecorator
+
 
 _updates = []
 
@@ -53,99 +57,108 @@ def _check_date(update, name, since):
     return True
 
 
-def get_updates_callback(request, modify=None):
-    params = parse_qs(urlparse(request.url).query)
+class MockBodhi:
+    def __init__(self, modify=None):
+        self.modify = modify
 
-    page = int(params['page'][0])
-    rows_per_page = int(params['rows_per_page'][0])
-    content_type = params.get('content_type', (None,))[0]
-    packages = params.get('packages')
+    def get_updates_callback(self, request):
+        params = parse_qs(urlparse(request.url).query)
 
-    submitted_since = _parse_date_param(params, 'submitted_since')
-    modified_since = _parse_date_param(params, 'modified_since')
-    pushed_since = _parse_date_param(params, 'pushed_since')
+        page = int(params['page'][0])
+        rows_per_page = int(params['rows_per_page'][0])
+        content_type = params.get('content_type', (None,))[0]
+        packages = params.get('packages')
 
-    updates = load_updates()
+        submitted_since = _parse_date_param(params, 'submitted_since')
+        modified_since = _parse_date_param(params, 'modified_since')
+        pushed_since = _parse_date_param(params, 'pushed_since')
 
-    matched_updates = []
-    for update in updates:
-        if modify:
-            update = modify(update)
+        updates = load_updates()
 
-        if content_type is not None and update['content_type'] != content_type:
-            continue
-        if packages is not None:
-            found = False
-            for b in update['builds']:
-                n, v, r = b['nvr'].rsplit('-', 2)
-                if n in packages:
-                    found = True
-            if not found:
+        matched_updates = []
+        for update in updates:
+            if self.modify:
+                update = self.modify(update)
+
+            if content_type is not None and update['content_type'] != content_type:
+                continue
+            if packages is not None:
+                found = False
+                for b in update['builds']:
+                    n, v, r = b['nvr'].rsplit('-', 2)
+                    if n in packages:
+                        found = True
+                if not found:
+                    continue
+
+            if not _check_date(update, 'date_submitted', submitted_since):
+                continue
+            if not _check_date(update, 'date_modified', modified_since):
+                continue
+            if not _check_date(update, 'date_pushed', pushed_since):
                 continue
 
-        if not _check_date(update, 'date_submitted', submitted_since):
-            continue
-        if not _check_date(update, 'date_modified', modified_since):
-            continue
-        if not _check_date(update, 'date_pushed', pushed_since):
-            continue
+            matched_updates.append(update)
 
-        matched_updates.append(update)
+        # Sort in descending order by date_submitted
+        matched_updates.sort(key=lambda x: parse_date_value(update['date_submitted']),
+                             reverse=True)
 
-    # Sort in descending order by date_submitted
-    matched_updates.sort(key=lambda x: parse_date_value(update['date_submitted']),
-                         reverse=True)
+        pages = (len(matched_updates) + rows_per_page - 1) // rows_per_page
+        paged_updates = matched_updates[(page - 1) * rows_per_page:page * rows_per_page]
 
-    pages = (len(matched_updates) + rows_per_page - 1) // rows_per_page
-    paged_updates = matched_updates[(page - 1) * rows_per_page:page * rows_per_page]
+        return (200, {}, json.dumps({
+            'page': page,
+            'pages': pages,
+            'rows_per_page': rows_per_page,
+            'total': len(matched_updates),
+            'updates': paged_updates
+        }))
 
-    return (200, {}, json.dumps({
-        'page': page,
-        'pages': pages,
-        'rows_per_page': rows_per_page,
-        'total': len(matched_updates),
-        'updates': paged_updates
-    }))
+    def get_update_callback(self, request):
+        path = urlparse(request.url).path
+        update_id = path.split('/')[-1]
 
+        updates = load_updates()
+        for update in updates:
+            if update['updateid'] == update_id:
+                if self.modify:
+                    update = self.modify(update)
 
-def get_update_callback(request, modify=None):
-    path = urlparse(request.url).path
-    update_id = path.split('/')[-1]
+                return (200, {}, json.dumps({
+                    'update': update,
+                    'can_edit': False,
+                }))
 
-    updates = load_updates()
-    for update in updates:
-        if update['updateid'] == update_id:
-            return (200, {}, json.dumps({
-                'update': update,
-                'can_edit': False,
-            }))
-
-    return (404, {}, json.dumps({
-        "status": "error",
-        "errors": [
-            {
-                "location": "url",
-                "name": "id",
-                "description": "Invalid update id"
-            }
-        ]}))
+        return (404, {}, json.dumps({
+            "status": "error",
+            "errors": [
+                {
+                    "location": "url",
+                    "name": "id",
+                    "description": "Invalid update id"
+                }
+            ]}))
 
 
-def mock_bodhi(modify=None):
-    def get_updates_callback_(request):
-        return get_updates_callback(request, modify=modify)
+@contextmanager
+def _setup_bodhi(**kwargs):
+    with responses._default_mock:
+        bodhi_mock = MockBodhi(**kwargs)
 
-    def get_update_callback_(request):
-        return get_update_callback(request, modify=modify)
+        responses.add_callback(method=responses.GET,
+                               url='https://bodhi.fedoraproject.org/updates/',
+                               callback=bodhi_mock.get_updates_callback,
+                               content_type='application/json',
+                               match_querystring=False)
+        responses.add_callback(method=responses.GET,
+                               url=re.compile(
+                                   'https://bodhi.fedoraproject.org/updates/([a-zA-Z0-9-]+)'),
+                               callback=bodhi_mock.get_update_callback,
+                               content_type='application/json',
+                               match_querystring=False)
 
-    responses.add_callback(method=responses.GET,
-                           url='https://bodhi.fedoraproject.org/updates/',
-                           callback=get_updates_callback_,
-                           content_type='application/json',
-                           match_querystring=False)
-    responses.add_callback(method=responses.GET,
-                           url=re.compile(
-                               'https://bodhi.fedoraproject.org/updates/([a-zA-Z0-9-]+)'),
-                           callback=get_update_callback_,
-                           content_type='application/json',
-                           match_querystring=False)
+        yield bodhi_mock
+
+
+mock_bodhi = WithArgDecorator('bodhi_mock', _setup_bodhi)

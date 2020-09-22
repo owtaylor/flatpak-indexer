@@ -298,4 +298,4 @@ def _setup_registry(**kwargs):
         yield MockRegistry(**kwargs)
 
 
-mock_registry = WithArgDecorator('registry', _setup_registry)
+mock_registry = WithArgDecorator('registry_mock', _setup_registry)

@@ -2,7 +2,6 @@ import copy
 import json
 import os
 
-import responses
 import yaml
 
 from flatpak_indexer.datasource import load_updaters
@@ -63,11 +62,9 @@ indexes:
 
 
 @mock_brew
+@mock_pyxis
 @mock_redis
-@responses.activate
 def test_indexer(tmp_path):
-    mock_pyxis()
-
     os.environ["OUTPUT_DIR"] = str(tmp_path)
 
     os.makedirs(tmp_path / "icons" / "ba")
@@ -161,11 +158,9 @@ indexes:
 
 
 @mock_brew
+@mock_pyxis
 @mock_redis
-@responses.activate
 def test_indexer_koji(tmp_path):
-    mock_pyxis()
-
     os.environ["OUTPUT_DIR"] = str(tmp_path)
 
     config = get_config(tmp_path, KOJI_CONFIG)
@@ -215,23 +210,22 @@ indexes:
 """)
 
 
+def modify_statuses(update):
+    # This build is now obsoleted by a build not in our test date, mark it testing so that
+    # we have a repository with different stable/testing
+    if update['builds'][0]['nvr'] == 'feedreader-master-2920190201081220.1':
+        update = copy.copy(update)
+        update['status'] = 'testing'
+
+    return update
+
+
+@mock_bodhi(modify=modify_statuses)
 @mock_fedora_messaging
 @mock_koji
 @mock_redis
-@responses.activate
-def test_indexer_fedora(mock_connection, tmp_path):
-    mock_connection.put_inactivity_timeout()
-
-    def modify_statuses(update):
-        # This build is now obsoleted by a build not in our test date, mark it testing so that
-        # we have a repository with different stable/testing
-        if update['builds'][0]['nvr'] == 'feedreader-master-2920190201081220.1':
-            update = copy.copy(update)
-            update['status'] = 'testing'
-
-        return update
-
-    mock_bodhi(modify=modify_statuses)
+def test_indexer_fedora(connection_mock, tmp_path):
+    connection_mock.put_inactivity_timeout()
 
     os.environ["OUTPUT_DIR"] = str(tmp_path)
 

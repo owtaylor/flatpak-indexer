@@ -2,8 +2,6 @@ import copy
 from datetime import datetime
 import logging
 
-import responses
-
 from flatpak_indexer.datasource.fedora.bodhi_query import (list_updates, refresh_all_updates,
                                                            refresh_update_status, refresh_updates,
                                                            reset_update_cache)
@@ -13,11 +11,10 @@ from .koji import make_koji_session
 from .redis import make_redis_client
 
 
-@responses.activate
+@mock_bodhi
 def test_bodhi_query_package_updates():
     redis_client = make_redis_client()
     koji_session = make_koji_session()
-    mock_bodhi()
 
     refresh_updates(koji_session, redis_client, 'rpm', entities=['bubblewrap'])
 
@@ -36,11 +33,10 @@ def test_bodhi_query_package_updates():
     assert update.type == 'enhancement'
 
 
-@responses.activate
+@mock_bodhi
 def test_bodhi_query_package_updates_many():
     redis_client = make_redis_client()
     koji_session = make_koji_session()
-    mock_bodhi()
 
     # aisleriot picks up multi-package updates
     # eog picks up Flatpak updates
@@ -56,12 +52,10 @@ def test_bodhi_query_package_updates_many():
     assert len(updates) == 3
 
 
-@responses.activate
-def test_bodhi_query_update_changed():
-    modify = False
-
+@mock_bodhi
+def test_bodhi_query_update_changed(bodhi_mock):
     def modify_update(update):
-        if modify and update['updateid'] == 'FEDORA-2018-1a0cf961a1':
+        if update['updateid'] == 'FEDORA-2018-1a0cf961a1':
             update_copy = copy.deepcopy(update)
 
             update_copy['builds'] = [b for b in update_copy['builds']
@@ -74,7 +68,6 @@ def test_bodhi_query_update_changed():
 
     redis_client = make_redis_client()
     koji_session = make_koji_session()
-    mock_bodhi(modify=modify_update)
 
     refresh_updates(koji_session, redis_client, 'rpm', ['aisleriot', 'bijiben'])
 
@@ -83,7 +76,7 @@ def test_bodhi_query_update_changed():
     updates = list_updates(redis_client, 'rpm', 'bijiben')
     assert len(updates) == 5
 
-    modify = True
+    bodhi_mock.modify = modify_update
     refresh_updates(koji_session, redis_client, 'rpm', ['aisleriot', 'bijiben'])
 
     updates = list_updates(redis_client, 'rpm', 'aisleriot')
@@ -92,11 +85,10 @@ def test_bodhi_query_update_changed():
     assert len(updates) == 4
 
 
-@responses.activate
+@mock_bodhi
 def test_list_updates_by_release():
     redis_client = make_redis_client()
     koji_session = make_koji_session()
-    mock_bodhi()
 
     refresh_updates(koji_session, redis_client, 'rpm', entities=['bubblewrap'])
 
@@ -111,11 +103,10 @@ def test_list_updates_by_release():
     assert updates[0].builds == ['bubblewrap-0.3.1-1.fc29']
 
 
-@responses.activate
+@mock_bodhi
 def test_bodhi_query_flatpak_updates():
     redis_client = make_redis_client()
     koji_session = make_koji_session()
-    mock_bodhi()
 
     refresh_all_updates(koji_session, redis_client, 'flatpak')
 
@@ -135,11 +126,10 @@ def test_bodhi_query_flatpak_updates():
     refresh_all_updates(koji_session, redis_client, 'flatpak')
 
 
-@responses.activate
+@mock_bodhi
 def test_bodhi_query_flatpak_updates_all():
     redis_client = make_redis_client()
     koji_session = make_koji_session()
-    mock_bodhi()
 
     refresh_all_updates(koji_session, redis_client, 'flatpak')
 
@@ -162,11 +152,10 @@ def test_bodhi_query_flatpak_updates_all():
     }
 
 
-@responses.activate
+@mock_bodhi
 def test_bodhi_refresh_update_status():
     redis_client = make_redis_client()
     koji_session = make_koji_session()
-    mock_bodhi()
 
     update_id = 'FEDORA-FLATPAK-2018-aecd5ddc46'
 
@@ -186,13 +175,12 @@ def test_bodhi_refresh_update_status():
     refresh_update_status(koji_session, redis_client, 'NO_SUCH_UPDATE')
 
 
-@responses.activate
+@mock_bodhi
 def test_bodhi_update_cache_global(caplog):
     caplog.set_level(logging.INFO)
 
     redis_client = make_redis_client()
     koji_session = make_koji_session()
-    mock_bodhi()
 
     refresh_all_updates(koji_session, redis_client, 'flatpak')
     assert "submitted_since" not in caplog.text
@@ -209,13 +197,12 @@ def test_bodhi_update_cache_global(caplog):
     caplog.clear()
 
 
-@responses.activate
+@mock_bodhi
 def test_bodhi_update_cache_per_package(caplog):
     caplog.set_level(logging.INFO)
 
     redis_client = make_redis_client()
     koji_session = make_koji_session()
-    mock_bodhi()
 
     refresh_updates(koji_session, redis_client, 'flatpak', entities=['feedreader'])
     assert "submitted_since" not in caplog.text

@@ -1,6 +1,5 @@
 import copy
 
-import responses
 import yaml
 
 from flatpak_indexer.datasource.fedora import FedoraUpdater
@@ -42,24 +41,23 @@ indexes:
 """)
 
 
+def modify_statuses(update):
+    # This build is now obsoleted by a build not in our test date, mark it testing so that
+    # we have a repository with different stable/testing
+    if update['builds'][0]['nvr'] == 'feedreader-master-2920190201081220.1':
+        update = copy.copy(update)
+        update['status'] = 'testing'
+
+    return update
+
+
+@mock_bodhi(modify=modify_statuses)
 @mock_fedora_messaging
 @mock_koji
 @mock_redis
-@responses.activate
-def test_fedora_updater(mock_connection, tmp_path):
-    mock_connection.put_update_message('fedora-2018-12456789')
-    mock_connection.put_inactivity_timeout()
-
-    def modify_statuses(update):
-        # This build is now obsoleted by a build not in our test date, mark it testing so that
-        # we have a repository with different stable/testing
-        if update['builds'][0]['nvr'] == 'feedreader-master-2920190201081220.1':
-            update = copy.copy(update)
-            update['status'] = 'testing'
-
-        return update
-
-    mock_bodhi(modify=modify_statuses)
+def test_fedora_updater(connection_mock, tmp_path):
+    connection_mock.put_update_message('fedora-2018-12456789')
+    connection_mock.put_inactivity_timeout()
 
     config = get_config(tmp_path, CONFIG)
 

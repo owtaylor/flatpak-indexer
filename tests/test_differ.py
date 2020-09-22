@@ -98,9 +98,9 @@ def check_failure(key, status, message):
 
 @mock_redis
 @mock_registry(registry='registry.fedoraproject.org')
-def test_differ(registry, config):
-    old_manifest_digest, old_layer = registry.add_fake_image('ghex', 'latest')
-    new_manifest_digest, new_layer = registry.add_fake_image('ghex', 'latest')
+def test_differ(registry_mock, config):
+    old_manifest_digest, old_layer = registry_mock.add_fake_image('ghex', 'latest')
+    new_manifest_digest, new_layer = registry_mock.add_fake_image('ghex', 'latest')
 
     key = f"{old_layer.diff_id}:{new_layer.diff_id}"
 
@@ -119,19 +119,19 @@ def test_differ(registry, config):
     (True, False),
     (False, True),
 ])
-def test_differ_tardiff_download_error(registry, config, fail_from, fail_to):
+def test_differ_tardiff_download_error(registry_mock, config, fail_from, fail_to):
     if fail_from:
         old_manifest_digest, old_diff_id = 'sha256:not-there', 'whatever'
     else:
-        old_manifest_digest, old_layer = registry.add_fake_image('ghex', 'latest',
-                                                                 layer_contents=b"GARBAGE")
+        old_manifest_digest, old_layer = registry_mock.add_fake_image('ghex', 'latest',
+                                                                      layer_contents=b"GARBAGE")
         old_diff_id = old_layer.diff_id
 
     if fail_to:
         new_manifest_digest, new_diff_id = 'sha256:not-there', 'whatever'
     else:
-        new_manifest_digest, new_layer = registry.add_fake_image('ghex', 'latest',
-                                                                 layer_contents=b"GARBAGE")
+        new_manifest_digest, new_layer = registry_mock.add_fake_image('ghex', 'latest',
+                                                                      layer_contents=b"GARBAGE")
         new_diff_id = new_layer.diff_id
 
     key = queue_task(old_manifest_digest, old_diff_id,
@@ -146,10 +146,10 @@ def test_differ_tardiff_download_error(registry, config, fail_from, fail_to):
 
 @mock_redis
 @mock_registry(registry='registry.fedoraproject.org')
-def test_differ_tardiff_failure(registry, config):
-    old_manifest_digest, old_layer = registry.add_fake_image('ghex', 'latest',
-                                                             layer_contents=b"GARBAGE")
-    new_manifest_digest, new_layer = registry.add_fake_image('ghex', 'latest')
+def test_differ_tardiff_failure(registry_mock, config):
+    old_manifest_digest, old_layer = registry_mock.add_fake_image('ghex', 'latest',
+                                                                  layer_contents=b"GARBAGE")
+    new_manifest_digest, new_layer = registry_mock.add_fake_image('ghex', 'latest')
 
     key = queue_task(old_manifest_digest, old_layer.diff_id,
                      new_manifest_digest, new_layer.diff_id)
@@ -162,9 +162,9 @@ def test_differ_tardiff_failure(registry, config):
 
 @mock_redis
 @mock_registry(registry='registry.fedoraproject.org')
-def test_differ_tardiff_slow(registry, config):
-    old_manifest_digest, old_layer = registry.add_fake_image('ghex', 'latest')
-    new_manifest_digest, new_layer = registry.add_fake_image('ghex', 'latest')
+def test_differ_tardiff_slow(registry_mock, config):
+    old_manifest_digest, old_layer = registry_mock.add_fake_image('ghex', 'latest')
+    new_manifest_digest, new_layer = registry_mock.add_fake_image('ghex', 'latest')
 
     key = queue_task(old_manifest_digest, old_layer.diff_id,
                      new_manifest_digest, new_layer.diff_id)
@@ -178,9 +178,9 @@ def test_differ_tardiff_slow(registry, config):
 
 @mock_redis
 @mock_registry(registry='registry.fedoraproject.org')
-def test_differ_wait(registry, config):
-    old_manifest_digest, old_layer = registry.add_fake_image('ghex', 'latest')
-    new_manifest_digest, new_layer = registry.add_fake_image('ghex', 'latest')
+def test_differ_wait(registry_mock, config):
+    old_manifest_digest, old_layer = registry_mock.add_fake_image('ghex', 'latest')
+    new_manifest_digest, new_layer = registry_mock.add_fake_image('ghex', 'latest')
 
     key = f"{old_layer.diff_id}:{new_layer.diff_id}"
 
@@ -227,9 +227,9 @@ class IffyPubSub(redis.client.PubSub):
 @mock_redis
 @mock_registry(registry='registry.fedoraproject.org')
 @pytest.mark.parametrize('fail_first_method', ('subscribe', 'get_message'))
-def test_differ_connection_error(registry, config, fail_first_method, caplog):
-    old_manifest_digest, old_layer = registry.add_fake_image('ghex', 'latest')
-    new_manifest_digest, new_layer = registry.add_fake_image('ghex', 'latest')
+def test_differ_connection_error(registry_mock, config, fail_first_method, caplog):
+    old_manifest_digest, old_layer = registry_mock.add_fake_image('ghex', 'latest')
+    new_manifest_digest, new_layer = registry_mock.add_fake_image('ghex', 'latest')
 
     key = f"{old_layer.diff_id}:{new_layer.diff_id}"
 

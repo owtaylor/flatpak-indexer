@@ -36,11 +36,11 @@ from .registry import mock_registry
 
 
 @mock_registry
-def test_download_layer(registry, tmp_path):
+def test_download_layer(registry_mock, tmp_path):
     """
     Basic test of downloading a layer
     """
-    manifest_digest, test_layer = registry.add_fake_image('repo1', 'latest')
+    manifest_digest, test_layer = registry_mock.add_fake_image('repo1', 'latest')
 
     registry_client = RegistryClient('https://registry.example.com',
                                      ca_cert='test.crt')
@@ -52,11 +52,11 @@ def test_download_layer(registry, tmp_path):
 
 
 @mock_registry
-def test_download_layer_progress(registry, tmp_path):
+def test_download_layer_progress(registry_mock, tmp_path):
     """
     Testing layer download with a progress callback
     """
-    manifest_digest, test_layer = registry.add_fake_image('repo1', 'latest')
+    manifest_digest, test_layer = registry_mock.add_fake_image('repo1', 'latest')
 
     bytes_read = None
     total_bytes = None
@@ -81,11 +81,11 @@ def test_download_layer_progress(registry, tmp_path):
 
 
 @mock_registry(flags='bearer_auth')
-def test_download_layer_bearer_auth(registry, tmp_path):
+def test_download_layer_bearer_auth(registry_mock, tmp_path):
     """
     Test redirecting in response to UNAUTHORIZED
     """
-    manifest_digest, layer = registry.add_fake_image('repo1', 'latest')
+    manifest_digest, layer = registry_mock.add_fake_image('repo1', 'latest')
 
     registry_client = RegistryClient('https://registry.example.com')
     registry_client.download_layer('repo1', manifest_digest, layer.diff_id,
@@ -101,12 +101,12 @@ def test_download_layer_bearer_auth(registry, tmp_path):
     'bearer_auth_no_realm',
 ])
 @mock_registry(required_creds=('someuser', 'somepassword'))
-def test_download_layer_bearer_auth_unauthorized(registry, tmp_path, flags):
+def test_download_layer_bearer_auth_unauthorized(registry_mock, tmp_path, flags):
     """
     Test bad outcomes when redirecting in response to UNAUTHORIZED
     """
-    registry.flags = flags
-    manifest_digest, layer = registry.add_fake_image('repo1', 'latest')
+    registry_mock.flags = flags
+    manifest_digest, layer = registry_mock.add_fake_image('repo1', 'latest')
 
     registry_client = RegistryClient('https://registry.example.com')
     with pytest.raises(requests.exceptions.HTTPError, match=r'401 Client Error'):
@@ -115,11 +115,11 @@ def test_download_layer_bearer_auth_unauthorized(registry, tmp_path, flags):
 
 
 @mock_registry(required_creds=('someuser', 'somepassword'))
-def test_download_layer_username_password(registry, tmp_path):
+def test_download_layer_username_password(registry_mock, tmp_path):
     """
     Testing authentication with username and password
     """
-    manifest_digest, layer = registry.add_fake_image('repo1', 'latest')
+    manifest_digest, layer = registry_mock.add_fake_image('repo1', 'latest')
 
     registry_client = RegistryClient('https://registry.example.com',
                                      creds="someuser:somepassword")
@@ -148,7 +148,7 @@ def check_certificates(cert=None):
     ('missing_key', 'Cannot find key file'),
     ('missing_cert_and_key', 'Wrong/missing cert'),
 ])
-def test_download_layer_username_certs(registry, tmp_path, breakage, error):
+def test_download_layer_username_certs(registry_mock, tmp_path, breakage, error):
     """
     Test authentication with a certificate
     """
@@ -171,7 +171,7 @@ def test_download_layer_username_certs(registry, tmp_path, breakage, error):
         with open(cert_dir / 'dummy', 'w'):
             pass
 
-    manifest_digest, layer = registry.add_fake_image('repo1', 'latest')
+    manifest_digest, layer = registry_mock.add_fake_image('repo1', 'latest')
 
     with check_certificates(cert):
         if not breakage:
@@ -223,11 +223,11 @@ def mock_system_certs():
 
 
 @mock_registry
-def test_download_layer_system_cert(registry, tmp_path):
+def test_download_layer_system_cert(registry_mock, tmp_path):
     """
     Test using a certificate from a system directory
     """
-    manifest_digest, layer = registry.add_fake_image('repo1', 'latest')
+    manifest_digest, layer = registry_mock.add_fake_image('repo1', 'latest')
 
     with mock_system_certs():
         with check_certificates(('/etc/docker/certs.d/registry.example.com/client.cert',
@@ -238,11 +238,11 @@ def test_download_layer_system_cert(registry, tmp_path):
 
 
 @mock_registry
-def test_download_layer_write_failure(registry, tmp_path):
+def test_download_layer_write_failure(registry_mock, tmp_path):
     """
     Test using a certificate from a system directory
     """
-    manifest_digest, layer = registry.add_fake_image('repo1', 'latest')
+    manifest_digest, layer = registry_mock.add_fake_image('repo1', 'latest')
 
     with mock.patch('tempfile.NamedTemporaryFile') as m:
         tempfile = mock.Mock()
@@ -259,11 +259,11 @@ def test_download_layer_write_failure(registry, tmp_path):
 
 
 @mock_registry
-def test_download_layer_bad_diff_ids(registry, tmp_path):
+def test_download_layer_bad_diff_ids(registry_mock, tmp_path):
     """
     Test using a certificate from a system directory
     """
-    manifest_digest, layer = registry.add_fake_image('repo1', 'latest', diff_ids=[])
+    manifest_digest, layer = registry_mock.add_fake_image('repo1', 'latest', diff_ids=[])
 
     registry_client = RegistryClient('https://registry.example.com')
 
@@ -272,8 +272,8 @@ def test_download_layer_bad_diff_ids(registry, tmp_path):
         registry_client.download_layer('repo1', manifest_digest, layer.diff_id,
                                        str(tmp_path / "layer"))
 
-    manifest_digest, layer = registry.add_fake_image('repo2', 'latest',
-                                                     diff_ids=['sha256:ba5eba11'])
+    manifest_digest, layer = registry_mock.add_fake_image('repo2', 'latest',
+                                                          diff_ids=['sha256:ba5eba11'])
 
     with pytest.raises(RuntimeError,
                        match=r"repo2:sha256:[a-f0-9]+: Can't find DiffID sha256:[a-f0-9]+"):

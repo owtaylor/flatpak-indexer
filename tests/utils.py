@@ -579,27 +579,34 @@ def _get_tag_history(request):
     }))
 
 
-def mock_pyxis():
-    responses.add_callback(responses.GET,
-                           _GET_IMAGES_RE,
-                           callback=_get_images,
-                           content_type='application/json',
-                           match_querystring=False)
-    responses.add_callback(responses.GET,
-                           _GET_IMAGES_NVR_RE,
-                           callback=_get_images_nvr,
-                           content_type='application/json',
-                           match_querystring=False)
-    responses.add_callback(responses.GET,
-                           _GET_REPOSITORIES_RE,
-                           callback=_get_repositories,
-                           content_type='application/json',
-                           match_querystring=False)
-    responses.add_callback(responses.GET,
-                           _GET_TAG_HISTORY_RE,
-                           callback=_get_tag_history,
-                           content_type='application/json',
-                           match_querystring=False)
+def mock_pyxis(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        with responses._default_mock:
+            responses.add_callback(responses.GET,
+                                   _GET_IMAGES_RE,
+                                   callback=_get_images,
+                                   content_type='application/json',
+                                   match_querystring=False)
+            responses.add_callback(responses.GET,
+                                   _GET_IMAGES_NVR_RE,
+                                   callback=_get_images_nvr,
+                                   content_type='application/json',
+                                   match_querystring=False)
+            responses.add_callback(responses.GET,
+                                   _GET_REPOSITORIES_RE,
+                                   callback=_get_repositories,
+                                   content_type='application/json',
+                                   match_querystring=False)
+            responses.add_callback(responses.GET,
+                                   _GET_TAG_HISTORY_RE,
+                                   callback=_get_tag_history,
+                                   content_type='application/json',
+                                   match_querystring=False)
+
+            return f(*args, **kwargs)
+
+    return wrapper
 
 
 def _koji_get_build(build_id):

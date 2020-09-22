@@ -6,16 +6,16 @@ from .fedora_messaging import mock_fedora_messaging
 
 
 @mock_fedora_messaging
-def test_bodhi_change_monitor(mock_connection):
+def test_bodhi_change_monitor(connection_mock):
     monitor = BodhiChangeMonitor()
 
-    mock_connection.put_update_message('FEDORA-2018-1a0cf961a1')
-    mock_connection.put_inactivity_timeout()
+    connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
+    connection_mock.put_inactivity_timeout()
 
     monitor.start()
     assert monitor.get_changed() == {'FEDORA-2018-1a0cf961a1'}
 
-    mock_connection.put_update_message('FEDORA-2018-5ebe0eb1f2')
+    connection_mock.put_update_message('FEDORA-2018-5ebe0eb1f2')
 
     monitor.stop()
     assert monitor.get_changed() == {'FEDORA-2018-5ebe0eb1f2'}
@@ -23,13 +23,13 @@ def test_bodhi_change_monitor(mock_connection):
 
 @mock_fedora_messaging(raise_on_close=False)
 @pytest.mark.parametrize('passive_behavior', ["exist", "not_exist", "exception"])
-def test_bodhi_change_monitor_reuse(mock_connection, passive_behavior):
-    mock_connection.passive_behavior = passive_behavior
+def test_bodhi_change_monitor_reuse(connection_mock, passive_behavior):
+    connection_mock.passive_behavior = passive_behavior
 
     monitor = BodhiChangeMonitor("MYQUEUE")
 
-    mock_connection.put_update_message('FEDORA-2018-1a0cf961a1')
-    mock_connection.put_inactivity_timeout()
+    connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
+    connection_mock.put_inactivity_timeout()
 
     if passive_behavior == "exception":
         with pytest.raises(RuntimeError,
@@ -51,10 +51,10 @@ def test_bodhi_change_monitor_reuse(mock_connection, passive_behavior):
 
 
 @mock_fedora_messaging(raise_on_close=True)
-def test_bodhi_change_monitor_stop_exception(mock_connection):
+def test_bodhi_change_monitor_stop_exception(connection_mock):
     monitor = BodhiChangeMonitor()
 
-    mock_connection.put_inactivity_timeout()
+    connection_mock.put_inactivity_timeout()
     monitor.start()
 
     with pytest.raises(RuntimeError,

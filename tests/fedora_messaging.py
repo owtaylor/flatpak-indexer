@@ -80,4 +80,4 @@ def _setup_fedora_messaging(**kwargs):
         yield MockConnection(connection_mock.return_value, **kwargs)
 
 
-mock_fedora_messaging = WithArgDecorator('mock_connection', _setup_fedora_messaging)
+mock_fedora_messaging = WithArgDecorator('connection_mock', _setup_fedora_messaging)

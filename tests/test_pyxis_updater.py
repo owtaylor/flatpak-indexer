@@ -1,5 +1,4 @@
 import pytest
-import responses
 import yaml
 
 from flatpak_indexer.datasource.pyxis import PyxisUpdater
@@ -55,11 +54,9 @@ indexes:
                           (True,  False),
                           (False, True)])
 @mock_brew
+@mock_pyxis
 @mock_redis
-@responses.activate
 def test_pyxis_updater(tmp_path, server_cert, client_cert):
-    mock_pyxis()
-
     config = get_config(tmp_path, CONFIG)
     if server_cert:
         config.local_certs['pyxis.example.com'] = 'test.crt'
@@ -102,10 +99,9 @@ indexes:
 
 
 @mock_brew
+@mock_pyxis
 @mock_redis
-@responses.activate
 def test_pyxis_updater_repository_override(tmp_path):
-    mock_pyxis()
 
     config = get_config(tmp_path, REPOSITORY_OVERRIDE_CONFIG)
     updater = PyxisUpdater(config)
@@ -136,11 +132,9 @@ indexes:
 
 
 @mock_brew
+@mock_pyxis
 @mock_redis
-@responses.activate
 def test_pyxis_updater_koji(tmp_path):
-    mock_pyxis()
-
     config = get_config(tmp_path, KOJI_CONFIG)
     updater = PyxisUpdater(config)
 

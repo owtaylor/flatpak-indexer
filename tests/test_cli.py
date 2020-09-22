@@ -3,7 +3,6 @@ import os
 
 from click.testing import CliRunner
 import pytest
-import responses
 import sys
 import yaml
 
@@ -34,9 +33,8 @@ indexes:
 
 
 @mock_brew
-@responses.activate
+@mock_pyxis
 def test_daemon(tmp_path):
-    mock_pyxis()
     config_path = write_config(tmp_path, CONFIG)
 
     sleep_count = 0
@@ -59,12 +57,11 @@ def test_daemon(tmp_path):
 
 
 @mock_brew
-@responses.activate
+@mock_pyxis
 @pytest.mark.parametrize('where',
                          ['flatpak_indexer.indexer.Indexer.index',
                           'flatpak_indexer.datasource.pyxis.updater.PyxisUpdater.update'])
 def test_daemon_exception(tmp_path, where):
-    mock_pyxis()
     config_path = write_config(tmp_path, CONFIG)
 
     os.mkdir(tmp_path / "index")
@@ -95,11 +92,10 @@ def test_daemon_exception(tmp_path, where):
 
 
 @mock_brew
+@mock_pyxis
 @mock_redis
-@responses.activate
 @pytest.mark.parametrize('verbose', [False, True])
 def test_index(tmp_path, caplog, verbose):
-    mock_pyxis()
     config_path = write_config(tmp_path, CONFIG)
 
     os.mkdir(tmp_path / "index")
