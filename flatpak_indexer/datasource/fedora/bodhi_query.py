@@ -156,13 +156,18 @@ def _query_updates(requests_session,
         bodhi_releases.append(bodhi_release)
     params['releases'] = bodhi_releases
 
-    # Heuristically, most updates are RPM updates, so specifying
-    # content_type=rpm in the query doesn't reduce the size of the
-    # result set much, but it turns out to make the database query
-    # that Bodhi executes much worse.
-    # https://github.com/fedora-infra/bodhi/issues/3064
-    if content_type != 'rpm':
-        params['content_type'] = content_type
+    # Setting the content type in the query:
+    #
+    # a) messes up the pagination in the query
+    # (https://github.com/fedora-infra/bodhi/issues/4130)
+    #
+    # b) can make things much slower
+    # (https://github.com/fedora-infra/bodhi/issues/3064)
+    #
+    # params['content_type'] = content_type
+    #
+    # For Fedora, because each content type has a separate release, we effectively
+    # filter by content type anyways.
 
     if query_entities is not None:
         if len(query_entities) > 5:
