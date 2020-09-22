@@ -3,12 +3,14 @@ import gzip
 import json
 import os
 import re
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 from iso8601 import iso8601
 import responses
 
 from flatpak_indexer.datasource.fedora.bodhi_query import parse_date_value
+from flatpak_indexer.datasource.fedora.release_info import Release, ReleaseStatus
 
 from .utils import WithArgDecorator
 
@@ -160,24 +162,33 @@ class MockBodhi:
             ]}))
 
 
+MOCK_RELEASES = [
+    Release(name='F27', branch='f27', tag='f27', status=ReleaseStatus.EOL),
+    Release(name='F28', branch='f28', tag='f28', status=ReleaseStatus.GA),
+    Release(name='F29', branch='f29', tag='f29', status=ReleaseStatus.GA),
+    Release(name='F30', branch='f30', tag='f30', status=ReleaseStatus.RAWHIDE),
+]
+
+
 @contextmanager
 def _setup_bodhi(**kwargs):
-    with responses._default_mock:
-        bodhi_mock = MockBodhi(**kwargs)
+    with patch("flatpak_indexer.datasource.fedora.release_info.releases", MOCK_RELEASES):
+        with responses._default_mock:
+            bodhi_mock = MockBodhi(**kwargs)
 
-        responses.add_callback(method=responses.GET,
-                               url='https://bodhi.fedoraproject.org/updates/',
-                               callback=bodhi_mock.get_updates_callback,
-                               content_type='application/json',
-                               match_querystring=False)
-        responses.add_callback(method=responses.GET,
-                               url=re.compile(
-                                   'https://bodhi.fedoraproject.org/updates/([a-zA-Z0-9-]+)'),
-                               callback=bodhi_mock.get_update_callback,
-                               content_type='application/json',
-                               match_querystring=False)
+            responses.add_callback(method=responses.GET,
+                                   url='https://bodhi.fedoraproject.org/updates/',
+                                   callback=bodhi_mock.get_updates_callback,
+                                   content_type='application/json',
+                                   match_querystring=False)
+            responses.add_callback(method=responses.GET,
+                                   url=re.compile(
+                                       'https://bodhi.fedoraproject.org/updates/([a-zA-Z0-9-]+)'),
+                                   callback=bodhi_mock.get_update_callback,
+                                   content_type='application/json',
+                                   match_querystring=False)
 
-        yield bodhi_mock
+            yield bodhi_mock
 
 
 mock_bodhi = WithArgDecorator('bodhi_mock', _setup_bodhi)

@@ -9,7 +9,8 @@ from requests.packages.urllib3.util.retry import Retry
 from ...utils import format_date, parse_date
 
 from .models import BodhiUpdateModel
-from .release_info import releases, ReleaseStatus
+from . import release_info
+from .release_info import ReleaseStatus
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +161,7 @@ def _query_updates(requests_session,
     }
 
     bodhi_releases = []
-    for release in releases:
+    for release in release_info.releases:
         if release.status == ReleaseStatus.EOL or release.status == ReleaseStatus.RAWHIDE:
             continue
 
@@ -339,19 +340,27 @@ def reset_update_cache(redis_client):
 def list_updates(redis_client, content_type, entity_name=None, release_branch=None):
     """ Returns a list of (PackageUpdateBuild, PackageBuild)"""
 
+    if release_branch is not None:
+        branches = [release_branch]
+    else:
+        branches = [r.branch for r in release_info.releases if
+                    r.status != ReleaseStatus.EOL and r.status != ReleaseStatus.RAWHIDE]
+
     if entity_name is not None:
         key = entity_name
-        if release_branch is not None:
-            key += ':' + release_branch
+
+        first_key = key + ':' + branches[0]
+        last_key = key + ':' + branches[-1]
+
         updates_by_entity = redis_client.zrangebylex('updates-by-entity:' + content_type,
-                                                     '[' + key + ':', '(' + key + ';')
+                                                     '[' + first_key + ':', '(' + last_key + ';')
     else:
         updates_by_entity = redis_client.zrange('updates-by-entity:' + content_type, 0, -1)
 
     def filter_results(keys):
         for key in keys:
             entity_name, rb, update_id = key.decode("utf-8").split(":")
-            if release_branch is None or rb == release_branch:
+            if release_branch is None or rb in branches:
                 yield 'update:' + update_id
 
     # Remove duplicates
