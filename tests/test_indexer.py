@@ -153,7 +153,8 @@ indexes:
         registry: brew
         architecture: amd64
         output: ${OUTPUT_DIR}/test/brew.json
-        koji_tag: release-candidate
+        tag: release-candidate
+        koji_tags: [release-candidate]
 """)
 
 

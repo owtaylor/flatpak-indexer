@@ -127,7 +127,8 @@ indexes:
         registry: brew
         architecture: amd64
         output: out/test/brew.json
-        koji_tag: release-candidate
+        tag: release-candidate
+        koji_tags: [release-candidate, release-candidate-2]
 """)
 
 
@@ -147,4 +148,4 @@ def test_pyxis_updater_koji(tmp_path):
     assert len(aisleriot_repository.images) == 1
     aisleriot_image = next(iter(aisleriot_repository.images.values()))
     assert aisleriot_image.digest == \
-        'sha256:bo1dfacec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
+        'sha256:fade1e55c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'

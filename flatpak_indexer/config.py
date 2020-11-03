@@ -29,17 +29,13 @@ class IndexConfig:
         self.name = name
         self.output = lookup.get_str('output')
         self.registry = lookup.get_str('registry')
-        self.tag = lookup.get_str('tag', None)
-        self.koji_tag = lookup.get_str('koji_tag', None)
+        self.tag = lookup.get_str('tag')
+        self.koji_tags = lookup.get_str_list('koji_tags', [])
         self.bodhi_status = lookup.get_str('bodhi_status', None)
         self.architecture = lookup.get_str('architecture', None)
         self.delta_keep_days = lookup.get_int('delta_keep_days', 0)
         self.extract_icons = lookup.get_bool('extract_icons', False)
         self.flatpak_annotations = lookup.get_bool('flatpak_annotations', False)
-
-    @property
-    def output_tag(self):
-        return self.koji_tag if self.koji_tag else self.tag
 
 
 class DaemonConfig:
@@ -192,6 +188,8 @@ class Config:
                                        "pyxis_url must be configured for the pyxis datasource")
                                       .format(registry_config.name))
 
+        tag_koji_tags = dict()
+
         for name, sublookup in lookup.iterate_objects('indexes'):
             index_config = IndexConfig(name, sublookup)
             self.indexes.append(index_config)
@@ -200,14 +198,6 @@ class Config:
             if not registry_config:
                 raise ConfigError("indexes/{}: No registry config found for {}"
                                   .format(index_config.name, index_config.registry))
-
-            if index_config.tag and index_config.koji_tag:
-                raise ConfigError("indexes/{}: tag and koji_tag cannot both be set"
-                                  .format(index_config.name))
-
-            if not (index_config.tag or index_config.koji_tag):
-                raise ConfigError("indexes/{}: One of tag or koji_tag must be set"
-                                  .format(index_config.name))
 
             if index_config.extract_icons and self.icons_dir is None:
                 raise ConfigError("indexes/{}: extract_icons is set, but no icons_dir is configured"
@@ -231,10 +221,18 @@ class Config:
                                        "to 'testing' or 'stable'")
                                       .format(index_config.name))
 
-                if index_config.koji_tag is not None:
-                    raise ConfigError(("indexes/{}: koji_tag can only be set " +
+                if index_config.koji_tags:
+                    raise ConfigError(("indexes/{}: koji_tags can only be set " +
                                        "for the pyxis datasource")
                                       .format(index_config.name))
+
+            if index_config.tag in tag_koji_tags:
+                old_name, old_koji_tags = tag_koji_tags[index_config.tag]
+                if set(old_koji_tags) != set(index_config.koji_tags):
+                    raise ConfigError(f"indexes/{old_name}, indexes/{index_config.name}: "
+                                      "koji_tags must be consistent for indexes with the same tag")
+            else:
+                tag_koji_tags[index_config.tag] = (index_config.name, index_config.koji_tags)
 
         self.daemon = DaemonConfig(Lookup(yml.get('daemon', {}), 'daemon'))
 

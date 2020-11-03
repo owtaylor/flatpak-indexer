@@ -169,23 +169,19 @@ class Indexer:
             delta_generator = DeltaGenerator(self.conf)
 
             for index_config in self.conf.indexes:
-                tag = index_config.output_tag
-
                 registry_info = registry_data.get(index_config.registry)
                 if registry_info is None:
                     continue
 
                 registry_config = self.conf.registries[index_config.registry]
                 for repository in registry_info.repositories.values():
-                    tag_history = repository.tag_histories.get(tag)
+                    tag_history = repository.tag_histories.get(index_config.tag)
                     if tag_history:
                         delta_generator.add_tag_history(repository, tag_history, index_config)
 
             delta_generator.generate()
 
         for index_config in self.conf.indexes:
-            tag = index_config.output_tag
-
             registry_name = index_config.registry
             registry_config = self.conf.registries[registry_name]
 
@@ -200,7 +196,7 @@ class Indexer:
 
             for repository in registry_info.repositories.values():
                 for image in repository.images.values():
-                    if (tag in image.tags and
+                    if (index_config.tag in image.tags and
                         (index.config.architecture is None or
                          image.architecture == index.config.architecture)):
 

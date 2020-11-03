@@ -139,6 +139,66 @@ _KOJI_BUILDS = [
         ]
     },
     {
+        'build_id': 1063052,
+        'completion_ts': 1598465962.42521,
+        'extra': {
+            'image': {
+                'flatpak': True,
+                'index': {
+                    'digests': {'application/vnd.docker.distribution.manifest.list.v2+json':
+                                'sha256:' +
+                                'b0b51edaf5db2f38650970c2ce0f2897b6e552e5b7e67adfb53ab51243b5f5f5'},
+
+                    'floating_tags': ['latest', 'el8'],
+                    'pull': [
+                        'registry-proxy.engineering.redhat.com/rh-osbs/aisleriot@' +
+                        'sha256:b0b51edaf5db2f38650970c2ce0f2897b6e552e5b7e67adfb53ab51243b5f5f5',
+                        'registry-proxy.engineering.redhat.com/rh-osbs/aisleriot:' +
+                        'el8-8020020200121102609.1'],
+                    'tags': ['el8-8020020200121102609.1'],
+                },
+                'modules': ['aisleriot-el8-8020020200121102609'],
+            }
+        },
+        'name': 'aisleriot-container',
+        'nvr': 'aisleriot-container-el8-8020020200121102609.2',
+        'owner_name': 'jdoe',
+        'package_id': 22,
+        'source': 'git://pkgs.devel.redhat.com/containers/aisleriot#AISLERIOT_GIT_DIGEST',
+        '_TYPE': 'image',
+        '_TAGS': ['release-candidate-2'],
+        '_ARCHIVES': [
+            {
+                'extra': {
+                    'docker': {
+                        'config': {
+                            'architecture': 'amd64',
+                            'config': {
+                                'Labels': _AISLERIOT_LABELS,
+                            },
+                            'os': 'linux',
+                            'rootfs': {
+                                'diff_ids': ['sha256:5a1ad']
+                            },
+                        },
+                        'digests': {
+                            'application/vnd.docker.distribution.manifest.v2+json':
+                            'sha256:' +
+                                'fade1e55c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb',
+                        },
+                        'repositories': [
+                            'registry-proxy.engineering.redhat/rh-osbs/aisleriot:build-1235-x86_64'
+                        ]
+                    },
+                    'image': {
+                        'arch': 'x86_64',
+                    }
+                },
+                'id': 15322,
+            }
+        ]
+    },
+    {
         'build_id': 54321,
         'completion_ts': 1598464000.,
         'extra': {

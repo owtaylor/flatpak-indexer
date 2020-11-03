@@ -9,7 +9,7 @@ from ...koji_query import query_image_build
 from ...models import (FlatpakBuildModel, RegistryModel,
                        TagHistoryItemModel, TagHistoryModel)
 from ...redis_utils import get_redis_client
-from ...utils import get_retrying_requests_session, parse_date
+from ...utils import get_retrying_requests_session, parse_date, rpm_nvr_compare
 
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ class Registry:
         self.redis_client = get_redis_client(global_config)
 
     def add_index(self, index_config):
-        if index_config.koji_tag:
+        if index_config.koji_tags:
             self.koji_indexes.append(index_config)
         else:
             self.tag_indexes.append(index_config)
@@ -137,13 +137,13 @@ class Registry:
             self.registry.repositories[repository].tag_histories[tag] = tag_history
 
     def find_images(self):
-        desired_tags = defaultdict(set)
+        desired_architectures = defaultdict(set)
         for index_config in self.tag_indexes:
-            desired_tags[index_config.tag].add(index_config.architecture)
+            desired_architectures[index_config.tag].add(index_config.architecture)
 
-        if len(desired_tags) > 0:
+        if len(desired_architectures) > 0:
             for repository in self._iterate_repositories():
-                for tag, architectures in desired_tags.items():
+                for tag, architectures in desired_architectures.items():
                     history_items = self._get_tag_history(repository, tag)
                     if len(history_items) == 0:
                         continue
@@ -155,18 +155,39 @@ class Registry:
 
                     self._add_build_history(repository, tag, architectures, build_items)
 
-        desired_koji_tags = defaultdict(set)
+        desired_architectures_koji = defaultdict(set)
+        tag_koji_tags = {}
         for index_config in self.koji_indexes:
-            desired_koji_tags[index_config.koji_tag].add(index_config.architecture)
+            # config.py enforces that the tag => koji_tags mapping is consistent for
+            # multiple indexes with the same 'tag'
+            tag_koji_tags[index_config.tag] = index_config.koji_tags
+            desired_architectures_koji[index_config.tag].add(index_config.architecture)
 
-        if len(desired_koji_tags) > 0:
-            koji_tag_start_date = datetime.fromtimestamp(0, timezone.utc)
+        # Cache the builds for each tag
+        koji_tag_builds = {}
 
-            for koji_tag, architectures in desired_koji_tags.items():
-                for build in self._iterate_flatpak_builds(koji_tag):
-                    build_items = [(build, koji_tag_start_date)]
+        koji_tag_start_date = datetime.fromtimestamp(0, timezone.utc)
 
-                    self._add_build_history(build.repository, koji_tag, architectures, build_items)
+        for tag, koji_tags in tag_koji_tags.items():
+            # if multiple koji_tags are configured for the index, we merge them keeping
+            # only the latest build for each name
+            builds_by_name = {}
+            for koji_tag in koji_tags:
+                if koji_tag not in koji_tag_builds:
+                    koji_tag_builds[koji_tag] = list(self._iterate_flatpak_builds(koji_tag))
+
+                for build in koji_tag_builds[koji_tag]:
+                    name, _, _ = build.nvr.rsplit('-', 2)
+                    if (name not in builds_by_name or
+                            rpm_nvr_compare(builds_by_name[name].nvr, build.nvr) < 0):
+                        builds_by_name[name] = build
+
+            architectures = desired_architectures_koji[tag]
+
+            for build in builds_by_name.values():
+                build_items = [(build, koji_tag_start_date)]
+                self._add_build_history(build.repository, index_config.tag,
+                                        architectures, build_items)
 
 
 class PyxisUpdater(object):

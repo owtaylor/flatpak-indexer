@@ -39,7 +39,14 @@ indexes:
     brew-rc:
         registry: brew
         output: /flatpaks/rc-amd64.json
-        koji_tag: release-candidate
+        tag: release-candidate
+        koji_tags: [release-candidate]
+    brew-rc-amd64:
+        architecture: amd64
+        registry: brew
+        output: /flatpaks/rc-amd64.json
+        tag: release-candidate
+        koji_tags: [release-candidate]
     fedora-testing:
         registry: fedora
         output: /fedora/flatpak-testing.json
@@ -228,37 +235,20 @@ def test_registry_missing(tmp_path):
         get_config(tmp_path, config_data)
 
 
-def test_koji_tag_and_tag(tmp_path):
+def test_koji_tags_consistent(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
-    config_data['indexes']['brew-rc']['tag'] = 'FOO'
+    config_data['indexes']['brew-rc-amd64']['koji_tags'] = ['release-candidate', 'released']
     with raises(ConfigError,
-                match="indexes/brew-rc: tag and koji_tag cannot both be set"):
+                match=("indexes/brew-rc, indexes/brew-rc-amd64: "
+                       "koji_tags must be consistent for indexes with the same tag")):
         get_config(tmp_path, config_data)
 
 
-def test_no_koji_tag_or_tag(tmp_path):
+def test_koji_tags_extra(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
-    del config_data['indexes']['brew-rc']['koji_tag']
+    config_data['indexes']['fedora-testing']['koji_tags'] = ['f30']
     with raises(ConfigError,
-                match="indexes/brew-rc: One of tag or koji_tag must be set"):
-        get_config(tmp_path, config_data)
-
-
-def test_index_output_tag(tmp_path):
-    config = get_config(tmp_path, BASIC_CONFIG)
-    for index in config.indexes:
-        if index.name == 'amd64':
-            assert index.output_tag == 'latest'
-        elif index.name == 'brew-rc':
-            assert index.output_tag == 'release-candidate'
-
-
-def test_koji_tag_extra(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    del config_data['indexes']['fedora-testing']['tag']
-    config_data['indexes']['fedora-testing']['koji_tag'] = 'f30'
-    with raises(ConfigError,
-                match="indexes/fedora-testing: koji_tag can only be set for the pyxis datasource"):
+                match="indexes/fedora-testing: koji_tags can only be set for the pyxis datasource"):
         get_config(tmp_path, config_data)
 
 
