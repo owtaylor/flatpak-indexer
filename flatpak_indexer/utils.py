@@ -15,8 +15,6 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util import Retry
 from version_utils.rpm import compare_versions
 
-from rpm import labelCompare
-
 
 logger = logging.getLogger(__name__)
 
