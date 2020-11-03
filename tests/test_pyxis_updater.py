@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import pytest
 import yaml
 
@@ -132,11 +134,17 @@ indexes:
 """)
 
 
+@pytest.mark.parametrize("inherit", (False, True))
 @mock_brew
 @mock_pyxis
 @mock_redis
-def test_pyxis_updater_koji(tmp_path):
-    config = get_config(tmp_path, KOJI_CONFIG)
+def test_pyxis_updater_koji(tmp_path, inherit):
+    cfg = deepcopy(KOJI_CONFIG)
+    if inherit:
+        cfg['indexes']['brew-rc']['koji_tags'] = ['release-candidate-3+']
+
+    config = get_config(tmp_path, cfg)
+
     updater = PyxisUpdater(config)
 
     registry_data = run_update(updater)

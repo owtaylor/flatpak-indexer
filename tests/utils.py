@@ -368,6 +368,13 @@ _KOJI_BUILDS = [
 ]
 
 
+_KOJI_TAGS = {
+    'release-candidate': [],
+    'release-candidate-2': [],
+    'release-candidate-3': ['release-candidate', 'release-candidate-2'],
+}
+
+
 _REPOSITORIES = [
     {
         'registry': 'registry2.example.com',
@@ -707,17 +714,31 @@ def _koji_list_builds(build_id, type=None):
     return result
 
 
-def _koji_list_tagged(tag, type, latest):
+def _koji_list_tagged(tag, type, latest=False, inherit=False):
     assert latest is True
     assert type == 'image'
 
+    if inherit:
+        all_tags = set()
+
+        def _add_tag(t):
+            all_tags.add(t)
+            for inherited_tag in _KOJI_TAGS[t]:
+                _add_tag(inherited_tag)
+
+        _add_tag(tag)
+    else:
+        all_tags = {tag}
+
     result = []
     for build in _KOJI_BUILDS:
-        if tag in build['_TAGS']:
-            result.append({
-                'build_id': build['build_id'],
-                'nvr': build['nvr'],
-            })
+        for t in all_tags:
+            if t in build['_TAGS']:
+                result.append({
+                    'build_id': build['build_id'],
+                    'nvr': build['nvr'],
+                })
+                continue
 
     return result
 

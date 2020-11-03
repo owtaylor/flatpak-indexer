@@ -106,7 +106,14 @@ class Registry:
                 yield item['repository']
 
     def _iterate_flatpak_builds(self, koji_tag):
-        tagged_builds = self.koji_session.listTagged(koji_tag, type='image', latest=True)
+        if koji_tag.endswith('+'):
+            koji_tag = koji_tag[0:-1]
+            inherit = True
+        else:
+            inherit = False
+
+        tagged_builds = self.koji_session.listTagged(koji_tag, type='image',
+                                                     inherit=inherit, latest=True)
         for tagged_build in tagged_builds:
             build = query_image_build(self.koji_session, self.redis_client, tagged_build['nvr'])
             if isinstance(build, FlatpakBuildModel):
