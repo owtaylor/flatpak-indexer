@@ -193,7 +193,7 @@ class Registry:
 
             for build in builds_by_name.values():
                 build_items = [(build, koji_tag_start_date)]
-                self._add_build_history(build.repository, index_config.tag,
+                self._add_build_history(build.repository, tag,
                                         architectures, build_items)
 
 
