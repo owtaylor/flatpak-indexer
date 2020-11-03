@@ -119,7 +119,7 @@ class Registry:
             if isinstance(build, FlatpakBuildModel):
                 yield build
 
-    def _add_build_history(self, repository, tag, architectures, build_items):
+    def _add_build_history(self, repository_name, tag, architectures, build_items):
         tag_history = TagHistoryModel(name=tag)
 
         for build, start_date in build_items:
@@ -129,11 +129,17 @@ class Registry:
                 if not (None in architectures or image.architecture in architectures):
                     continue
 
-                image.tags = [v, f"{v}-{r}"]
-                if build == build_items[0][0]:
-                    image.tags.append(tag)
+                repository = self.registry.repositories.get(repository_name)
+                old_image = repository.images.get(image.digest) if repository else None
+                if old_image:
+                    if build == build_items[0][0]:
+                        old_image.tags.append(tag)
+                else:
+                    image.tags = [v, f"{v}-{r}"]
+                    if build == build_items[0][0]:
+                        image.tags.append(tag)
 
-                self.registry.add_image(repository, image)
+                    self.registry.add_image(repository_name, image)
 
                 item = TagHistoryItemModel(architecture=image.architecture,
                                            date=start_date,
@@ -141,7 +147,7 @@ class Registry:
                 tag_history.items.append(item)
 
         if len(tag_history.items):
-            self.registry.repositories[repository].tag_histories[tag] = tag_history
+            self.registry.repositories[repository_name].tag_histories[tag] = tag_history
 
     def find_images(self):
         desired_architectures = defaultdict(set)
