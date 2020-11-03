@@ -33,6 +33,7 @@ setup(name='flatpak-indexer',
           'pika',
           'requests',
           'PyYAML',
+          'version_utils',
           # Dev requirements - listed in main requirements to make the image
           # image self-contained for testing.
           'fakeredis',

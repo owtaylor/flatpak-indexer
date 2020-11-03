@@ -13,6 +13,7 @@ from urllib.parse import urljoin
 from requests import Session
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util import Retry
+from version_utils.rpm import compare_versions
 
 from rpm import labelCompare
 
@@ -266,7 +267,5 @@ def rpm_nvr_compare(nvr_a, nvr_b):
 
     if n_a != n_b:
         raise ValueError(f"{nvr_a} and {nvr_b} have different names")
-    assert n_a == n_b
 
-    return labelCompare(('0', v_a, r_a),
-                        ('0', v_b, r_b))
+    return compare_versions(nvr_a, nvr_b)
