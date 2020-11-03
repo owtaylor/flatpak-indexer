@@ -60,7 +60,7 @@ class RegistryModel(BaseModel):
 class KojiBuildModel(BaseModel):
     build_id: str
     nvr: str
-    source: str
+    source: Optional[str]
     completion_time: datetime
     user_name: str
 

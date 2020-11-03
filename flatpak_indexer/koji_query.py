@@ -34,17 +34,19 @@ def _get_build(koji_session, redis_client, build_info, build_cls):
                   user_name=build_info['owner_name'],
                   completion_time=completion_time)
 
-    if issubclass(build_cls,  ImageBuildModel):
-        image_extra = build_info['extra']['image']
-        if image_extra.get('flatpak', False):
-            build_cls = FlatpakBuildModel
+    if issubclass(build_cls, ImageBuildModel):
+        extra = build_info.get('extra')
+        if extra:
+            image_extra = extra.get('image')
+            if image_extra and image_extra.get('flatpak', False):
+                build_cls = FlatpakBuildModel
 
     if build_cls == ModuleBuildModel:
         kwargs['modulemd'] = build_info['extra']['typeinfo']['module']['modulemd_str']
 
     build = build_cls(**kwargs)
 
-    if issubclass(build_cls,  ImageBuildModel):
+    if issubclass(build_cls, ImageBuildModel):
         logger.info("Calling koji.listArchives(%s); nvr=%s",
                     build_info['build_id'], build_info['nvr'])
         archives = koji_session.listArchives(build_info['build_id'])
@@ -67,7 +69,13 @@ def _get_build(koji_session, redis_client, build_info, build_cls):
 
                         _query_package_build_by_id(koji_session, redis_client, c['build_id'])
 
-            docker_info = archive['extra']['docker']
+            docker_info = None
+            archive_extra = archive.get('extra')
+            if archive_extra:
+                docker_info = archive_extra.get('docker')
+            if not docker_info:
+                continue
+
             config = docker_info['config']
             digests = docker_info['digests']
 

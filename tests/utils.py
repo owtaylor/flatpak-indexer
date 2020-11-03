@@ -364,6 +364,26 @@ _KOJI_BUILDS = [
                 'id': 17322,
             },
         ]
+    },
+    # An image, but not a container image
+    {
+        'build_id': 636564,
+        'completion_ts': 1515068116.53497,
+        'extra': None,
+        'name': 'rhel-guest-image',
+        'nvr': 'rhel-guest-image-8.0-1114',
+        'owner_name': 'jdoe',
+        'package_id': 42902,
+        'source': None,
+        '_TYPE': 'image',
+        '_TAGS': ['release-candidate'],
+        '_ARCHIVES': [
+            {
+                'extra': None,
+                'filename': 'rhel-guest-image-8.0-1114.x86_64.qcow2',
+                'id': 2217961,
+            }
+        ]
     }
 ]
 
