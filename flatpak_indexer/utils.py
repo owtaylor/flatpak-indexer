@@ -14,6 +14,8 @@ from requests import Session
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util import Retry
 
+from rpm import labelCompare
+
 
 logger = logging.getLogger(__name__)
 
@@ -254,3 +256,17 @@ def run_with_stats(args, progress_callback=None):
                                  user_time_s=float(user_time))
 
         return result, stats
+
+
+def rpm_nvr_compare(nvr_a, nvr_b):
+    """Compare the version-release parts of two name-release-version strings by RPM rules."""
+
+    n_a, v_a, r_a = nvr_a.rsplit('-', 2)
+    n_b, v_b, r_b = nvr_b.rsplit('-', 2)
+
+    if n_a != n_b:
+        raise ValueError(f"{nvr_a} and {nvr_b} have different names")
+    assert n_a == n_b
+
+    return labelCompare(('0', v_a, r_a),
+                        ('0', v_b, r_b))

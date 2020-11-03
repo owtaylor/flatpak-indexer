@@ -13,6 +13,7 @@ from flatpak_indexer.utils import (atomic_writer,
                                    parse_pull_spec,
                                    unparse_pull_spec,
                                    path_for_digest,
+                                   rpm_nvr_compare,
                                    run_with_stats,
                                    substitute_env_vars,
                                    SubstitutionError,
@@ -199,3 +200,19 @@ def test_run_with_stats():
         assert res == 0
         assert stats is not None
         assert progress_called
+
+
+@pytest.mark.parametrize('nvr_a, nvr_b, result, exception', [
+    ('x-1-1', 'x-2-1', -1, None),
+    ('x-1-1', 'x-1-1',  0, None),
+    ('x-2-1', 'x-1-1',  1, None),
+    ('x-1-1', 'x-1-2', -1, None),
+    ('x-1~alpha-1', 'x-1-1',  -1, None),
+    ('x-1-1', 'y-1-1',  0, r'x-1-1 and y-1-1 have different names'),
+])
+def test_rpm_nvr_compare(nvr_a, nvr_b, result, exception):
+    if exception:
+        with raises(ValueError, match=exception):
+            rpm_nvr_compare(nvr_a, nvr_b)
+    else:
+        assert rpm_nvr_compare(nvr_a, nvr_b) == result
