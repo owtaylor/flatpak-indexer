@@ -76,6 +76,9 @@ pytest tests -k test_config_basic
 
 # TESTING WITH REAL DATA
 
+# (If necessary) build the Fedora-based Redis image
+./tools/build-redis.sh
+
 # Start redis in one terminal
 ./tools/run-redis.sh
 
