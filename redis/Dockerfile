@@ -6,7 +6,9 @@ RUN \
 
 RUN dnf -y update && dnf install -y redis && dnf clean all
 
-RUN mkdir /data && chown redis:redis /data
+RUN chmod 0770 /etc/redis
+
+RUN mkdir -m 0770 /data && chown redis:0 /data
 VOLUME /data
 WORKDIR /data
 
