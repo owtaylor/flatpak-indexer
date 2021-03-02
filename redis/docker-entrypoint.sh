@@ -4,6 +4,7 @@ cat /etc/redis/redis.conf | \
     sed \
 	-e 's@^dir .*@dir /data@' \
 	-e 's@^logfile .*@logfile ""@' \
+	-e 's@^bind @# bind @' \
         > /etc/redis/redis-docker.conf
 
 if [ "${REDIS_PASSWORD+set}" = "set" ] ; then
