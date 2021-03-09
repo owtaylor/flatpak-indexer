@@ -4,6 +4,7 @@ import os
 
 import yaml
 
+from flatpak_indexer.cleaner import Cleaner
 from flatpak_indexer.datasource import load_updaters
 from flatpak_indexer.indexer import Indexer
 from flatpak_indexer.models import RegistryModel
@@ -33,6 +34,7 @@ deltas_uri: https://registry.fedoraproject.org/deltas
 redis_url: redis://localhost
 icons_dir: ${OUTPUT_DIR}/icons/
 icons_uri: https://flatpaks.example.com/icons
+clean_files_after: 0s
 registries:
     registry.example.com:
         public_url: https://registry.example.com/
@@ -74,7 +76,8 @@ def test_indexer(tmp_path):
     config = get_config(tmp_path, CONFIG)
     registry_data = run_update(config)
 
-    indexer = Indexer(config)
+    cleaner = Cleaner(config)
+    indexer = Indexer(config, cleaner=cleaner)
     indexer.index(registry_data)
 
     # No-op, datasource hasn't updated
@@ -85,6 +88,7 @@ def test_indexer(tmp_path):
 
     # Now the index will be rewritten
     indexer.index(registry_data)
+    cleaner.clean()
 
     with open(tmp_path / "test/flatpak-amd64.json") as f:
         amd64_data = json.load(f)

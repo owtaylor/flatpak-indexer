@@ -203,6 +203,8 @@ class Config:
         if self.deltas_dir is not None and self.deltas_uri is None:
             raise ConfigError("deltas_dir is configured, but not deltas_uri")
 
+        self.clean_files_after = lookup.get_timedelta('clean_files_after', '1d')
+
         for name, sublookup in lookup.iterate_objects('registries'):
             registry_config = RegistryConfig(name, sublookup)
             self.registries[name] = registry_config

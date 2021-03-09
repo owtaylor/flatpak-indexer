@@ -5,6 +5,7 @@ import logging
 import redis
 import time
 
+from .cleaner import Cleaner
 from .models import TardiffImageModel, TardiffResultModel, TardiffSpecModel
 from .redis_utils import get_redis_client
 from .utils import atomic_writer, parse_pull_spec, path_for_digest, uri_for_digest
@@ -14,11 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 class DeltaGenerator:
-    def __init__(self, config, progress_timeout_seconds=60):
+    def __init__(self, config, progress_timeout_seconds=60, cleaner=None):
         self.config = config
         self.redis_client = get_redis_client(config)
         self.progress_timeout_seconds = progress_timeout_seconds
-
+        if cleaner is None:
+            cleaner = Cleaner(self.config)
+        self.cleaner = cleaner
         self.now = datetime.utcnow().replace(tzinfo=timezone.utc)
         self.deltas = {}
         self.image_info = {}
@@ -244,6 +247,9 @@ class DeltaGenerator:
 
                 result = results[key]
                 if result.status == "success":
+                    self.cleaner.reference(path_for_digest(self.config.deltas_uri,
+                                                           result.digest, '.tardiff'))
+
                     delta_layers.append({
                         "mediaType": "application/vnd.redhat.tar-diff",
                         "size": result.size,

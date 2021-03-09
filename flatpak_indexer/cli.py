@@ -2,6 +2,7 @@ import click
 import logging
 import time
 
+from .cleaner import Cleaner
 from .config import Config
 from .datasource import load_updaters
 from .differ import Differ
@@ -35,8 +36,9 @@ def cli(ctx, config_file, verbose):
 def daemon(ctx):
     cfg = ctx.obj['config']
 
+    cleaner = Cleaner(cfg)
     updaters = load_updaters(cfg)
-    indexer = Indexer(cfg)
+    indexer = Indexer(cfg, cleaner=cleaner)
 
     for updater in updaters:
         updater.start()
@@ -57,10 +59,19 @@ def daemon(ctx):
                 except Exception:
                     logger.exception("Failed to update data sources")
 
+            cleaner.reset()
+
             try:
                 indexer.index(registry_data)
             except Exception:
                 logger.exception("Failed to create index")
+                continue
+
+            try:
+                cleaner.clean()
+            except Exception:
+                logger.exception("Failed to clean unused files")
+                continue
     finally:
         # Stopping the updaters (and their worker threads) is needed for the process to exit
         for updater in updaters:

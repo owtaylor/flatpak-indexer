@@ -34,6 +34,7 @@ indexes:
 
 @mock_brew
 @mock_pyxis
+@mock_redis
 def test_daemon(tmp_path):
     config_path = write_config(tmp_path, CONFIG)
 
@@ -58,9 +59,11 @@ def test_daemon(tmp_path):
 
 @mock_brew
 @mock_pyxis
+@mock_redis
 @pytest.mark.parametrize('where',
                          ['flatpak_indexer.indexer.Indexer.index',
-                          'flatpak_indexer.datasource.pyxis.updater.PyxisUpdater.update'])
+                          'flatpak_indexer.datasource.pyxis.updater.PyxisUpdater.update',
+                          'flatpak_indexer.cleaner.Cleaner.clean'])
 def test_daemon_exception(tmp_path, where):
     config_path = write_config(tmp_path, CONFIG)
 

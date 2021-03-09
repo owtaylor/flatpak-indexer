@@ -10,6 +10,8 @@ deltas_uri: https://flatpaks.local.fishsoup.net:8443/deltas/
 # rewritten in the index from a data: URL to an URL formed from icons_uri
 icons_dir: ${OUTPUT_DIR:out}/icons/
 icons_uri: https://flatpaks.local.fishsoup.net:8443/app-icons/
+# How long to wait after icons and deltas are no longer used before deleting them
+clean_files_after: 1d
 daemon:
         # How often to query Bodhi
         update_interval: 3m

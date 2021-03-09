@@ -5,6 +5,7 @@ import logging
 import json
 import os
 
+from .cleaner import Cleaner
 from .delta_generator import DeltaGenerator
 from .utils import atomic_writer, path_for_digest, uri_for_digest
 from .models import RegistryModel
@@ -16,18 +17,10 @@ DATA_URI_PREFIX = 'data:image/png;base64,'
 
 
 class IconStore(object):
-    def __init__(self, icons_dir, icons_uri):
+    def __init__(self, icons_dir, icons_uri, cleaner=None):
         self.icons_dir = icons_dir
         self.icons_uri = icons_uri
-
-        self.old_icons = {}
-        for f in os.listdir(icons_dir):
-            fullpath = os.path.join(icons_dir, f)
-            if os.path.isdir(fullpath):
-                for filename in os.listdir(fullpath):
-                    self.old_icons[(f, filename)] = True
-
-        self.icons = {}
+        self.cleaner = cleaner
 
     def store(self, uri):
         if not uri.startswith(DATA_URI_PREFIX):
@@ -41,27 +34,16 @@ class IconStore(object):
 
         fullpath = path_for_digest(self.icons_dir, digest, ".png",
                                    create_subdir=True)
-        key = tuple(fullpath.split("/")[-2:])
 
-        if key in self.icons:
-            pass
-        elif key in self.old_icons:
-            self.icons[key] = True
-        else:
+        if not os.path.exists(fullpath):
             logger.info("Storing icon: %s", fullpath)
             with open(fullpath, 'wb') as f:
                 f.write(decoded)
-            self.icons[key] = True
+
+        logger.warning(fullpath)
+        self.cleaner.reference(fullpath)
 
         return uri_for_digest(self.icons_uri, digest, ".png")
-
-    def clean(self):
-        for key in self.old_icons:
-            if key not in self.icons:
-                subdir, filename = key
-                fullpath = os.path.join(self.icons_dir, subdir, filename)
-                os.unlink(fullpath)
-                logger.info("Removing icon: %s", fullpath)
 
 
 class IndexWriter:
@@ -135,9 +117,12 @@ class IndexWriter:
 
 
 class Indexer:
-    def __init__(self, config):
+    def __init__(self, config, cleaner=None):
         self.conf = config
         self.last_registry_data_hash = None
+        if cleaner is None:
+            cleaner = Cleaner(self.conf)
+        self.cleaner = cleaner
 
     def _check_for_unchanged_data(self, registry_data):
         h = hashlib.sha256()
@@ -162,11 +147,11 @@ class Indexer:
 
         icon_store = None
         if self.conf.icons_dir is not None:
-            icon_store = IconStore(self.conf.icons_dir, self.conf.icons_uri)
+            icon_store = IconStore(self.conf.icons_dir, self.conf.icons_uri, cleaner=self.cleaner)
 
         delta_generator = None
         if any(index_config.delta_keep.total_seconds() > 0 for index_config in self.conf.indexes):
-            delta_generator = DeltaGenerator(self.conf)
+            delta_generator = DeltaGenerator(self.conf, cleaner=self.cleaner)
 
             for index_config in self.conf.indexes:
                 registry_info = registry_data.get(index_config.registry)
@@ -209,6 +194,3 @@ class Indexer:
                         index.add_image(repository.name, image, delta_manifest_url)
 
             index.write()
-
-        if icon_store is not None:
-            icon_store.clean()
