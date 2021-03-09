@@ -17,7 +17,7 @@ deltas_uri: https://flatpaks.example.com/deltas
 icons_dir: /flatpaks/icons/
 icons_uri: https://flatpaks.example.com/icons
 daemon:
-    update_interval: 1800
+    update_interval: 30m
 registries:
     registry.example.com:
         repositories: ['repo1', 'repo2']
@@ -52,7 +52,7 @@ indexes:
         output: /fedora/flatpak-testing.json
         bodhi_status: testing
         tag: testing
-        delta_keep_days: 7
+        delta_keep: 7d
 """)
 
 
@@ -89,8 +89,9 @@ def test_bool_type(tmp_path):
 
 def test_int_type(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
-    config_data['daemon']['update_interval'] = "FOO"
-    with raises(ConfigError, match="daemon/update_interval must be an integer"):
+    del config_data['indexes']['fedora-testing']['delta_keep']
+    config_data['indexes']['fedora-testing']['delta_keep_days'] = "FOO"
+    with raises(ConfigError, match="delta_keep_days must be an integer"):
         get_config(tmp_path, config_data)
 
 
@@ -112,6 +113,34 @@ def test_dict_list_type(tmp_path):
     config_data['local_certs'] = {"FOO": 1}
     with raises(ConfigError,
                 match="local_certs must be a mapping with string values"):
+        get_config(tmp_path, config_data)
+
+
+def test_timedelta_type(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    config_data['daemon']['update_interval'] = '2s'
+    assert get_config(tmp_path, config_data).daemon.update_interval.total_seconds() == 2
+    config_data['daemon']['update_interval'] = 2
+    assert get_config(tmp_path, config_data).daemon.update_interval.total_seconds() == 2
+    config_data['daemon']['update_interval'] = '2m'
+    assert get_config(tmp_path, config_data).daemon.update_interval.total_seconds() == 120
+    config_data['daemon']['update_interval'] = '2h'
+    assert get_config(tmp_path, config_data).daemon.update_interval.total_seconds() == 7200
+    config_data['daemon']['update_interval'] = '2d'
+    assert get_config(tmp_path, config_data).daemon.update_interval.total_seconds() == 2 * 24 * 3600
+
+    config_data['daemon']['update_interval'] = '2x'
+    with raises(ConfigError,
+                match=(r"daemon/update_interval should be a time interval "
+                       r"of the form <digits>\[dhms\]")):
+        get_config(tmp_path, config_data)
+
+    # bare integer only allowed for update_interval for compat
+    config_data['daemon']['update_interval'] = '2s'
+    config_data['indexes']['fedora-testing']['delta_keep'] = 2
+    with raises(ConfigError,
+                match=(r"indexes/fedora-testing/delta_keep should be a time interval "
+                       r"of the form <digits>\[dhms\]")):
         get_config(tmp_path, config_data)
 
 
@@ -288,7 +317,7 @@ def test_deltas_dir_missing(tmp_path):
     del config_data['deltas_dir']
     with raises(ConfigError,
                 match=("indexes/fedora-testing: " +
-                       "delta_keep_days is set, but no deltas_dir is configured")):
+                       "delta_keep is set, but no deltas_dir is configured")):
         get_config(tmp_path, config_data)
 
 

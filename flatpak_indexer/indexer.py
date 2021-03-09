@@ -165,7 +165,7 @@ class Indexer:
             icon_store = IconStore(self.conf.icons_dir, self.conf.icons_uri)
 
         delta_generator = None
-        if any(index_config.delta_keep_days > 0 for index_config in self.conf.indexes):
+        if any(index_config.delta_keep.total_seconds() > 0 for index_config in self.conf.indexes):
             delta_generator = DeltaGenerator(self.conf)
 
             for index_config in self.conf.indexes:

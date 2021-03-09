@@ -39,14 +39,14 @@ registries:
         datasource: pyxis
 indexes:
     amd64:
-        delta_keep_days: 7
+        delta_keep: 7d
         architecture: amd64
         registry: registry.example.com
         output: ${OUTPUT_DIR}/test/flatpak-amd64.json
         tag: latest
         extract_icons: true
     amd64-annotations:
-        delta_keep_days: 7
+        delta_keep: 7d
         architecture: amd64
         registry: registry.example.com
         output: ${OUTPUT_DIR}/test/flatpak-amd64-annotations.json
@@ -201,13 +201,13 @@ indexes:
         output: ${OUTPUT_DIR}/test/flatpak-latest.json
         tag: latest
         bodhi_status: stable
-        delta_keep_days: 10000
+        delta_keep: 10000d
     testing:
         registry: fedora
         output: ${OUTPUT_DIR}/test/flatpak-testing.json
         tag: testing
         bodhi_status: testing
-        delta_keep_days: 10000
+        delta_keep: 10000d
 """)
 
 

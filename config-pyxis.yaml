@@ -24,7 +24,7 @@ icons_dir: ${OUTPUT_DIR:out}/icons/
 icons_uri: https://flatpaks.local.fishsoup.net.com/app-icons/
 daemon:
         # How often to query Pyxis
-        update_interval: 1800
+        update_interval: 30m
 registries:
         # key must match registry ID in Pyxis
         registry.access.redhat.com:
@@ -49,14 +49,14 @@ indexes:
                 registry: registry.access.redhat.com
                 tag: latest
                 extract_icons: True
-                delta_keep_days: 90
+                delta_keep: 90d
         amd64:
                 output: ${OUTPUT_DIR:out}/pyxis/flatpak-latest-amd64.json
                 registry: registry.access.redhat.com
                 architecture: amd64
                 tag: latest
                 extract_icons: True
-                delta_keep_days: 90
+                delta_keep: 90d
         # These indexes index all Flatpaks found in the rhel-8.3.0-candidate tag
         # or (since the tag is suffixed by +) tags it inherits from.
         brew:

@@ -45,7 +45,9 @@ def daemon(ctx):
         last_update_time = None
         while True:
             if last_update_time is not None:
-                time.sleep(max(0, cfg.daemon.update_interval - (time.time() - last_update_time)))
+                time.sleep(max(0,
+                               cfg.daemon.update_interval.total_seconds()
+                               - (time.time() - last_update_time)))
             last_update_time = time.time()
 
             registry_data = {}

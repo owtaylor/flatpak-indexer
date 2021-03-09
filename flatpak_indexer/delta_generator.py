@@ -25,7 +25,7 @@ class DeltaGenerator:
         self.delta_manifest_urls = {}
 
     def add_tag_history(self, repository, tag_history, index_config):
-        keep = timedelta(days=index_config.delta_keep_days)
+        keep = index_config.delta_keep
         arch_map = {}
 
         for item in tag_history.items:

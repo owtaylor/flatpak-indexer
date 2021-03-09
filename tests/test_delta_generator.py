@@ -30,7 +30,7 @@ registries:
 indexes:
     stable:
         registry: fedora
-        delta_keep_days: 100000
+        delta_keep: 100000d
         output: out/test/flatpak.json
         bodhi_status: stable
         tag: latest

@@ -1,5 +1,7 @@
+import datetime
 from enum import Enum
 import os
+import re
 from urllib.parse import urlparse
 
 import yaml
@@ -33,14 +35,18 @@ class IndexConfig:
         self.koji_tags = lookup.get_str_list('koji_tags', [])
         self.bodhi_status = lookup.get_str('bodhi_status', None)
         self.architecture = lookup.get_str('architecture', None)
-        self.delta_keep_days = lookup.get_int('delta_keep_days', 0)
+        self.delta_keep = lookup.get_timedelta('delta_keep', None)
+        if self.delta_keep is None:
+            delta_keep_days = lookup.get_int('delta_keep_days', 0)
+            self.delta_keep = datetime.timedelta(days=delta_keep_days)
         self.extract_icons = lookup.get_bool('extract_icons', False)
         self.flatpak_annotations = lookup.get_bool('flatpak_annotations', False)
 
 
 class DaemonConfig:
     def __init__(self, lookup):
-        self.update_interval = lookup.get_int('update_interval', 1800)
+        self.update_interval = lookup.get_timedelta('update_interval', '30m',
+                                                    force_suffix=False)
 
 
 class Lookup:
@@ -109,6 +115,29 @@ class Lookup:
             raise ConfigError("{} must be a mapping with string values".format(self._get_path(key)))
 
         return {substitute_env_vars(k): substitute_env_vars(v) for k, v in val.items()}
+
+    def get_timedelta(self, key, default=Defaults.REQUIRED, force_suffix=True):
+        val = self._get(key, default)
+        if default is None and val is None:
+            return None
+
+        if isinstance(val, int) and not force_suffix:
+            return datetime.timedelta(seconds=val)
+
+        if isinstance(val, str):
+            m = re.match(r'^(\d+)([dhms])$', val)
+            if m:
+                if m.group(2) == "d":
+                    return datetime.timedelta(days=int(m.group(1)))
+                elif m.group(2) == "h":
+                    return datetime.timedelta(hours=int(m.group(1)))
+                elif m.group(2) == "m":
+                    return datetime.timedelta(minutes=int(m.group(1)))
+                else:
+                    return datetime.timedelta(seconds=int(m.group(1)))
+
+        raise ConfigError("{} should be a time interval of the form <digits>[dhms]"
+                          .format(self._get_path(key)))
 
 
 class Config:
@@ -203,9 +232,9 @@ class Config:
                 raise ConfigError("indexes/{}: extract_icons is set, but no icons_dir is configured"
                                   .format(index_config.name))
 
-            if index_config.delta_keep_days > 0:
+            if index_config.delta_keep.total_seconds() > 0:
                 if self.deltas_dir is None:
-                    raise ConfigError(("indexes/{}: delta_keep_days is set, " +
+                    raise ConfigError(("indexes/{}: delta_keep is set, " +
                                        "but no deltas_dir is configured")
                                       .format(index_config.name))
 

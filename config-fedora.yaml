@@ -12,7 +12,7 @@ icons_dir: ${OUTPUT_DIR:out}/icons/
 icons_uri: https://flatpaks.local.fishsoup.net:8443/app-icons/
 daemon:
         # How often to query Bodhi
-        update_interval: 180
+        update_interval: 3m
 registries:
         fedora:
                 # Written into the index
@@ -28,7 +28,7 @@ indexes:
                 tag: latest
                 bodhi_status: stable
                 extract_icons: True
-                delta_keep_days: 30
+                delta_keep: 30d
         latest-amd64:
                 output: ${OUTPUT_DIR:out}/fedora/flatpak-latest-amd64.json
                 registry: fedora
