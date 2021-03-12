@@ -284,5 +284,6 @@ class DeltaGenerator:
                     json.dump(manifest, writer,
                               sort_keys=True, indent=4, ensure_ascii=False)
 
+                self.cleaner.reference(filename)
                 self.delta_manifest_urls[to_image.digest] = uri_for_digest(self.config.deltas_uri,
                                                                            to_image.digest, '.json')
