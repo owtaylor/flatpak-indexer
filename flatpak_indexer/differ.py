@@ -120,6 +120,7 @@ class Differ:
 
                 final_path = path_for_digest(self.config.deltas_dir,
                                              digest, '.tardiff', create_subdir=True)
+                os.chmod(result_path.name, 0o644)
                 os.rename(result_path.name, final_path)
                 result_path.delete = False
 
