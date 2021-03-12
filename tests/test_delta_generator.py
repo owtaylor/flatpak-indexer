@@ -10,6 +10,7 @@ import pytest
 import redis
 import yaml
 
+from flatpak_indexer.cleaner import Cleaner
 from flatpak_indexer.delta_generator import DeltaGenerator
 from flatpak_indexer.models import RepositoryModel, TardiffSpecModel, TardiffResultModel
 from flatpak_indexer.utils import path_for_digest
@@ -241,7 +242,8 @@ def test_delta_generator(tmp_path, iterations, task_destiny, layer_counts):
 
     config = get_config(tmp_path, CONFIG)
 
-    generator = DeltaGenerator(config, progress_timeout_seconds=0.1)
+    cleaner = Cleaner(config)
+    generator = DeltaGenerator(config, progress_timeout_seconds=0.1, cleaner=cleaner)
 
     index_config = next(index for index in config.indexes if index.name == 'stable')
     repository = RepositoryModel.from_json(REPOSITORY)
@@ -257,6 +259,8 @@ def test_delta_generator(tmp_path, iterations, task_destiny, layer_counts):
     with FakeDiffer(config, task_destinies=task_destinies):
         for i in range(0, iterations):
             generator.generate()
+            cleaner.clean()
+            cleaner.reset()
 
     url = generator.get_delta_manifest_url(IMAGE3['Digest'])
     assert url.startswith("https://flatpaks.fedoraproject.org/deltas/")

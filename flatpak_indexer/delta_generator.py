@@ -247,7 +247,7 @@ class DeltaGenerator:
 
                 result = results[key]
                 if result.status == "success":
-                    self.cleaner.reference(path_for_digest(self.config.deltas_uri,
+                    self.cleaner.reference(path_for_digest(self.config.deltas_dir,
                                                            result.digest, '.tardiff'))
 
                     delta_layers.append({
