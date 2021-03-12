@@ -40,7 +40,6 @@ class IconStore(object):
             with open(fullpath, 'wb') as f:
                 f.write(decoded)
 
-        logger.warning(fullpath)
         self.cleaner.reference(fullpath)
 
         return uri_for_digest(self.icons_uri, digest, ".png")
