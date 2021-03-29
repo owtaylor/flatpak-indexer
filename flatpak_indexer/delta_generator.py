@@ -7,7 +7,7 @@ import time
 
 from .cleaner import Cleaner
 from .models import TardiffImageModel, TardiffResultModel, TardiffSpecModel
-from .redis_utils import get_redis_client
+from .redis_utils import do_pubsub_work, get_redis_client
 from .utils import atomic_writer, parse_pull_spec, path_for_digest, uri_for_digest
 
 
@@ -146,11 +146,11 @@ class DeltaGenerator:
 
             self.redis_client.publish('tardiff:queued', b'')
 
-            pubsub = self.redis_client.pubsub()
-            pubsub.subscribe("tardiff:complete")
-
             last_counts = None
-            while True:
+
+            def do_work(pubsub):
+                nonlocal last_counts
+
                 pending_count = self.redis_client.scard("tardiff:pending")
                 progress_count = self.redis_client.zcard("tardiff:progress")
                 counts = (pending_count, progress_count)
@@ -160,7 +160,7 @@ class DeltaGenerator:
                     last_counts = counts
 
                 if pending_count == 0 and progress_count == 0:
-                    break
+                    return False
 
                 now = time.time()
                 next_expire = now + self.progress_timeout_seconds
@@ -180,7 +180,7 @@ class DeltaGenerator:
                             pipe.execute()
                         except redis.WatchError:  # pragma: no cover
                             # progress was modified, immediately try again
-                            continue
+                            return True
                     else:
                         oldest = pipe.zrange('tardiff:progress', 0, 0, withscores=True)
                         if len(oldest) > 0:
@@ -191,24 +191,23 @@ class DeltaGenerator:
                 while True:
                     timeout = max(0, next_expire - now)
                     logger.debug("Waiting for a message for %f seconds", timeout)
-                    try:
-                        message = pubsub.get_message(timeout=timeout)
-                        if message is None:
-                            # timed out
-                            break
-                        elif (message['type'] == 'message' and
-                              message['channel'] == b'tardiff:complete'):
-                            logger.debug("Got tardiff:complete message")
-                            break
-                        else:
-                            logger.debug("Ignoring message %s", message)
-                    except redis.ConnectionError:
-                        pubsub.connection.disconnect()
-                        pubsub = self.redis_client.pubsub()
-                        pubsub.subscribe("tardiff:complete")
+
+                    message = pubsub.get_message(timeout=timeout)
+                    if message is None:
+                        # timed out
                         break
+                    elif (message['type'] == 'message' and
+                            message['channel'] == b'tardiff:complete'):
+                        logger.debug("Got tardiff:complete message")
+                        break
+                    else:
+                        logger.debug("Ignoring message %s", message)
 
                     now = time.time()
+
+                return True
+
+            do_pubsub_work(self.redis_client, "tardiff:complete", do_work)
 
             new_keys = list(to_fetch.keys())
             new_results = self.redis_client.mget(*(f"tardiff:result:{k}" for k in new_keys))

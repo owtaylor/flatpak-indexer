@@ -1,7 +1,13 @@
+import logging
+import threading
+import time
+from unittest.mock import MagicMock, patch
+
 import pytest
+import redis
 import yaml
 
-from flatpak_indexer.redis_utils import get_redis_client
+from flatpak_indexer.redis_utils import do_pubsub_work, get_redis_client
 
 from .redis import mock_redis
 from .utils import get_config
@@ -24,3 +30,61 @@ def test_get_redis_client(config):
     redis_client = get_redis_client(config)
     redis_client.set("foo", b'42')
     assert redis_client.get("foo") == b'42'
+
+
+class IffyPubSub(redis.client.PubSub):
+    def __init__(self, fail_method, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if fail_method:
+            method_mock = MagicMock(wraps=getattr(self, fail_method))
+            setattr(self, fail_method, method_mock)
+            method_mock.side_effect = redis.ConnectionError("Failed!")
+
+
+@mock_redis
+@pytest.mark.parametrize('fail_first_method', ('subscribe', 'get_message'))
+def test_do_pubsub_work(config, fail_first_method, caplog):
+    def run_thread():
+        redis_client = redis.Redis.from_url("redis://localhost")
+
+        time.sleep(0.1)
+        redis_client.publish('test:queue', b'foo')
+
+    fill_queue_thread = threading.Thread(target=run_thread, name="fill-queue")
+
+    fail_method = fail_first_method
+
+    def get_pubsub(*args, **kwargs):
+        nonlocal fail_method
+        result = IffyPubSub(fail_method, *args, **kwargs)
+        fail_method = None
+
+        return result
+
+    caplog.set_level(logging.INFO)
+
+    with patch('redis.client.PubSub', get_pubsub):
+        redis_client = get_redis_client(config)
+
+        found_message = None
+
+        def do_work(pubsub):
+            nonlocal found_message
+            msg = pubsub.get_message()
+
+            if msg and msg['type'] == 'message':
+                found_message = msg
+
+            return found_message is None
+
+        fill_queue_thread.start()
+        do_pubsub_work(redis_client, 'test:queue', do_work,
+                       initial_reconnect_timeout=0.05)
+
+        assert found_message['data'] == b'foo'
+
+        if fail_first_method == 'subscribe':
+            assert "Failed to connect to Redis, sleeping for 0.05 seconds" in caplog.text
+        else:
+            assert "Disconnected from Redis, sleeping for 0.05 seconds" in caplog.text

@@ -3,13 +3,12 @@ import logging
 import os
 import subprocess
 import tempfile
-import time
 
 import redis
 import requests
 
 from .models import TardiffSpecModel, TardiffResultModel
-from .redis_utils import get_redis_client
+from .redis_utils import do_pubsub_work, get_redis_client
 from .registry_client import RegistryClient
 from .utils import path_for_digest, run_with_stats, TemporaryPathname
 
@@ -156,47 +155,22 @@ class Differ:
 
     def run(self, max_tasks=-1, initial_reconnect_timeout=None):
         task_count = 0
-        pubsub = None
 
-        INITIAL_RECONNECT_TIMEOUT = 5
-        MAX_RECONNECT_TIMEOUT = 120
+        def do_work(pubsub):
+            nonlocal task_count
 
-        reconnect_timeout = initial_reconnect_timeout
-        if reconnect_timeout is None:
-            reconnect_timeout = INITIAL_RECONNECT_TIMEOUT
+            if max_tasks >= 0 and task_count >= max_tasks:
+                return False
 
-        while True:
-            try:
-                if pubsub is None:
-                    pubsub = self.redis_client.pubsub()
-                    pubsub.subscribe('tardiff:queued')
+            task = self._get_task()
+            if task:
+                result = self._process_task(task)
+                self._finish_task(task, result)
+                task_count += 1
+            else:
+                self._wait_for_task(pubsub)
 
-                    logger.info("Connected to Redis, waiting for tasks")
+            return True
 
-                if max_tasks >= 0 and task_count >= max_tasks:
-                    break
-
-                task = self._get_task()
-                if task:
-                    result = self._process_task(task)
-                    self._finish_task(task, result)
-                    task_count += 1
-                else:
-                    self._wait_for_task(pubsub)
-
-                reconnect_timeout = INITIAL_RECONNECT_TIMEOUT
-            except redis.ConnectionError:
-                if pubsub and pubsub.connection:
-                    logger.info("Disconnected from Redis, sleeping for %g seconds",
-                                reconnect_timeout)
-                else:
-                    logger.info("Failed to connect to Redis, sleeping for %g seconds",
-                                reconnect_timeout)
-
-                if pubsub:
-                    if pubsub.connection:
-                        pubsub.connection.disconnect()
-                    pubsub = None
-
-                time.sleep(reconnect_timeout)
-                reconnect_timeout = min(MAX_RECONNECT_TIMEOUT, 2 * reconnect_timeout)
+        do_pubsub_work(self.redis_client, 'tardiff:queued', do_work,
+                       initial_reconnect_timeout=initial_reconnect_timeout)

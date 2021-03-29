@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import threading
-from unittest.mock import MagicMock, patch
 
 import pytest
 import redis
@@ -343,41 +342,3 @@ def test_delta_generator_expire(tmp_path):
                                      str(tmp_path / "deltas"))
 
     assert os.path.exists(digest_path)
-
-
-class IffyPubSub(redis.client.PubSub):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.get_message = MagicMock(wraps=self.get_message)
-        self.get_message.side_effect = self.fail_first_get_message
-
-    def fail_first_get_message(self, *args, **kwargs):
-        self.get_message.side_effect = None
-        raise redis.ConnectionError("Failed!")
-
-
-@mock_redis
-def test_delta_generator_connection_error(tmp_path):
-    os.environ["OUTPUT_DIR"] = str(tmp_path)
-    os.mkdir(tmp_path / "deltas")
-
-    config = get_config(tmp_path, CONFIG)
-
-    generator = DeltaGenerator(config)
-
-    index_config = next(index for index in config.indexes if index.name == 'stable')
-    repository = RepositoryModel.from_json(REPOSITORY)
-
-    generator.add_tag_history(repository,
-                              repository.tag_histories['latest'],
-                              index_config)
-
-    with FakeDiffer(config):
-        with patch('redis.client.PubSub', IffyPubSub):
-            generator.generate()
-
-    path = tmp_path / "deltas" / "a3" / "b3c3d3e3f3.json"
-    with open(path, "rb") as f:
-        manifest = json.load(f)
-
-    assert len(manifest["layers"]) == 2

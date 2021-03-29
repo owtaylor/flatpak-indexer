@@ -1,8 +1,6 @@
-import logging
 import os
 import threading
 import time
-from unittest.mock import MagicMock, patch
 
 import pytest
 import redis
@@ -210,65 +208,5 @@ def test_differ_wait(registry_mock, config):
         differ.run(max_tasks=1)
     finally:
         fill_queue_thread.join()
-
-    check_success(key, old_layer, new_layer)
-
-
-class IffyPubSub(redis.client.PubSub):
-    def __init__(self, fail_method, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        if fail_method:
-            method_mock = MagicMock(wraps=getattr(self, fail_method))
-            setattr(self, fail_method, method_mock)
-            method_mock.side_effect = redis.ConnectionError("Failed!")
-
-
-@mock_redis
-@mock_registry(registry='registry.fedoraproject.org')
-@pytest.mark.parametrize('fail_first_method', ('subscribe', 'get_message'))
-def test_differ_connection_error(registry_mock, config, fail_first_method, caplog):
-    old_manifest_digest, old_layer = registry_mock.add_fake_image('ghex', 'latest')
-    new_manifest_digest, new_layer = registry_mock.add_fake_image('ghex', 'latest')
-
-    key = f"{old_layer.diff_id}:{new_layer.diff_id}"
-
-    def run_thread():
-        redis_client = redis.Redis.from_url("redis://localhost")
-
-        time.sleep(0.1)
-
-        queue_task(old_manifest_digest, old_layer.diff_id,
-                   new_manifest_digest, new_layer.diff_id,
-                   redis_client=redis_client)
-
-        redis_client.publish('tardiff:queued', b'')
-
-    fill_queue_thread = threading.Thread(target=run_thread, name="fill-queue")
-
-    fail_method = fail_first_method
-
-    def get_pubsub(*args, **kwargs):
-        nonlocal fail_method
-        result = IffyPubSub(fail_method, *args, **kwargs)
-        fail_method = None
-
-        return result
-
-    caplog.set_level(logging.INFO)
-
-    with patch('redis.client.PubSub', get_pubsub):
-        differ = Differ(config)
-
-        fill_queue_thread.start()
-        try:
-            differ.run(max_tasks=1, initial_reconnect_timeout=0.05)
-        finally:
-            fill_queue_thread.join()
-
-        if fail_first_method == 'subscribe':
-            assert "Failed to connect to Redis, sleeping for 0.05 seconds" in caplog.text
-        else:
-            assert "Disconnected from Redis, sleeping for 0.05 seconds" in caplog.text
 
     check_success(key, old_layer, new_layer)
