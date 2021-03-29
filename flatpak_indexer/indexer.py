@@ -118,32 +118,11 @@ class IndexWriter:
 class Indexer:
     def __init__(self, config, cleaner=None):
         self.conf = config
-        self.last_registry_data_hash = None
         if cleaner is None:
             cleaner = Cleaner(self.conf)
         self.cleaner = cleaner
 
-    def _check_for_unchanged_data(self, registry_data):
-        h = hashlib.sha256()
-        for registry_name in sorted(registry_data.keys()):
-            registry = registry_data[registry_name]
-            h.update(registry_name.encode('utf-8'))
-            h.update(json.dumps(registry.to_json(),
-                                sort_keys=True, ensure_ascii=False).encode('utf-8'))
-
-        unchanged = (h.digest() == self.last_registry_data_hash)
-        self.last_registry_data_hash = h.digest()
-
-        return unchanged
-
     def index(self, registry_data):
-        # We always write a fresh index on the first run of the indexer, which makes
-        # sure that the index is up-to-date with our code and config files. But on
-        # subsequent runs, we short-circuit if nothing changed
-        if self._check_for_unchanged_data(registry_data):
-            logger.debug("Skipping indexing, queried data has not changed")
-            return
-
         icon_store = None
         if self.conf.icons_dir is not None:
             icon_store = IconStore(self.conf.icons_dir, self.conf.icons_uri, cleaner=self.cleaner)

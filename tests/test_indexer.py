@@ -7,7 +7,6 @@ import yaml
 from flatpak_indexer.cleaner import Cleaner
 from flatpak_indexer.datasource import load_updaters
 from flatpak_indexer.indexer import Indexer
-from flatpak_indexer.models import RegistryModel
 from .bodhi import mock_bodhi
 from .fedora_messaging import mock_fedora_messaging
 from .koji import mock_koji
@@ -80,13 +79,6 @@ def test_indexer(tmp_path):
     indexer = Indexer(config, cleaner=cleaner)
     indexer.index(registry_data)
 
-    # No-op, datasource hasn't updated
-    indexer.index(registry_data)
-
-    # Fake an update
-    registry_data['foo.example.com'] = RegistryModel()
-
-    # Now the index will be rewritten
     indexer.index(registry_data)
     cleaner.clean()
 
