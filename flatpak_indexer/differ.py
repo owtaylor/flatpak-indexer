@@ -64,6 +64,12 @@ class Differ:
 
     def _process_task(self, task):
         spec_raw = self.redis_client.get(f"tardiff:spec:{task}")
+        if spec_raw is None:
+            logger.warning("Can't find spec for '%s', ignoring task", task)
+            return TardiffResultModel(status="no-spec-error",
+                                      digest="",
+                                      size=0,
+                                      message="failed to find spec")
         spec = TardiffSpecModel.from_json_text(spec_raw)
 
         logger.info("Processing task from=%s/%s@%s (DiffId=%s), to=%s/%s@%s (DiffId=%s)",

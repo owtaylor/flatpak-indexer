@@ -41,7 +41,7 @@ def image_model(ref):
 
 
 def queue_task(from_ref, from_diff_id, to_ref, to_diff_id,
-               redis_client=None):
+               redis_client=None, skip_spec=False):
     if not redis_client:
         redis_client = redis.Redis.from_url("redis://localhost")
 
@@ -52,7 +52,8 @@ def queue_task(from_ref, from_diff_id, to_ref, to_diff_id,
 
     key = f"{from_diff_id}:{to_diff_id}"
 
-    redis_client.set(f"tardiff:spec:{key}", spec.to_json_text())
+    if not skip_spec:
+        redis_client.set(f"tardiff:spec:{key}", spec.to_json_text())
     redis_client.sadd("tardiff:pending", key)
 
     return key
@@ -109,6 +110,25 @@ def test_differ(registry_mock, config):
     differ.run(max_tasks=1)
 
     check_success(key, old_layer, new_layer)
+
+
+@mock_redis
+@mock_registry(registry='registry.fedoraproject.org')
+def test_differ_no_spec(registry_mock, config):
+    old_manifest_digest, old_layer = registry_mock.add_fake_image('ghex', 'latest')
+    new_manifest_digest, new_layer = registry_mock.add_fake_image('ghex', 'latest')
+
+    key = f"{old_layer.diff_id}:{new_layer.diff_id}"
+
+    key = queue_task(old_manifest_digest, old_layer.diff_id,
+                     new_manifest_digest, new_layer.diff_id,
+                     skip_spec=True)
+
+    differ = Differ(config)
+    differ.run(max_tasks=1)
+
+    check_failure(key, 'no-spec-error',
+                  "failed to find spec")
 
 
 @mock_redis
