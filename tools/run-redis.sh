@@ -11,7 +11,8 @@ podman run \
         chown redis:redis /data
 
 exec podman run \
-        --name=flatpak-redis --rm \
-        -p 6379:6379 \
+        -e REDIS_PASSWORD=abc123 \
+	--name=flatpak-redis --rm \
+        -p 127.0.0.1:6379:6379 \
         -v $topdir/work/redis-data:/data:z \
         flatpak-indexer-redis

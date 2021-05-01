@@ -2,6 +2,7 @@
 koji_config: fedora
 # URL to a local Redis index for caching and queuing
 redis_url: ${REDIS_URL:redis://localhost:6379}
+redis_password: abc123
 # Optional password to connect to Redis
 # redis_password: BRICK_SPINE_HORSE
 deltas_dir: ${OUTPUT_DIR:out}/deltas/
