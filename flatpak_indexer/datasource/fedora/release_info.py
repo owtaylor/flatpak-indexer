@@ -27,5 +27,5 @@ releases = [
     Release(name='F32', branch='f32',     tag='f32', status=ReleaseStatus.GA),
     Release(name='F33', branch='f33',     tag='f33', status=ReleaseStatus.GA),
     Release(name='F34', branch='f34',     tag='f34', status=ReleaseStatus.BRANCHED),
-    Release(name='F34', branch='rawhide', tag='f35', status=ReleaseStatus.RAWHIDE),
+    Release(name='F35', branch='rawhide', tag='f35', status=ReleaseStatus.RAWHIDE),
 ]
