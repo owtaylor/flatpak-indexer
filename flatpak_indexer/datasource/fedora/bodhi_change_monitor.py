@@ -1,16 +1,22 @@
 import json
+import logging
 import os
 import ssl
+import time
 import threading
 import uuid
 
 import pika
 
-import logging
-logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger(__name__)
 
 
 class BodhiChangeMonitor:
+    INITIAL_RECONNECT_TIMEOUT = 1
+    MAX_RECONNECT_TIMEOUT = 10 * 60
+    RECONNECT_TIMEOUT_MULTIPLIER = 5
+
     def __init__(self, queue_name=None):
         self.queue_name = queue_name
         self.lock = threading.Lock()
@@ -18,13 +24,18 @@ class BodhiChangeMonitor:
         self.started = threading.Event()
         self.thread = threading.Thread(name="BodhiChangeMonitor", target=self._run)
         self.changed_updates = set()
+        self.reconnect_timeout = self.INITIAL_RECONNECT_TIMEOUT
+
+    def maybe_reraise_failure(self, msg):
+        with self.lock:
+            if self.failure:
+                raise RuntimeError(msg) from self.failure
 
     def start(self):
         self.thread.start()
         self.started.wait()
 
-        if self.failure:
-            raise RuntimeError("Failed to start connection to fedora-messaging") from self.failure
+        self.maybe_reraise_failure("Failed to start connection to fedora-messaging")
 
         return self.queue_name
 
@@ -37,10 +48,11 @@ class BodhiChangeMonitor:
         self.connection.add_callback_threadsafe(do_stop)
         self.thread.join()
 
-        if self.failure:
-            raise RuntimeError("Failed to stop connection to fedora-messaging") from self.failure
+        self.maybe_reraise_failure("Failed to stop connection to fedora-messaging")
 
     def get_changed(self):
+        self.maybe_reraise_failure("Error communicating with fedora-messaging")
+
         with self.lock:
             changed_updates = self.changed_updates
             self.changed_updates = set()
@@ -91,6 +103,8 @@ class BodhiChangeMonitor:
                                   auto_delete=False)
             self.queue_name = queue_name
 
+        logger.info(f"Connected to fedora-messaging, queue={queue_name}")
+
         channel.queue_bind(queue_name, 'amq.topic',
                            routing_key="org.fedoraproject.prod.bodhi.update.request.#")
         channel.queue_bind(queue_name, 'amq.topic',
@@ -108,14 +122,31 @@ class BodhiChangeMonitor:
             else:
                 self._update_from_message(body_json)
 
+        self.reconnect_timeout = self.INITIAL_RECONNECT_TIMEOUT
+
         # Then we use a timeout of None (never), until the channel is closed
         for method, properties, body_json in channel.consume(queue_name,
                                                              inactivity_timeout=None):
             self._update_from_message(body_json)
 
     def _run(self):
-        try:
-            self._wait_for_messages()
-        except Exception as e:
-            self.failure = e
-            self.started.set()
+        while True:
+            try:
+                self._wait_for_messages()
+                return
+            except pika.exceptions.StreamLostError:
+                logger.warning("Lost connection to fedora-messaging, "
+                               f"sleeping for {self.reconnect_timeout}s and retrying")
+                time.sleep(self.reconnect_timeout)
+                self.reconnect_timeout = min(
+                    self.reconnect_timeout * self.RECONNECT_TIMEOUT_MULTIPLIER,
+                    self.MAX_RECONNECT_TIMEOUT
+                )
+            except Exception as e:
+                # The main loop might be in a timeout waiting for the next time
+                # to poll - we don't have an easy way to interrupt that, so just
+                # store the exception away until get_changed() or stop() is called.
+                with self.lock:
+                    self.failure = e
+                self.started.set()
+                return

@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 
 from flatpak_indexer.datasource.fedora.bodhi_change_monitor import BodhiChangeMonitor
@@ -61,3 +63,38 @@ def test_bodhi_change_monitor_stop_exception(connection_mock):
                        match=r'Failed to stop connection to fedora-messaging') as exc_info:
         monitor.stop()
     assert "door broken" in str(exc_info.value.__cause__)
+
+
+@patch(
+    'flatpak_indexer.datasource.fedora.bodhi_change_monitor.BodhiChangeMonitor.'
+    'INITIAL_RECONNECT_TIMEOUT',
+    0.01,
+)
+@mock_fedora_messaging
+def test_bodhi_change_monitor_lost_stream(connection_mock):
+    monitor = BodhiChangeMonitor()
+
+    connection_mock.put_inactivity_timeout()
+    monitor.start()
+
+    connection_mock.put_stream_lost()
+    connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
+
+    monitor.stop()
+    assert monitor.get_changed() == {'FEDORA-2018-1a0cf961a1'}
+
+
+@mock_fedora_messaging
+def test_bodhi_change_monitor_failure(connection_mock):
+    monitor = BodhiChangeMonitor()
+
+    connection_mock.put_inactivity_timeout()
+    monitor.start()
+
+    connection_mock.put_failure()
+    connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
+
+    with pytest.raises(RuntimeError, match=r"Error communicating with fedora-messaging"):
+        # Busy loop until the thread handles the exception
+        while True:
+            monitor.get_changed()

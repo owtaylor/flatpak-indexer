@@ -41,6 +41,12 @@ class MockConnection():
     def put_inactivity_timeout(self):
         self.queue.put((None, None, None))
 
+    def put_stream_lost(self):
+        self.queue.put((pika.exceptions.StreamLostError("Stream connection lost"),))
+
+    def put_failure(self):
+        self.queue.put((RuntimeError("Something went wrong"),))
+
     def _close_connection(self):
         if self.raise_on_close:
             raise RuntimeError("door broken")
@@ -56,6 +62,11 @@ class MockConnection():
             if item == ():
                 return
             elif len(item) == 1:
+                task = item[0]
+                if isinstance(task, Exception):
+                    raise task
+                else:
+                    task()
                 item[0]()
             else:
                 yield item
