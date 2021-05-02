@@ -134,7 +134,7 @@ class BodhiChangeMonitor:
             try:
                 self._wait_for_messages()
                 return
-            except pika.exceptions.AMQPConnectionError as e:
+            except (pika.exceptions.AMQPConnectionError, ssl.SSLError) as e:
                 # This includes stream-lost and connection-refused, which
                 # we might get from a broker restart, but also authentication
                 # failures, protocol failures, etc. Trying to parse out
