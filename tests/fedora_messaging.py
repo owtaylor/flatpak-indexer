@@ -44,6 +44,9 @@ class MockConnection():
     def put_stream_lost(self):
         self.queue.put((pika.exceptions.StreamLostError("Stream connection lost"),))
 
+    def put_connection_error(self):
+        self.queue.put((pika.exceptions.AMQPConnectionError("Could not connect"),))
+
     def put_failure(self):
         self.queue.put((RuntimeError("Something went wrong"),))
 

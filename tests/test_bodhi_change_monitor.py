@@ -77,7 +77,11 @@ def test_bodhi_change_monitor_lost_stream(connection_mock):
     connection_mock.put_inactivity_timeout()
     monitor.start()
 
+    # Lost the connection
     connection_mock.put_stream_lost()
+    # First retry failed
+    connection_mock.put_connection_error()
+    # And then successful reconnection
     connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
 
     monitor.stop()

@@ -134,9 +134,14 @@ class BodhiChangeMonitor:
             try:
                 self._wait_for_messages()
                 return
-            except pika.exceptions.StreamLostError:
-                logger.warning("Lost connection to fedora-messaging, "
-                               f"sleeping for {self.reconnect_timeout}s and retrying")
+            except pika.exceptions.AMQPConnectionError as e:
+                # This includes stream-lost and connection-refused, which
+                # we might get from a broker restart, but also authentication
+                # failures, protocol failures, etc. Trying to parse out
+                # the exact case would be a future-compat headache.
+                logger.warning("fedora-messaging connection failure (%r), "
+                               "sleeping for %ss and retrying",
+                               e, self.reconnect_timeout, exc_info=e)
                 time.sleep(self.reconnect_timeout)
                 self.reconnect_timeout = min(
                     self.reconnect_timeout * self.RECONNECT_TIMEOUT_MULTIPLIER,
