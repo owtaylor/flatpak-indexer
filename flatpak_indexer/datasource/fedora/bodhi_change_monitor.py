@@ -40,6 +40,9 @@ class BodhiChangeMonitor:
         return self.queue_name
 
     def stop(self):
+        # Check first if thread is already in a failed state
+        self.maybe_reraise_failure("Error communicating with fedora-messaging")
+
         connection = self.connection
 
         def do_stop():
@@ -153,5 +156,9 @@ class BodhiChangeMonitor:
                 # store the exception away until get_changed() or stop() is called.
                 with self.lock:
                     self.failure = e
+                if self.started.is_set():
+                    # In the case where we're storing the error away, log the error
+                    # immediately
+                    logger.error("Error communicating with fedora-messaging", exc_info=e)
                 self.started.set()
                 return
