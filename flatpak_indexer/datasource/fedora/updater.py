@@ -1,6 +1,5 @@
-import koji
-
 from ...koji_query import query_image_build
+from ...koji_utils import get_koji_session
 from ...models import RegistryModel, TagHistoryModel, TagHistoryItemModel
 from ...redis_utils import get_redis_client
 from ...utils import unparse_pull_spec
@@ -38,10 +37,7 @@ class FedoraUpdater(object):
 
         self.redis_client = get_redis_client(config)
         self.change_monitor = None
-
-        options = koji.read_config(profile_name=self.conf.koji_config)
-        koji_session_opts = koji.grab_session_options(options)
-        self.koji_session = koji.ClientSession(options['server'], koji_session_opts)
+        self.koji_session = get_koji_session(self.conf)
 
     def start(self):
         queue_name_raw = self.redis_client.get('fedora-messaging-queue')

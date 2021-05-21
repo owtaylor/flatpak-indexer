@@ -2,10 +2,10 @@ from collections import defaultdict
 from datetime import datetime, timezone
 import logging
 
-import koji
 import requests
 
 from ...koji_query import query_image_build
+from ...koji_utils import get_koji_session
 from ...models import (FlatpakBuildModel, RegistryModel,
                        TagHistoryItemModel, TagHistoryModel)
 from ...redis_utils import get_redis_client
@@ -26,13 +26,10 @@ class Registry:
         self.tag_indexes = []
         self.koji_indexes = []
         self.registry = RegistryModel()
+        self.image_to_build = dict()
 
         self.session = get_retrying_requests_session()
-
-        options = koji.read_config(profile_name=global_config.koji_config)
-        koji_session_opts = koji.grab_session_options(options)
-        self.koji_session = koji.ClientSession(options['server'], koji_session_opts)
-
+        self.koji_session = get_koji_session(global_config)
         self.redis_client = get_redis_client(global_config)
 
     def add_index(self, index_config):
