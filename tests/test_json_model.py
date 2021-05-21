@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import pytest
 from typing import List, Dict, Optional
 
-from flatpak_indexer.json_model import BaseModel, IndexedList, Rename
+from flatpak_indexer.json_model import BaseModel, field
 
 
 class StringStuff(BaseModel):
@@ -104,7 +104,7 @@ def test_list_field():
 
 
 class IndexedListStuff(BaseModel):
-    f1: IndexedList[StringStuff, "f1"]  # noqa: F821
+    f1: dict[str, StringStuff] = field(index="f1")
 
 
 def test_indexed_list_field():
@@ -126,6 +126,15 @@ def test_indexed_list_field():
 
     obj = IndexedListStuff.from_json({})
     assert obj.f1 == {}
+
+
+def test_indexed_list_mismatch_field():
+    with pytest.raises(
+        TypeError,
+        match=r"f1: field\(index=<name>\) can only be used with dict\[str\]"
+    ):
+        class IndexedListMismatchStuff(BaseModel):
+            f1: List[StringStuff] = field(index="f1")
 
 
 class DictStuff(BaseModel):
@@ -152,7 +161,7 @@ def test_dict_field():
 
 class NameStuff(BaseModel):
     foo_bar: str
-    os: Rename[str, "OS"]  # noqa: F821
+    os: str = field(json_name="OS")
 
 
 def test_field_names():

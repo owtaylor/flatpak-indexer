@@ -2,7 +2,7 @@ from datetime import datetime
 from functools import cached_property
 from typing import Dict, List, Optional
 
-from .json_model import BaseModel, IndexedList, Rename
+from .json_model import BaseModel, field
 from .utils import parse_pull_spec
 
 
@@ -20,7 +20,7 @@ class TagHistoryModel(BaseModel):
 class ImageModel(BaseModel):
     digest: str
     media_type: str
-    os: Rename[str, "OS"]  # noqa: F821
+    os: str = field(json_name="OS")
     architecture: str
     labels: Dict[str, str]
     annotations: Dict[str, str]
@@ -42,13 +42,13 @@ class ListModel(BaseModel):
 
 class RepositoryModel(BaseModel):
     name: str
-    images: IndexedList[ImageModel, "digest"]  # noqa: F821
-    lists: IndexedList[ListModel, "digest"]  # noqa: F821
-    tag_histories: IndexedList[TagHistoryModel, "name"]  # noqa: F821
+    images: Dict[str, ImageModel] = field(index="digest")
+    lists: Dict[str, ListModel] = field(index="digest")
+    tag_histories: Dict[str, TagHistoryModel] = field(index="name")
 
 
 class RegistryModel(BaseModel):
-    repositories: IndexedList[RepositoryModel, "name"]  # noqa: F821
+    repositories: Dict[str, RepositoryModel] = field(index="name")
 
     def add_image(self, name, image):
         if name not in self.repositories:
@@ -118,7 +118,7 @@ class TardiffResultModel(BaseModel):
     from_size: Optional[int]
     to_size: Optional[int]
 
-    max_mem_kib: Rename[Optional[float], "MaxMemKiB"]  # noqa: F821
+    max_mem_kib: Optional[float] = field(json_name="MaxMemKiB")
     elapsed_time_s: Optional[float]
     user_time_s: Optional[float]
     system_time_s: Optional[float]

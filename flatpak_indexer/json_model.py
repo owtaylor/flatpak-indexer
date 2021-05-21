@@ -7,34 +7,15 @@ import typing
 from .utils import format_date, parse_date
 
 
-class RenameAlias:
-    def __init__(self, origin, json_name):
-        self.origin = origin
+class field:
+    """
+    Similar to the way that dataclasses.field works, assigning an instance of this
+    to a model class field provides extra information beyond what the class
+    annotation provides.
+    """
+    def __init__(self, index=None, json_name=None):
+        self.indexed_field = index
         self.json_name = json_name
-
-
-class RenameMeta(type):
-    def __getitem__(self, params):
-        return RenameAlias(params[0], params[1])
-
-
-class Rename(metaclass=RenameMeta):
-    pass
-
-
-class IndexedListAlias:
-    def __init__(self, origin, indexed_field):
-        self.origin = origin
-        self.indexed_field = indexed_field
-
-
-class IndexedListMeta(type):
-    def __getitem__(self, params):
-        return IndexedListAlias(params[0], params[1])
-
-
-class IndexedList(metaclass=IndexedListMeta):
-    pass
 
 
 class ModelField:
@@ -219,11 +200,14 @@ class DictField(CollectionField):
             }
 
 
-def _make_model_field(name, type_):
-    if isinstance(type_, RenameAlias):
-        json_name = type_.json_name
-        type_ = type_.origin
-    else:
+def _make_model_field(name, type_, field_object):
+    json_name = None
+    indexed_field = None
+    if field_object is not None:
+        json_name = field_object.json_name
+        indexed_field = field_object.indexed_field
+
+    if json_name is None:
         json_name = ''.join(x.capitalize() for x in name.split('_'))
 
     # could use typing_inspect PyPI module; this hack is especially ugly
@@ -236,11 +220,14 @@ def _make_model_field(name, type_):
     else:
         optional = False
 
-    if isinstance(type_, IndexedListAlias):
-        return IndexedListField(name, json_name, type_.origin, type_.indexed_field,
+    origin = getattr(type_, '__origin__', None)
+    if indexed_field:
+        if origin != dict or type_.__args__[0] != str:
+            raise TypeError(f"{name}: field(index=<name>) can only be used with dict[str]")
+
+        return IndexedListField(name, json_name, type_.__args__[1], indexed_field,
                                 optional=optional)
 
-    origin = getattr(type_, '__origin__', None)
     if origin == dict:
         if type_.__args__[0] != str:
             raise TypeError(f"{name}: Only dict[str] is supported")
@@ -268,7 +255,8 @@ class BaseModelMeta(type):
         annotations = getattr(x, '__annotations__', None)
 
         if annotations:
-            x.__fields__ = {k: _make_model_field(k, v) for k, v in annotations.items()}
+            x.__fields__ = {k: _make_model_field(k, v, getattr(x, k, None))
+                            for k, v in annotations.items()}
         else:
             x.__fields__ = {}
 
