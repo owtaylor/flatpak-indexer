@@ -8,6 +8,8 @@ import os
 import re
 import subprocess
 from tempfile import NamedTemporaryFile
+import typing
+from typing import Tuple
 from urllib.parse import urljoin
 
 from requests import Session
@@ -267,3 +269,21 @@ def rpm_nvr_compare(nvr_a, nvr_b):
         raise ValueError(f"{nvr_a} and {nvr_b} have different names")
 
     return compare_versions(nvr_a, nvr_b)
+
+
+def resolve_type(type_) -> Tuple[type, Tuple, bool]:
+    # could use typing_inspect PyPI module; this hack is especially ugly
+    # since the string representation changed from python-3.8 to python-3.9
+    type_str = str(type_)
+    if (type_str.startswith('typing.Optional[') or
+            (type_str.startswith('typing.Union[') and type_str.endswith(', NoneType]'))):
+        type_ = typing.get_args(type_)[0]
+        optional = True
+    else:
+        optional = False
+
+    origin = getattr(type_, '__origin__', None)
+    if origin is None:
+        return type_, (), optional
+    else:
+        return origin, type_.__args__, optional

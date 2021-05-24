@@ -4,7 +4,7 @@ from datetime import datetime
 import json
 import typing
 
-from .utils import format_date, parse_date
+from .utils import format_date, parse_date, resolve_type
 
 
 class field:
@@ -210,43 +210,33 @@ def _make_model_field(name, type_, field_object):
     if json_name is None:
         json_name = ''.join(x.capitalize() for x in name.split('_'))
 
-    # could use typing_inspect PyPI module; this hack is especially ugly
-    # since the string representation changed from python-3.8 to python-3.9
-    type_str = str(type_)
-    if (type_str.startswith('typing.Optional[') or
-            (type_str.startswith('typing.Union[') and type_str.endswith(', NoneType]'))):
-        type_ = typing.get_args(type_)[0]
-        optional = True
-    else:
-        optional = False
+    resolved, args, optional = resolve_type(type_)
 
-    origin = getattr(type_, '__origin__', None)
     if indexed_field:
-        if origin != dict or type_.__args__[0] != str:
+        if resolved != dict or args[0] != str:
             raise TypeError(f"{name}: field(index=<name>) can only be used with dict[str]")
 
-        return IndexedListField(name, json_name, type_.__args__[1], indexed_field,
+        return IndexedListField(name, json_name, args[1], indexed_field,
                                 optional=optional)
 
-    if origin == dict:
-        if type_.__args__[0] != str:
+    if resolved == dict:
+        if args[0] != str:
             raise TypeError(f"{name}: Only dict[str] is supported")
-        return DictField(name, json_name, type_.__args__[1], optional=optional)
-    elif origin == list:
-        return ListField(name, json_name, type_.__args__[0], optional=optional)
-    elif origin is None:
-        if issubclass(type_, BaseModel):
-            return ClassField(name, json_name, type_, optional=optional)
-        elif type_ == str:
-            return StringField(name, json_name, optional=optional)
-        elif type_ == int:
-            return IntegerField(name, json_name, optional=optional)
-        elif type_ == float:
-            return FloatField(name, json_name, optional=optional)
-        elif type_ == datetime:
-            return DateTimeField(name, json_name, optional=optional)
+        return DictField(name, json_name, args[1], optional=optional)
+    elif resolved == list:
+        return ListField(name, json_name, args[0], optional=optional)
+    elif issubclass(resolved, BaseModel):
+        return ClassField(name, json_name, resolved, optional=optional)
+    elif resolved == str:
+        return StringField(name, json_name, optional=optional)
+    elif resolved == int:
+        return IntegerField(name, json_name, optional=optional)
+    elif resolved == float:
+        return FloatField(name, json_name, optional=optional)
+    elif resolved == datetime:
+        return DateTimeField(name, json_name, optional=optional)
 
-    raise TypeError(f"{name}: Unsupported type {type_}")
+    raise TypeError(f"{name}: Unsupported type {resolved}")
 
 
 class BaseModelMeta(type):

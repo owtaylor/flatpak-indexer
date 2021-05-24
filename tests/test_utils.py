@@ -1,6 +1,7 @@
 import datetime
 import os
 from socket import error as SocketError
+from typing import List, Optional
 from unittest.mock import patch
 
 import pytest
@@ -13,6 +14,7 @@ from flatpak_indexer.utils import (atomic_writer,
                                    parse_pull_spec,
                                    unparse_pull_spec,
                                    path_for_digest,
+                                   resolve_type,
                                    rpm_nvr_compare,
                                    run_with_stats,
                                    substitute_env_vars,
@@ -216,3 +218,15 @@ def test_rpm_nvr_compare(nvr_a, nvr_b, result, exception):
             rpm_nvr_compare(nvr_a, nvr_b)
     else:
         assert rpm_nvr_compare(nvr_a, nvr_b) == result
+
+
+def test_resolve_type():
+    class X:
+        a: int
+        b: Optional[str]
+        c: List[str]
+
+    annotations = X.__annotations__
+    assert resolve_type(annotations['a']) == (int, (), False)
+    assert resolve_type(annotations['b']) == (str, (), True)
+    assert resolve_type(annotations['c']) == (list, (str,), False)
