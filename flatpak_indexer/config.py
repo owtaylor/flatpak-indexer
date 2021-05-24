@@ -1,6 +1,6 @@
 from datetime import timedelta
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 
@@ -45,7 +45,7 @@ class IndexConfig(BaseConfig):
 class DaemonConfig(BaseConfig):
     update_interval: timedelta = configfield(default=timedelta(minutes=30), force_suffix=False)
 
-    def __init__(self, lookup):
+    def __init__(self, lookup: Lookup):
         super().__init__(lookup)
 
 
@@ -73,7 +73,7 @@ class Config(BaseConfig):
 
     daemon: DaemonConfig
 
-    def __init__(self, lookup):
+    def __init__(self, lookup: Lookup):
         super().__init__(lookup)
 
         self.indexes = []
@@ -122,14 +122,14 @@ class Config(BaseConfig):
                                        "pyxis_url must be configured for the pyxis datasource")
                                       .format(registry_config.name))
 
-        tag_koji_tags = dict()
+        tag_koji_tags: Dict[str, Tuple[str, List[str]]] = dict()
 
         for name, sublookup in lookup.iterate_objects('indexes'):
             index_config = IndexConfig(name, sublookup)
             self.indexes.append(index_config)
 
-            registry_config = self.registries.get(index_config.registry)
-            if not registry_config:
+            registry_config2 = self.registries.get(index_config.registry)
+            if not registry_config2:
                 raise ConfigError("indexes/{}: No registry config found for {}"
                                   .format(index_config.name, index_config.registry))
 
@@ -143,13 +143,13 @@ class Config(BaseConfig):
                                        "but no deltas_dir is configured")
                                       .format(index_config.name))
 
-            if registry_config.datasource == 'pyxis':
+            if registry_config2.datasource == 'pyxis':
                 if index_config.bodhi_status is not None:
                     raise ConfigError(("indexes/{}: bodhi_status can only be set " +
                                        "for the fedora datasource")
                                       .format(index_config.name))
 
-            if registry_config.datasource == 'fedora':
+            if registry_config2.datasource == 'fedora':
                 if index_config.bodhi_status not in ('testing', 'stable'):
                     raise ConfigError(("indexes/{}: bodhi_status must be set " +
                                        "to 'testing' or 'stable'")
@@ -168,7 +168,7 @@ class Config(BaseConfig):
             else:
                 tag_koji_tags[index_config.tag] = (index_config.name, index_config.koji_tags)
 
-    def find_local_cert(self, url):
+    def find_local_cert(self, url: str):
         hostname = urlparse(url).hostname
         if hostname is None:
             return None

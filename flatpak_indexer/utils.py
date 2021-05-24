@@ -153,7 +153,7 @@ class TemporaryPathname:
             os.unlink(self.name)
 
 
-def substitute_env_vars(val):
+def substitute_env_vars(val: str) -> str:
     return _substitute_env_vars(_ENV_VAR_TOKEN_RE.finditer(val))
 
 

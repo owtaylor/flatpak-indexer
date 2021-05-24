@@ -2,7 +2,7 @@ from datetime import timedelta
 from enum import Enum
 import re
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import yaml
 
@@ -61,21 +61,21 @@ def configfield(*, skip=False, default=Defaults.REQUIRED, **kwargs) -> Any:
 
 
 class Lookup:
-    def __init__(self, attrs, path=None):
+    def __init__(self, attrs: Dict[str, Any], path: Optional[str] = None):
         self.path = path
         self.attrs = attrs
 
-    def _get_path(self, key):
+    def _get_path(self, key: str):
         if self.path is not None:
             return self.path + '/' + key
         else:
             return key
 
-    def sublookup(self, parent_key):
+    def sublookup(self, parent_key: str):
         attrs = self.attrs.get(parent_key, {})
         return Lookup(attrs, parent_key)
 
-    def iterate_objects(self, parent_key):
+    def iterate_objects(self, parent_key: str):
         objects = self.attrs.get(parent_key)
         if not objects:
             return
@@ -83,7 +83,7 @@ class Lookup:
         for name, attrs in objects.items():
             yield name, Lookup(attrs, parent_key + '/' + name)
 
-    def _get(self, key, default):
+    def _get(self, key: str, default: Any):
         if default is Defaults.REQUIRED:
             try:
                 return self.attrs[key]
@@ -93,7 +93,11 @@ class Lookup:
         else:
             return self.attrs.get(key, default)
 
-    def get_str(self, key, default=Defaults.REQUIRED, force_trailing_slash=False) -> Optional[str]:
+    def get_str(
+        self, key: str,
+        default: Union[str, None, Defaults] = Defaults.REQUIRED,
+        force_trailing_slash: bool = False
+    ) -> Optional[str]:
         val = self._get(key, default)
         if val is None:
             return None
@@ -108,28 +112,32 @@ class Lookup:
 
         return val
 
-    def get_bool(self, key, default=Defaults.REQUIRED) -> bool:
+    def get_bool(self, key: str, default: Union[bool, Defaults] = Defaults.REQUIRED) -> bool:
         val = self._get(key, default)
         if not isinstance(val, bool):
             raise ConfigError("{} must be a boolean".format(self._get_path(key)))
 
         return val
 
-    def get_int(self, key, default=Defaults.REQUIRED) -> int:
+    def get_int(self, key: str, default: Union[int, Defaults] = Defaults.REQUIRED) -> int:
         val = self._get(key, default)
         if not isinstance(val, int):
             raise ConfigError("{} must be an integer".format(self._get_path(key)))
 
         return val
 
-    def get_str_list(self, key, default=Defaults.REQUIRED) -> List[str]:
+    def get_str_list(
+        self, key: str, default: Union[List[str], Defaults] = Defaults.REQUIRED
+    ) -> List[str]:
         val = self._get(key, default)
         if not isinstance(val, list) or not all(isinstance(v, str) for v in val):
             raise ConfigError("{} must be a list of strings".format(self._get_path(key)))
 
         return [substitute_env_vars(v) for v in val]
 
-    def get_str_dict(self, key, default=Defaults.REQUIRED) -> Dict[str, str]:
+    def get_str_dict(
+        self, key: str, default: Union[Dict[str, str], Defaults] = Defaults.REQUIRED
+    ) -> Dict[str, str]:
         val = self._get(key, default)
         if not isinstance(val, dict) or not all(isinstance(v, str) for v in val.values()):
             raise ConfigError("{} must be a mapping with string values".format(self._get_path(key)))
@@ -202,7 +210,7 @@ class BaseConfig:
                 setattr(self, name, val)
 
     @classmethod
-    def from_path(cls, path):
+    def from_path(cls, path: str):
         with open(path, 'r') as f:
             yml = yaml.safe_load(f)
 
