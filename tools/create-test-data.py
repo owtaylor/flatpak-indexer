@@ -109,17 +109,17 @@ class Downloader:
         if nvr is None:
             nvr = self.build_id_to_nvr.get(build_id)
 
+        build = None
         if nvr:
             exists, output_file = self._check_existing(f'builds/{nvr}.json.gz')
             if exists:
                 show(f"{nvr}: already downloaded", indent)
+                with gzip.open(output_file, 'rt') as f:
+                    build = json.load(f)
         else:
             exists = False
 
-        if exists:
-            with gzip.open(output_file, 'rt') as f:
-                build = json.load(f)
-        else:
+        if build is None:
             if nvr:
                 build = self.koji_session.getBuild(nvr)
             else:
