@@ -10,9 +10,10 @@ from flatpak_indexer.indexer import Indexer
 from .bodhi import mock_bodhi
 from .fedora_messaging import mock_fedora_messaging
 from .koji import mock_koji
+from .pyxis import mock_pyxis
 from .redis import mock_redis
 from .test_delta_generator import FakeDiffer
-from .utils import get_config, mock_brew, mock_pyxis
+from .utils import get_config, mock_brew
 
 
 def run_update(config):

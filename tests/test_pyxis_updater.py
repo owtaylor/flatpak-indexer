@@ -4,9 +4,10 @@ import pytest
 import yaml
 
 from flatpak_indexer.datasource.pyxis import PyxisUpdater
-from .utils import get_config, mock_brew, mock_pyxis, setup_client_cert
 
+from .pyxis import mock_pyxis
 from .redis import mock_redis
+from .utils import get_config, mock_brew, setup_client_cert
 
 
 def run_update(updater):

@@ -8,8 +8,9 @@ import yaml
 
 from flatpak_indexer.cli import cli
 
+from .pyxis import mock_pyxis
 from .redis import mock_redis
-from .utils import write_config, mock_brew, mock_pyxis
+from .utils import write_config, mock_brew
 
 CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
