@@ -7,6 +7,8 @@ import threading
 import uuid
 
 import pika
+import pika.credentials
+import pika.exceptions
 
 
 logger = logging.getLogger(__name__)
@@ -31,12 +33,13 @@ class BodhiChangeMonitor:
             if self.failure:
                 raise RuntimeError(msg) from self.failure
 
-    def start(self):
+    def start(self) -> str:
         self.thread.start()
         self.started.wait()
 
         self.maybe_reraise_failure("Failed to start connection to fedora-messaging")
 
+        assert self.queue_name
         return self.queue_name
 
     def stop(self):

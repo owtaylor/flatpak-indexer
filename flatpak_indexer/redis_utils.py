@@ -4,11 +4,12 @@ from urllib.parse import quote, urlparse, urlunparse
 
 import redis
 
+from .config import Config
 
 logger = logging.getLogger(__name__)
 
 
-def get_redis_client(config):
+def get_redis_client(config: Config) -> "redis.Redis[bytes]":
     url = config.redis_url
 
     # redis.Redis.from_url() doesn't support passing the password separately
@@ -24,7 +25,7 @@ def get_redis_client(config):
         url = urlunparse((parts.scheme, netloc,
                           parts.path, parts.params, parts.query, parts.fragment))
 
-    return redis.Redis.from_url(url, decode_components=True)
+    return redis.Redis.from_url(url, decode_responses=False, decode_components=True)
 
 
 def do_pubsub_work(redis_client, topic, callback, initial_reconnect_timeout=None):

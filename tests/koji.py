@@ -3,13 +3,14 @@ from functools import wraps
 import gzip
 import json
 import os
+from typing import Dict, List
 from unittest.mock import create_autospec, DEFAULT, Mock, patch
 
 import koji
 
 
-_builds = []
-_tags = {}
+_builds: List[dict] = []
+_tags: Dict[str, dict] = {}
 
 
 def data_dir(subdir):

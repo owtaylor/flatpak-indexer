@@ -3,6 +3,7 @@ import gzip
 import json
 import os
 import re
+from typing import List
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
@@ -15,7 +16,7 @@ from flatpak_indexer.datasource.fedora.release_info import Release, ReleaseStatu
 from .utils import WithArgDecorator
 
 
-_updates = []
+_updates: List[dict] = []
 
 
 def load_updates():

@@ -16,8 +16,9 @@ from flatpak_indexer.config import Config
 
 
 def write_config(tmp_path, content):
-    tmpfile = NamedTemporaryFile(delete=False, prefix="config-", suffix=".yaml", dir=tmp_path)
-    yaml.dump(content, tmpfile, encoding="UTF=8")
+    tmpfile = NamedTemporaryFile(delete=False, prefix="config-", suffix=".yaml", dir=tmp_path,
+                                 encoding="UTF-8", mode="w")
+    yaml.dump(content, tmpfile)
     tmpfile.close()
     return tmpfile.name
 

@@ -4,6 +4,9 @@ import queue
 from unittest.mock import patch, create_autospec
 
 import pika
+import pika.adapters
+import pika.adapters.blocking_connection
+import pika.exceptions
 
 from .utils import WithArgDecorator
 

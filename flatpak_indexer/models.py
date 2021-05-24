@@ -1,6 +1,6 @@
 from datetime import datetime
 from functools import cached_property
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from .json_model import BaseModel, field
 from .utils import parse_pull_spec
@@ -69,7 +69,7 @@ class ImageBuildModel(KojiBuildModel):
     images: List[ImageModel]
 
     @classmethod
-    def class_from_json(cls, data):
+    def class_from_json(cls, data: Dict[str, Any]):
         if 'ModuleBuilds' in data:
             return FlatpakBuildModel
         else:

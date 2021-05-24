@@ -9,7 +9,7 @@ import re
 import subprocess
 from tempfile import NamedTemporaryFile
 import typing
-from typing import Tuple
+from typing import cast, IO, Tuple
 from urllib.parse import urljoin
 
 from requests import Session
@@ -98,7 +98,7 @@ def atomic_writer(output_path):
                                  prefix=os.path.basename(output_path))
     success = False
     try:
-        writer = codecs.getwriter("utf-8")(tmpfile)
+        writer = cast(IO[str], codecs.getwriter("utf-8")(tmpfile))
         yield writer
         writer.close()
         tmpfile.close()

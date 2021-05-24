@@ -2,20 +2,24 @@
 
 from datetime import datetime
 import json
-import typing
+from typing import Any, Dict
 
 from .utils import format_date, parse_date, resolve_type
 
 
-class field:
+class Field:
     """
     Similar to the way that dataclasses.field works, assigning an instance of this
     to a model class field provides extra information beyond what the class
     annotation provides.
     """
-    def __init__(self, index=None, json_name=None):
+    def __init__(self, *, index, json_name):
         self.indexed_field = index
         self.json_name = json_name
+
+
+def field(index=None, json_name=None) -> Any:
+    return Field(index=index, json_name=json_name)
 
 
 class ModelField:
@@ -23,6 +27,26 @@ class ModelField:
         self.python_name = python_name
         self.json_name = json_name
         self.optional = optional
+
+    # This is a workaround to allow to_json/from_json to either be
+    # a method or a type like 'int' without creating type warnings
+    def _unimplemented(self, value):
+        raise NotImplementedError()
+
+    to_json: Any = _unimplemented
+    from_json: Any = _unimplemented
+
+    def init_value(self, kwargs):
+        raise NotImplementedError()
+
+    def json_include(self, instance):
+        raise NotImplementedError()
+
+    def json_value(self, instance):
+        raise NotImplementedError()
+
+    def python_value(self, data):
+        raise NotImplementedError()
 
 
 class ScalarField(ModelField):
@@ -92,6 +116,10 @@ class CollectionField(ModelField):
 
         super().__init__(python_name, json_name)
         self.item_type = item_type
+
+    @staticmethod
+    def collection_type():
+        raise NotImplementedError()
 
     def init_value(self, kwargs):
         try:
@@ -245,32 +273,38 @@ class BaseModelMeta(type):
         annotations = getattr(x, '__annotations__', None)
 
         if annotations:
-            x.__fields__ = {k: _make_model_field(k, v, getattr(x, k, None))
-                            for k, v in annotations.items()}
+            fields = {k: _make_model_field(k, v, getattr(x, k, None))
+                      for k, v in annotations.items()}
         else:
-            x.__fields__ = {}
+            fields = {}
 
         for superclass in x.__mro__:
             if superclass is x:
                 continue
 
-            if hasattr(superclass, '__fields__'):
-                for k, v in superclass.__fields__.items():
-                    if k not in x.__fields__:
-                        x.__fields__[k] = v
+            superfields = getattr(superclass, '__fields__', None)
+            if superfields:
+                for k, v in superfields.items():
+                    if k not in fields:
+                        fields[k] = v
 
+        setattr(x, '__fields__', fields)
         return x
 
 
 class BaseModel(metaclass=BaseModelMeta):
     def __init__(self, **kwargs):
-        for field in self.__fields__.values():
+        for field in self.__class__._fields().values():
             setattr(self, field.python_name, field.init_value(kwargs))
+
+    @classmethod
+    def _fields(cls) -> Dict[str, ModelField]:
+        return getattr(cls, '__fields__')
 
     def to_json(self):
         return {
             field.json_name: field.json_value(self)
-            for field in self.__fields__.values()
+            for field in self._fields().values()
             if field.json_include(self)
         }
 
@@ -289,7 +323,7 @@ class BaseModel(metaclass=BaseModelMeta):
         cls = cls.class_from_json(data)
 
         result = cls.__new__(cls)
-        for field in cls.__fields__.values():
+        for field in cls._fields().values():
             setattr(result, field.python_name, field.python_value(data))
 
         return result

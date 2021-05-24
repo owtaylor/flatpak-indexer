@@ -59,7 +59,7 @@ def test_download_layer_progress(registry_mock, tmp_path):
     manifest_digest, test_layer = registry_mock.add_fake_image('repo1', 'latest')
 
     bytes_read = None
-    total_bytes = None
+    total_bytes = -1
 
     def progress_callback(bytes_read_, total_bytes_):
         nonlocal bytes_read, total_bytes

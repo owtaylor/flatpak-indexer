@@ -30,6 +30,7 @@ import time
 from urllib.parse import urlencode, urlparse
 
 import requests
+import requests.auth
 import www_authenticate
 
 from .utils import get_retrying_requests_session
