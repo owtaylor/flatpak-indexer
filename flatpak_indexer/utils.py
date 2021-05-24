@@ -224,7 +224,7 @@ def path_for_digest(base_dir, digest, extension, create_subdir=False):
     return os.path.join(base_dir, subdir, filename)
 
 
-ProcessStats = namedtuple('ProcessStas',
+ProcessStats = namedtuple('ProcessStats',
                           ['max_mem_kib',
                            'elapsed_time_s',
                            'system_time_s',

@@ -86,6 +86,8 @@ class Registry:
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 return []
+            else:
+                raise
 
         return [(item['brew_build'], parse_date(item['start_date']))
                 for item in tag_history['history']]

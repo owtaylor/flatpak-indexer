@@ -278,7 +278,7 @@ class Downloader:
             self.update_info[key]['updates'].append(update_name)
 
             if r['status'] in ('pending', 'testing'):
-                print("Error: {update_name} status is {r['status']}", f=sys.stderr)
+                print("Error: {update_name} status is {r['status']}", file=sys.stderr)
                 sys.exit(1)
 
             for b in r['builds']:

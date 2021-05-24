@@ -122,8 +122,12 @@ class FedoraUpdater(object):
             for repo_name, repo in repos.items():
                 if repo.testing_updates:
                     _, latest_testing_build = repo.testing_updates[0]
+                else:
+                    latest_testing_build = None
                 if repo.stable_updates:
                     _, latest_stable_build = repo.stable_updates[0]
+                else:
+                    latest_stable_build = None
 
                 # Set the tags on images based on what is current
                 if (latest_testing_build and latest_stable_build and

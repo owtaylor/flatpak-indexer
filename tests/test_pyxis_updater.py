@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+from requests.exceptions import HTTPError
 import pytest
 import yaml
 
@@ -81,6 +82,17 @@ def test_pyxis_updater(tmp_path, server_cert, client_cert):
         'app/org.gnome.Aisleriot/x86_64/stable'
     assert aisleriot_image.labels['org.freedesktop.appstream.icon-128'] == \
         "https://www.example.com/icons/aisleriot.png"
+
+
+@mock_brew
+@mock_pyxis(fail_tag_history=True)
+@mock_redis
+def test_pyxis_updater_tag_history_exception(tmp_path):
+    config = get_config(tmp_path, CONFIG)
+    updater = PyxisUpdater(config, page_size=1)
+
+    with pytest.raises(HTTPError, match=r"403 Client Error"):
+        run_update(updater)
 
 
 REPOSITORY_OVERRIDE_CONFIG = yaml.safe_load("""

@@ -67,6 +67,7 @@ def test_cert_relative(tmp_path):
     }
     conf = get_config(tmp_path, config_data)
     cert = conf.find_local_cert('https://pyxis.example.com')
+    assert cert is not None
     assert os.path.isabs(cert)
     assert os.path.exists(cert)
 

@@ -102,3 +102,35 @@ def test_fedora_updater(connection_mock, tmp_path):
     assert gnome_weather_repository.\
         images['sha256:eabc978690e7ed1e2a27f713658efc6bcf4ff5d4080d143bcc018e4014718922'].tags \
         == ['latest', 'testing']
+
+
+def modify_no_stable_no_testing(update):
+    update = copy.copy(update)
+    update['date_testing'] = None
+    update['date_stable'] = None
+    return update
+
+
+@mock_bodhi(modify=modify_no_stable_no_testing)
+@mock_fedora_messaging
+@mock_koji
+@mock_redis
+def test_fedora_updater_no_stable_no_testing(connection_mock, tmp_path):
+    connection_mock.put_update_message('fedora-2018-12456789')
+    connection_mock.put_inactivity_timeout()
+
+    config = get_config(tmp_path, CONFIG)
+
+    updater = FedoraUpdater(config)
+
+    registry_data = {}
+
+    updater.start()
+    try:
+        updater.update(registry_data)
+    finally:
+        updater.stop()
+
+    data = registry_data['registry.example.com']
+
+    assert len(data.repositories) == 0
