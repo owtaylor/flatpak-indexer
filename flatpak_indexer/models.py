@@ -50,7 +50,7 @@ class RepositoryModel(BaseModel):
 class RegistryModel(BaseModel):
     repositories: Dict[str, RepositoryModel] = field(index="name")
 
-    def add_image(self, name, image):
+    def add_image(self, name: str, image: ImageModel):
         if name not in self.repositories:
             self.repositories[name] = RepositoryModel(name=name)
 

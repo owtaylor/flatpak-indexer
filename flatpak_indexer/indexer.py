@@ -4,11 +4,13 @@ import hashlib
 import logging
 import json
 import os
+from typing import Dict, Optional
 
 from .cleaner import Cleaner
+from .config import Config, IndexConfig, RegistryConfig
 from .delta_generator import DeltaGenerator
 from .utils import atomic_writer, path_for_digest, uri_for_digest
-from .models import RegistryModel
+from .models import ImageModel, RegistryModel
 
 
 logger = logging.getLogger(__name__)
@@ -17,12 +19,12 @@ DATA_URI_PREFIX = 'data:image/png;base64,'
 
 
 class IconStore(object):
-    def __init__(self, icons_dir, icons_uri, cleaner=None):
+    def __init__(self, icons_dir: str, icons_uri: str, cleaner: Cleaner):
         self.icons_dir = icons_dir
         self.icons_uri = icons_uri
         self.cleaner = cleaner
 
-    def store(self, uri):
+    def store(self, uri: str):
         if not uri.startswith(DATA_URI_PREFIX):
             return None
 
@@ -46,15 +48,21 @@ class IconStore(object):
 
 
 class IndexWriter:
-    def __init__(self, conf, registry_config, icon_store=None):
+    def __init__(
+        self, conf: IndexConfig, registry_config: RegistryConfig,
+        icon_store: Optional[IconStore]
+    ):
         self.registry_config = registry_config
         self.config = conf
         self.icon_store = icon_store
         self.registry = RegistryModel()
 
-    def extract_icon(self, labels, key):
+    def extract_icon(self, labels: Dict[str, str], key: str):
         if not self.config.extract_icons:
             return
+        # config.py checks that icons_dir and icons_uri are set if extract_icons
+        # is set for any Index
+        assert self.icon_store
 
         value = labels.get(key)
         if value is None:
@@ -64,7 +72,7 @@ class IndexWriter:
         if uri is not None:
             labels[key] = uri
 
-    def move_flatpak_labels(self, image):
+    def move_flatpak_labels(self, image: ImageModel):
         to_move = [k for k in image.labels.keys()
                    if k.startswith('org.flatpak.') or k.startswith('org.freedesktop.')]
 
@@ -72,7 +80,7 @@ class IndexWriter:
             image.annotations[k] = image.labels[k]
             del image.labels[k]
 
-    def add_image(self, name, image, delta_manifest_url):
+    def add_image(self, name: str, image: ImageModel, delta_manifest_url: Optional[str]):
         image = copy.copy(image)
 
         # Clean up some information we don't want in the final output
@@ -116,16 +124,16 @@ class IndexWriter:
 
 
 class Indexer:
-    def __init__(self, config, cleaner=None):
+    def __init__(self, config: Config, cleaner: Optional[Cleaner] = None):
         self.conf = config
         if cleaner is None:
             cleaner = Cleaner(self.conf)
         self.cleaner = cleaner
 
-    def index(self, registry_data):
+    def index(self, registry_data: Dict[str, RegistryModel]):
         icon_store = None
-        if self.conf.icons_dir is not None:
-            icon_store = IconStore(self.conf.icons_dir, self.conf.icons_uri, cleaner=self.cleaner)
+        if self.conf.icons_dir and self.conf.icons_uri:
+            icon_store = IconStore(self.conf.icons_dir, self.conf.icons_uri, self.cleaner)
 
         delta_generator = None
         if any(index_config.delta_keep.total_seconds() > 0 for index_config in self.conf.indexes):
@@ -155,7 +163,7 @@ class Indexer:
 
             index = IndexWriter(index_config,
                                 registry_config,
-                                icon_store=icon_store)
+                                icon_store)
 
             for repository in registry_info.repositories.values():
                 for image in repository.images.values():

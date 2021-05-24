@@ -33,7 +33,7 @@ class Cleaner:
         """Mark the beginning of a new index creation run"""
         self.this_cycle = set()
 
-    def reference(self, path):
+    def reference(self, path: str):
         """Mark a file as referenced within the current run, and record the reference time"""
         if path not in self.this_cycle:
             self.this_cycle.add(path)

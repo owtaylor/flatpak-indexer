@@ -204,7 +204,7 @@ def unparse_pull_spec(registry_url, repository, ref):
         return f'{server_port}{repository}:{ref}'
 
 
-def uri_for_digest(base_uri, digest, extension):
+def uri_for_digest(base_uri: str, digest: str, extension: str):
     assert digest.startswith("sha256:")
     subdir = digest[7:9]
     filename = digest[9:] + extension
