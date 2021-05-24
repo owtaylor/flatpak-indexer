@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from functools import partial
 import logging
+from typing import cast
 
 import koji
 
@@ -46,13 +47,13 @@ def _get_build(koji_session, redis_client, build_info, build_cls):
 
     build = build_cls(**kwargs)
 
-    if issubclass(build_cls, ImageBuildModel):
+    if isinstance(build, ImageBuildModel):
         logger.info("Calling koji.listArchives(%s); nvr=%s",
                     build_info['build_id'], build_info['nvr'])
         archives = koji_session.listArchives(build_info['build_id'])
 
         for archive in archives:
-            if build_cls == FlatpakBuildModel:
+            if isinstance(build, FlatpakBuildModel):
                 if archive['extra']['image']['arch'] == 'x86_64':
                     # Archives should differ only in architecture,
                     # use the x86 build to get the package list
@@ -98,7 +99,7 @@ def _get_build(koji_session, redis_client, build_info, build_cls):
                                            diff_ids=config['rootfs']['diff_ids'],
                                            pull_spec=pull_spec))
 
-        if build_cls == FlatpakBuildModel:
+        if isinstance(build, FlatpakBuildModel):
             for m in build_info['extra']['image']['modules']:
                 module_build = query_module_build(koji_session, redis_client, m)
                 build.module_builds.append(module_build.nvr)
@@ -106,7 +107,7 @@ def _get_build(koji_session, redis_client, build_info, build_cls):
             build.module_builds.sort()
             build.package_builds.sort()
 
-    elif build_cls == ModuleBuildModel:
+    elif isinstance(build, ModuleBuildModel):
         logger.info("Calling koji.listArchives(%s); nvr=%s",
                     build_info['build_id'], build_info['nvr'])
         archives = koji_session.listArchives(build_info['build_id'])
@@ -239,10 +240,12 @@ def _query_build(koji_session, redis_client, nvr, build_cls):
     return _get_build(koji_session, redis_client, build_info, build_cls)
 
 
-def _query_module_build_no_context(koji_session, redis_client, nvr):
+def _query_module_build_no_context(koji_session, redis_client, nvr) -> ModuleBuildModel:
     full_nvr = redis_client.hget('module-nvr-to-nvrc', nvr)
     if full_nvr:
-        return _query_build(koji_session, redis_client, full_nvr.decode("utf-8"), ModuleBuildModel)
+        return cast(ModuleBuildModel,
+                    _query_build(koji_session, redis_client, full_nvr.decode("utf-8"),
+                                 ModuleBuildModel))
 
     n, v, r = nvr.rsplit('-', 2)
 
@@ -262,13 +265,14 @@ def _query_module_build_no_context(koji_session, redis_client, nvr):
         logger.warning(f"More than one context for {nvr}, using most recent!")
         builds.sort(key=lambda b: b['creation_ts'], reverse=True)
 
-    module_build = _get_build(koji_session, redis_client, builds[0], ModuleBuildModel)
+    module_build = cast(ModuleBuildModel,
+                        _get_build(koji_session, redis_client, builds[0], ModuleBuildModel))
     redis_client.hset('module-nvr-to-nvrc', nvr, module_build.nvr)
 
     return module_build
 
 
-def _query_package_build_by_id(koji_session, redis_client, build_id):
+def _query_package_build_by_id(koji_session, redis_client, build_id) -> PackageBuildModel:
     nvr = redis_client.hget('build-id-to-nvr', build_id)
     if nvr:
         return query_package_build(koji_session, redis_client, nvr.decode("utf-8"))
@@ -278,23 +282,27 @@ def _query_package_build_by_id(koji_session, redis_client, build_id):
     if build_info is None:
         raise RuntimeError(f"Could not look up build ID {build_id} in Koji")
 
-    return _get_build(koji_session, redis_client, build_info, PackageBuildModel)
+    return cast(PackageBuildModel,
+                _get_build(koji_session, redis_client, build_info, PackageBuildModel))
 
 
-def query_image_build(koji_session, redis_client, nvr):
-    return _query_build(koji_session, redis_client, nvr, ImageBuildModel)
+def query_image_build(koji_session, redis_client, nvr) -> ImageBuildModel:
+    return cast(ImageBuildModel,
+                _query_build(koji_session, redis_client, nvr, ImageBuildModel))
 
 
-def query_module_build(koji_session, redis_client, nvr):
+def query_module_build(koji_session, redis_client, nvr) -> ModuleBuildModel:
     n, v, r = nvr.rsplit('-', 2)
     if '.' not in r:
         return _query_module_build_no_context(koji_session, redis_client, nvr)
     else:
-        return _query_build(koji_session, redis_client, nvr, ModuleBuildModel)
+        return cast(ModuleBuildModel,
+                    _query_build(koji_session, redis_client, nvr, ModuleBuildModel))
 
 
-def query_package_build(koji_session, redis_client, nvr):
-    return _query_build(koji_session, redis_client, nvr, PackageBuildModel)
+def query_package_build(koji_session, redis_client, nvr) -> PackageBuildModel:
+    return cast(PackageBuildModel,
+                _query_build(koji_session, redis_client, nvr, PackageBuildModel))
 
 
 def _refresh_tag_builds(koji_session, tag, pipe):
