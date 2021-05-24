@@ -1,179 +1,94 @@
-import datetime
-from enum import Enum
+from datetime import timedelta
 import os
-import re
+from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
-import yaml
 
-from .utils import substitute_env_vars
-
-
-class ConfigError(Exception):
-    pass
+from .base_config import BaseConfig, ConfigError, configfield, Lookup
 
 
-class Defaults(Enum):
-    REQUIRED = 1
+class RegistryConfig(BaseConfig):
+    name: str
+    datasource: str
+    public_url: str
+    repositories: List[str] = []
+    force_flatpak_token: bool = False
 
-
-class RegistryConfig:
-    def __init__(self, name, attrs):
+    def __init__(self, name: str, lookup: Lookup):
         self.name = name
-        self.datasource = attrs.get_str('datasource')
-        self.public_url = attrs.get_str('public_url')
-        self.repositories = attrs.get_str_list('repositories', [])
-        self.force_flatpak_token = attrs.get_bool('force_flatpak_token', False)
+        super().__init__(lookup)
 
 
-class IndexConfig:
-    def __init__(self, name, lookup):
+class IndexConfig(BaseConfig):
+    name: str
+    output: str
+    registry: str
+    tag: str
+    koji_tags: List[str] = []
+    bodhi_status: Optional[str] = None
+    architecture: Optional[str] = None
+    delta_keep: timedelta = configfield(skip=True)
+    extract_icons: bool = False
+    flatpak_annotations: bool = False
+
+    def __init__(self, name: str, lookup: Lookup):
         self.name = name
-        self.output = lookup.get_str('output')
-        self.registry = lookup.get_str('registry')
-        self.tag = lookup.get_str('tag')
-        self.koji_tags = lookup.get_str_list('koji_tags', [])
-        self.bodhi_status = lookup.get_str('bodhi_status', None)
-        self.architecture = lookup.get_str('architecture', None)
-        self.delta_keep = lookup.get_timedelta('delta_keep', None)
-        if self.delta_keep is None:
+        super().__init__(lookup)
+
+        delta_keep = lookup.get_timedelta('delta_keep', None)
+        if delta_keep is None:
             delta_keep_days = lookup.get_int('delta_keep_days', 0)
-            self.delta_keep = datetime.timedelta(days=delta_keep_days)
-        self.extract_icons = lookup.get_bool('extract_icons', False)
-        self.flatpak_annotations = lookup.get_bool('flatpak_annotations', False)
+            delta_keep = timedelta(days=delta_keep_days)
+        self.delta_keep = delta_keep
 
 
-class DaemonConfig:
+class DaemonConfig(BaseConfig):
+    update_interval: timedelta = configfield(default=timedelta(minutes=30), force_suffix=False)
+
     def __init__(self, lookup):
-        self.update_interval = lookup.get_timedelta('update_interval', '30m',
-                                                    force_suffix=False)
+        super().__init__(lookup)
 
 
-class Lookup:
-    def __init__(self, attrs, path=None):
-        self.path = path
-        self.attrs = attrs
+class Config(BaseConfig):
+    indexes: List[IndexConfig] = configfield(skip=True)
+    registries: Dict[str, RegistryConfig] = configfield(skip=True)
 
-    def _get_path(self, key):
-        if self.path is not None:
-            return self.path + '/' + key
-        else:
-            return key
+    koji_config: str
+    pyxis_client_cert: Optional[str] = None
+    pyxis_client_key: Optional[str] = None
+    pyxis_url: Optional[str] = configfield(default=None, force_trailing_slash=True)
 
-    def iterate_objects(self, parent_key):
-        objects = self.attrs.get(parent_key)
-        if not objects:
-            return
+    redis_url: str
+    redis_password: Optional[str] = None
 
-        for name, attrs in objects.items():
-            yield name, Lookup(attrs, parent_key + '/' + name)
+    local_certs: Dict[str, str] = configfield(skip=True)
 
-    def _get(self, key, default):
-        if default is Defaults.REQUIRED:
-            try:
-                return self.attrs[key]
-            except KeyError:
-                raise ConfigError("A value is required for {}".format(self._get_path(key))) \
-                    from None
-        else:
-            return self.attrs.get(key, default)
+    icons_dir: Optional[str] = None
+    icons_uri: Optional[str] = configfield(default=None, force_trailing_slash=True)
 
-    def get_str(self, key, default=Defaults.REQUIRED):
-        val = self._get(key, default)
-        if default is None and val is None:
-            return None
+    deltas_dir: Optional[str] = None
+    deltas_uri: Optional[str] = configfield(default=None, force_trailing_slash=True)
 
-        if not isinstance(val, str):
-            raise ConfigError("{} must be a string".format(self._get_path(key)))
+    clean_files_after: timedelta = timedelta(days=1)
 
-        return substitute_env_vars(val)
+    daemon: DaemonConfig
 
-    def get_bool(self, key, default=Defaults.REQUIRED):
-        val = self._get(key, default)
-        if not isinstance(val, bool):
-            raise ConfigError("{} must be a boolean".format(self._get_path(key)))
+    def __init__(self, lookup):
+        super().__init__(lookup)
 
-        return val
-
-    def get_int(self, key, default=Defaults.REQUIRED):
-        val = self._get(key, default)
-        if not isinstance(val, int):
-            raise ConfigError("{} must be an integer".format(self._get_path(key)))
-
-        return val
-
-    def get_str_list(self, key, default=Defaults.REQUIRED):
-        val = self._get(key, default)
-        if not isinstance(val, list) or not all(isinstance(v, str) for v in val):
-            raise ConfigError("{} must be a list of strings".format(self._get_path(key)))
-
-        return [substitute_env_vars(v) for v in val]
-
-    def get_str_dict(self, key, default=Defaults.REQUIRED):
-        val = self._get(key, default)
-        if not isinstance(val, dict) or not all(isinstance(v, str) for v in val.values()):
-            raise ConfigError("{} must be a mapping with string values".format(self._get_path(key)))
-
-        return {substitute_env_vars(k): substitute_env_vars(v) for k, v in val.items()}
-
-    def get_timedelta(self, key, default=Defaults.REQUIRED, force_suffix=True):
-        val = self._get(key, default)
-        if default is None and val is None:
-            return None
-
-        if isinstance(val, int) and not force_suffix:
-            return datetime.timedelta(seconds=val)
-
-        if isinstance(val, str):
-            m = re.match(r'^(\d+)([dhms])$', val)
-            if m:
-                if m.group(2) == "d":
-                    return datetime.timedelta(days=int(m.group(1)))
-                elif m.group(2) == "h":
-                    return datetime.timedelta(hours=int(m.group(1)))
-                elif m.group(2) == "m":
-                    return datetime.timedelta(minutes=int(m.group(1)))
-                else:
-                    return datetime.timedelta(seconds=int(m.group(1)))
-
-        raise ConfigError("{} should be a time interval of the form <digits>[dhms]"
-                          .format(self._get_path(key)))
-
-
-class Config:
-    def __init__(self, path):
         self.indexes = []
         self.registries = {}
-        with open(path, 'r') as f:
-            yml = yaml.safe_load(f)
-
-        if not isinstance(yml, dict):
-            raise ConfigError("Top level of config.yaml must be an object with keys")
-
-        lookup = Lookup(yml)
-
-        self.pyxis_url = lookup.get_str('pyxis_url', None)
-        if self.pyxis_url is not None and not self.pyxis_url.endswith('/'):
-            self.pyxis_url += '/'
-
-        self.pyxis_client_cert = lookup.get_str('pyxis_client_cert', None)
-        self.pyxis_client_key = lookup.get_str('pyxis_client_key', None)
-
-        self.redis_url = lookup.get_str('redis_url')
-        self.redis_password = lookup.get_str('redis_password', None)
 
         if (not self.pyxis_client_cert) != (not self.pyxis_client_key):
             raise ConfigError("pyxis_client_cert and pyxis_client_key must be set together")
 
-        if self.pyxis_client_cert:
+        if self.pyxis_client_cert and self.pyxis_client_key:
             if not os.path.exists(self.pyxis_client_cert):
                 raise ConfigError(
                     "pyxis_client_cert: {} does not exist".format(self.pyxis_client_cert))
             if not os.path.exists(self.pyxis_client_key):
                 raise ConfigError(
                     "pyxis_client_key: {} does not exist".format(self.pyxis_client_key))
-
-        self.koji_config = lookup.get_str('koji_config')
 
         local_certs = lookup.get_str_dict('local_certs', {})
         self.local_certs = {}
@@ -187,23 +102,11 @@ class Config:
 
             self.local_certs[k] = v
 
-        self.icons_dir = lookup.get_str('icons_dir', None)
-        self.icons_uri = lookup.get_str('icons_uri', None)
-        if self.icons_uri and not self.icons_uri.endswith('/'):
-            self.icons_uri += '/'
-
         if self.icons_dir is not None and self.icons_uri is None:
             raise ConfigError("icons_dir is configured, but not icons_uri")
 
-        self.deltas_dir = lookup.get_str('deltas_dir', None)
-        self.deltas_uri = lookup.get_str('deltas_uri', None)
-        if self.deltas_uri and not self.deltas_uri.endswith('/'):
-            self.deltas_uri += '/'
-
         if self.deltas_dir is not None and self.deltas_uri is None:
             raise ConfigError("deltas_dir is configured, but not deltas_uri")
-
-        self.clean_files_after = lookup.get_timedelta('clean_files_after', '1d')
 
         for name, sublookup in lookup.iterate_objects('registries'):
             registry_config = RegistryConfig(name, sublookup)
@@ -265,7 +168,8 @@ class Config:
             else:
                 tag_koji_tags[index_config.tag] = (index_config.name, index_config.koji_tags)
 
-        self.daemon = DaemonConfig(Lookup(yml.get('daemon', {}), 'daemon'))
-
     def find_local_cert(self, url):
-        return self.local_certs.get(urlparse(url).hostname)
+        hostname = urlparse(url).hostname
+        if hostname is None:
+            return None
+        return self.local_certs.get(hostname)

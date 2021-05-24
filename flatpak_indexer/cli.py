@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @click.option('-v', '--verbose', is_flag=True,
               help='Show verbose debugging output')
 def cli(ctx, config_file, verbose):
-    cfg = Config(config_file)
+    cfg = Config.from_path(config_file)
 
     ctx.obj = {
         'config': cfg,

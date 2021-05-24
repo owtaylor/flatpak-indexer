@@ -24,7 +24,7 @@ def write_config(tmp_path, content):
 
 def get_config(tmp_path, content):
     path = write_config(tmp_path, content)
-    conf = Config(path)
+    conf = Config.from_path(path)
     os.unlink(path)
     return conf
 

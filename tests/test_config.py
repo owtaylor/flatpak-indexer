@@ -5,7 +5,6 @@ from pytest import raises
 import yaml
 
 from flatpak_indexer.config import ConfigError
-from flatpak_indexer.utils import SubstitutionError
 from .utils import get_config, setup_client_cert
 
 BASIC_CONFIG = yaml.safe_load("""
@@ -56,126 +55,9 @@ indexes:
 """)
 
 
-def test_config_empty(tmp_path):
-    with raises(ConfigError, match="Top level of config.yaml must be an object with keys"):
-        get_config(tmp_path, None)
-
-
 def test_config_basic(tmp_path):
     conf = get_config(tmp_path, BASIC_CONFIG)
     assert conf.pyxis_url == "https://pyxis.example.com/v1/"
-
-
-def test_key_missing(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    del config_data['redis_url']
-    with raises(ConfigError, match=r'A value is required for redis_url'):
-        get_config(tmp_path, config_data)
-
-
-def test_str_type(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['pyxis_url'] = 42
-    with raises(ConfigError, match="pyxis_url must be a string"):
-        get_config(tmp_path, config_data)
-
-
-def test_bool_type(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['indexes']['amd64']['extract_icons'] = 42
-    with raises(ConfigError, match="indexes/amd64/extract_icons must be a boolean"):
-        get_config(tmp_path, config_data)
-
-
-def test_int_type(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    del config_data['indexes']['fedora-testing']['delta_keep']
-    config_data['indexes']['fedora-testing']['delta_keep_days'] = "FOO"
-    with raises(ConfigError, match="delta_keep_days must be an integer"):
-        get_config(tmp_path, config_data)
-
-
-def test_str_list_type(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['registries']['registry.example.com']['repositories'] = "FOO"
-    with raises(ConfigError,
-                match="registries/registry.example.com/repositories must be a list of strings"):
-        get_config(tmp_path, config_data)
-
-
-def test_dict_list_type(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['local_certs'] = "FOO"
-    with raises(ConfigError,
-                match="local_certs must be a mapping with string values"):
-        get_config(tmp_path, config_data)
-
-    config_data['local_certs'] = {"FOO": 1}
-    with raises(ConfigError,
-                match="local_certs must be a mapping with string values"):
-        get_config(tmp_path, config_data)
-
-
-def test_timedelta_type(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['daemon']['update_interval'] = '2s'
-    assert get_config(tmp_path, config_data).daemon.update_interval.total_seconds() == 2
-    config_data['daemon']['update_interval'] = 2
-    assert get_config(tmp_path, config_data).daemon.update_interval.total_seconds() == 2
-    config_data['daemon']['update_interval'] = '2m'
-    assert get_config(tmp_path, config_data).daemon.update_interval.total_seconds() == 120
-    config_data['daemon']['update_interval'] = '2h'
-    assert get_config(tmp_path, config_data).daemon.update_interval.total_seconds() == 7200
-    config_data['daemon']['update_interval'] = '2d'
-    assert get_config(tmp_path, config_data).daemon.update_interval.total_seconds() == 2 * 24 * 3600
-
-    config_data['daemon']['update_interval'] = '2x'
-    with raises(ConfigError,
-                match=(r"daemon/update_interval should be a time interval "
-                       r"of the form <digits>\[dhms\]")):
-        get_config(tmp_path, config_data)
-
-    # bare integer only allowed for update_interval for compat
-    config_data['daemon']['update_interval'] = '2s'
-    config_data['indexes']['fedora-testing']['delta_keep'] = 2
-    with raises(ConfigError,
-                match=(r"indexes/fedora-testing/delta_keep should be a time interval "
-                       r"of the form <digits>\[dhms\]")):
-        get_config(tmp_path, config_data)
-
-
-def test_environment_variable(tmp_path):
-    os.environ["DOMAIN_NAME"] = 'pyxis.example.com'
-    CONFIG = {
-        'pyxis_url': 'https://${DOMAIN_NAME}/v1',
-        'redis_url': 'redis://localhost',
-        'koji_config': 'brew',
-    }
-    conf = get_config(tmp_path, CONFIG)
-    assert conf.pyxis_url == "https://pyxis.example.com/v1/"
-
-
-def test_environment_variable_default(tmp_path):
-    if "DOMAIN_NAME" in os.environ:
-        del os.environ["DOMAIN_NAME"]
-    CONFIG = {
-        'pyxis_url': 'https://${DOMAIN_NAME:pyxis.example.com}/v1',
-        'redis_url': 'redis://localhost',
-        'koji_config': 'brew',
-    }
-    conf = get_config(tmp_path, CONFIG)
-    assert conf.pyxis_url == "https://pyxis.example.com/v1/"
-
-
-def test_environment_variable_missing(tmp_path):
-    if "DOMAIN_NAME" in os.environ:
-        del os.environ["DOMAIN_NAME"]
-    CONFIG = {
-        'pyxis_url': 'https://${DOMAIN_NAME}/v1',
-        'koji_config': 'brew',
-    }
-    with raises(SubstitutionError, match=r'environment variable DOMAIN_NAME is not set'):
-        get_config(tmp_path, CONFIG)
 
 
 def test_cert_relative(tmp_path):
