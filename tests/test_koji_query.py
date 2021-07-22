@@ -165,12 +165,14 @@ def test_query_module_build(caplog):
     assert "Calling koji.listBuilds" not in caplog.text
 
 
-def test_query_module_build_multiple_contexts():
+def test_query_module_build_multiple_contexts(caplog):
     koji_session = make_koji_session()
     redis_client = make_redis_client()
 
-    with raises(RuntimeError, match="More than one context for django-1.6-20180828135711"):
-        query_module_build(koji_session, redis_client, 'django-1.6-20180828135711')
+    caplog.clear()
+    build = query_module_build(koji_session, redis_client, 'django-1.6-20180828135711')
+    assert build.nvr == 'django-1.6-20180828135711.a5b0195c'
+    assert "More than one context for django-1.6-20180828135711, using most recent!" in caplog.text
 
 
 def test_query_package_build_by_bad_id():

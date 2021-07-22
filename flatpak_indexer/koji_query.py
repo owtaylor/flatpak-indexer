@@ -254,7 +254,13 @@ def _query_module_build_no_context(koji_session, redis_client, nvr):
     if len(builds) == 0:
         raise RuntimeError(f"Could not look up {nvr} in Koji")
     elif len(builds) > 1:
-        raise RuntimeError(f"More than one context for {nvr}!")
+        # If a user builds the same git commit of a module with different platform buildrequires
+        # (8.4.0 and 8.4.0-z, for example), then we can end up with multiple contexts.
+        # The guess here corresponds to what ODCS will do (use the most recent), but the
+        # better thing would be to avoid this situation and always use the full NSVC to
+        # look up a build.
+        logger.warning(f"More than one context for {nvr}, using most recent!")
+        builds.sort(key=lambda b: b['creation_ts'], reverse=True)
 
     module_build = _get_build(koji_session, redis_client, builds[0], ModuleBuildModel)
     redis_client.hset('module-nvr-to-nvrc', nvr, module_build.nvr)
