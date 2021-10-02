@@ -52,6 +52,7 @@ class FedoraUpdater(object):
             self.redis_client.set('fedora-messaging-queue', new_queue_name)
 
     def update(self, registry_data):
+        assert self.change_monitor, "start() must be called before update()"
         for bodhi_update_id in self.change_monitor.get_changed():
             refresh_update_status(self.koji_session, self.redis_client, bodhi_update_id)
 
@@ -171,4 +172,5 @@ class FedoraUpdater(object):
             registry_data[registry_name] = registry
 
     def stop(self):
+        assert self.change_monitor, "start() must be called before stop()"
         self.change_monitor.stop()

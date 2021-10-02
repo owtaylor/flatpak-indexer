@@ -223,7 +223,9 @@ def test_timedelta_optional():
     lookup = Lookup({})
     assert Config(lookup).timedelta_field is None
     lookup = Lookup({"timedelta_field": "42s"})
-    assert Config(lookup).timedelta_field.total_seconds() == 42
+    timedelta_field = Config(lookup).timedelta_field
+    assert timedelta_field is not None
+    assert timedelta_field.total_seconds() == 42
 
 
 def test_iterate_objects_none():

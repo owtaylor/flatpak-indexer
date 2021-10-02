@@ -27,7 +27,9 @@ def test_bodhi_query_package_updates():
 
     assert update.user_name == 'walters'
     assert update.date_submitted.strftime("%Y-%m-%d %H:%M:%S") == '2018-07-26 18:59:31'
+    assert update.date_testing is not None
     assert update.date_testing.strftime("%Y-%m-%d %H:%M:%S") == '2018-07-27 18:14:33'
+    assert update.date_stable is not None
     assert update.date_stable.strftime("%Y-%m-%d %H:%M:%S") == '2018-08-03 20:44:52'
 
     assert update.builds == ['bubblewrap-0.3.0-2.fc28']

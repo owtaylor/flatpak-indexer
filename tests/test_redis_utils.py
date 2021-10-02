@@ -82,6 +82,7 @@ def test_do_pubsub_work(config, fail_first_method, caplog):
         do_pubsub_work(redis_client, 'test:queue', do_work,
                        initial_reconnect_timeout=0.05)
 
+        assert found_message is not None
         assert found_message['data'] == b'foo'
 
         if fail_first_method == 'subscribe':

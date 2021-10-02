@@ -138,6 +138,7 @@ def test_parse_date():
     assert dt.minute == 26
     assert dt.second == 22
     assert dt.microsecond == 123456
+    assert dt.tzinfo is not None
     assert dt.tzinfo.utcoffset(None) == datetime.timedelta(0)
 
     dt = parse_date('2020-07-31T16:26:22+00:00')

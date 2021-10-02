@@ -262,6 +262,7 @@ def test_delta_generator(tmp_path, iterations, task_destiny, layer_counts):
             cleaner.reset()
 
     url = generator.get_delta_manifest_url(IMAGE3['Digest'])
+    assert url is not None
     assert url.startswith("https://flatpaks.fedoraproject.org/deltas/")
 
     path = tmp_path / "deltas" / "a3" / "b3c3d3e3f3.json"

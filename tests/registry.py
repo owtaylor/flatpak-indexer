@@ -173,7 +173,9 @@ class MockRegistry:
             if auth_response:
                 return auth_response
 
-            status, headers, body = callback(req, *(pat.match(req.url).groups()))
+            m = pat.match(req.url)
+            assert m
+            status, headers, body = callback(req, *(m.groups()))
             if method == responses.HEAD:
                 return status, headers, ''
             else:

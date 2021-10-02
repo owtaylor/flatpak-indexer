@@ -74,6 +74,7 @@ class RegistrySession(object):
         self.registry_url = registry
 
         parsed = urlparse(self.registry_url)
+        assert parsed.hostname is not None
         self.registry_hostport = parsed.hostname + (f":{parsed.port}" if parsed.port else "")
 
         self.cert = self._find_cert(cert_dir)
