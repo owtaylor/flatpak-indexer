@@ -25,7 +25,7 @@ def get_redis_client(config: Config) -> "redis.Redis[bytes]":
         url = urlunparse((parts.scheme, netloc,
                           parts.path, parts.params, parts.query, parts.fragment))
 
-    return redis.Redis.from_url(url, decode_responses=False, decode_components=True)
+    return redis.Redis.from_url(url, decode_responses=False, decode_components=True)  # type: ignore
 
 
 def do_pubsub_work(redis_client, topic, callback, initial_reconnect_timeout=None):

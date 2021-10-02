@@ -21,7 +21,7 @@ def mock_redis(f=None, expect_url=None):
             if expect_url is not None:
                 assert url == expect_url
 
-            return fakeredis.FakeStrictRedis(server=server)
+            return fakeredis.FakeStrictRedis(server=server)  # type: ignore
 
         with patch('redis.Redis.from_url', side_effect=from_url):
             return f(*args, **kwargs)

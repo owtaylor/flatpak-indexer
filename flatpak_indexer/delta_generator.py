@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Dict
+from typing import cast, Dict
 from flatpak_indexer.config import IndexConfig
 import json
 import logging
@@ -174,8 +174,9 @@ class DeltaGenerator:
                 next_expire = now + self.progress_timeout_seconds
                 with self.redis_client.pipeline() as pipe:
                     pipe.watch('tardiff:progress')
-                    stale = pipe.zrangebyscore('tardiff:progress',
-                                               0, now - self.progress_timeout_seconds)
+                    pre = cast(redis.Redis, pipe)
+                    stale = pre.zrangebyscore('tardiff:progress',
+                                              0, now - self.progress_timeout_seconds)
                     if len(stale) > 0:
                         for key in stale:
                             logger.info("Task %s timed out, requeueing", key)
@@ -190,7 +191,8 @@ class DeltaGenerator:
                             # progress was modified, immediately try again
                             return True
                     else:
-                        oldest = pipe.zrange('tardiff:progress', 0, 0, withscores=True)
+                        oldest = \
+                            pre.zrange('tardiff:progress', 0, 0, withscores=True)
                         if len(oldest) > 0:
                             next_expire = oldest[0][1] + self.progress_timeout_seconds
                             logger.debug("Oldest task is %s, expires in %f seconds",
