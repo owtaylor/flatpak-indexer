@@ -12,6 +12,8 @@ from ...models import (FlatpakBuildModel, RegistryModel,
 from ...redis_utils import get_redis_client
 from ...utils import get_retrying_requests_session, parse_date, rpm_nvr_compare
 
+from .. import Updater
+
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +205,7 @@ class Registry:
                                         architectures, build_items)
 
 
-class PyxisUpdater(object):
+class PyxisUpdater(Updater):
     def __init__(self, config, page_size=50):
         self.conf = config
         self.page_size = page_size

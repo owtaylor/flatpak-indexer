@@ -10,6 +10,8 @@ from ...models import RegistryModel, TagHistoryModel, TagHistoryItemModel
 from ...redis_utils import get_redis_client
 from ...utils import unparse_pull_spec
 
+from .. import Updater
+
 from .bodhi_change_monitor import BodhiChangeMonitor
 from .bodhi_query import (list_updates, refresh_all_updates,
                           refresh_update_status, reset_update_cache)
@@ -37,7 +39,7 @@ def _fix_pull_spec(image, registry_url, repo_name):
                                         image.digest)
 
 
-class FedoraUpdater(object):
+class FedoraUpdater(Updater):
     redis_client: "redis.Redis[bytes]"
     change_monitor: Optional[BodhiChangeMonitor]
 
