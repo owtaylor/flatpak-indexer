@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -67,9 +68,9 @@ def test_do_pubsub_work(config, fail_first_method, caplog):
     with patch('redis.client.PubSub', get_pubsub):
         redis_client = get_redis_client(config)
 
-        found_message = None
+        found_message: Optional[Dict[str, Any]] = None
 
-        def do_work(pubsub):
+        def do_work(pubsub: redis.client.PubSub):
             nonlocal found_message
             msg = pubsub.get_message()
 

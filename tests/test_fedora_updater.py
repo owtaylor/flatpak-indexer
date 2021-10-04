@@ -1,8 +1,10 @@
 import copy
+from typing import Dict
 
 import yaml
 
 from flatpak_indexer.datasource.fedora import FedoraUpdater
+from flatpak_indexer.models import RegistryModel
 
 from .bodhi import mock_bodhi
 from .fedora_messaging import mock_fedora_messaging
@@ -63,7 +65,7 @@ def test_fedora_updater(connection_mock, tmp_path):
 
     updater = FedoraUpdater(config)
 
-    registry_data = {}
+    registry_data: Dict[str, RegistryModel] = {}
 
     updater.start()
     try:
@@ -123,7 +125,7 @@ def test_fedora_updater_no_stable_no_testing(connection_mock, tmp_path):
 
     updater = FedoraUpdater(config)
 
-    registry_data = {}
+    registry_data: Dict[str, RegistryModel] = {}
 
     updater.start()
     try:

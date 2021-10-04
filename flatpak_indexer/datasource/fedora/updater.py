@@ -1,3 +1,9 @@
+from collections import defaultdict
+from typing import DefaultDict, Optional, Set
+
+import redis
+
+from ...config import Config
 from ...koji_query import query_image_build
 from ...koji_utils import get_koji_session
 from ...models import RegistryModel, TagHistoryModel, TagHistoryItemModel
@@ -32,7 +38,10 @@ def _fix_pull_spec(image, registry_url, repo_name):
 
 
 class FedoraUpdater(object):
-    def __init__(self, config):
+    redis_client: "redis.Redis[bytes]"
+    change_monitor: Optional[BodhiChangeMonitor]
+
+    def __init__(self, config: Config):
         self.conf = config
 
         self.redis_client = get_redis_client(config)
@@ -102,14 +111,13 @@ class FedoraUpdater(object):
                                        current_stable.date_stable >= u.date_stable)]
             repo.stable_updates.sort(key=lambda r: r[0].date_stable, reverse=True)
 
-        registry_statuses = {}
+        registry_statuses: DefaultDict[str, Set[str]] = defaultdict(set)
         for index_config in self.conf.indexes:
             registry_name = index_config.registry
             if self.conf.registries[registry_name].datasource != 'fedora':
                 continue
 
-            if registry_name not in registry_statuses:
-                registry_statuses[registry_name] = set()
+            assert index_config.bodhi_status  # config.py enforces this for fedora datasource
 
             registry_statuses[registry_name].add(index_config.bodhi_status)
 

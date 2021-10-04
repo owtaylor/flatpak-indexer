@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from functools import partial
 import logging
+from typing import Any, Dict, List
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -226,7 +227,7 @@ def _refresh_updates(content_type, entities, pipe, rows_per_page=None):
     queried_ts = pipe.hmget('update-cache:' + content_type, *entities)
     parsed_ts = [parse_date(ts.decode("utf-8")) if ts else None for ts in queried_ts]
 
-    results = []
+    results: List[Dict[str, Any]] = []
 
     refresh_ts = max((ts for ts in parsed_ts if ts is not None), default=None)
     if refresh_ts is not None:
@@ -284,7 +285,7 @@ def _refresh_all_updates(content_type, pipe, rows_per_page=10):
     else:
         after = None
 
-    results = []
+    results: List[Dict[str, Any]] = []
     _query_updates(requests_session,
                    content_type, results,
                    after=after,

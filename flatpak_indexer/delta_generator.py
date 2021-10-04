@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import cast, Dict
+from typing import Dict, List, Tuple, cast
 from flatpak_indexer.config import IndexConfig
 import json
 import logging
@@ -191,7 +191,7 @@ class DeltaGenerator:
                             # progress was modified, immediately try again
                             return True
                     else:
-                        oldest = \
+                        oldest: List[Tuple[bytes, float]] = \
                             pre.zrange('tardiff:progress', 0, 0, withscores=True)
                         if len(oldest) > 0:
                             next_expire = oldest[0][1] + self.progress_timeout_seconds

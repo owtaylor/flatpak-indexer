@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 import json
 import queue
+from typing import Tuple
 from unittest.mock import patch, create_autospec
 
 import pika
@@ -30,7 +31,7 @@ class MockConnection():
         connection.add_callback_threadsafe.side_effect = self._add_callback_threadsafe
         connection.close.side_effect = self._close_connection
 
-        self.queue = queue.Queue()
+        self.queue: queue.Queue[Tuple] = queue.Queue()
 
         self.channel = create_autospec(pika.adapters.blocking_connection.BlockingChannel)
         self.channel.queue_declare.side_effect = self._queue_declare

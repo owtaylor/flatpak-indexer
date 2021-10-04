@@ -1,3 +1,5 @@
+from typing import Dict
+from flatpak_indexer.models import RegistryModel
 import click
 import logging
 import time
@@ -52,7 +54,7 @@ def daemon(ctx):
                                - (time.time() - last_update_time)))
             last_update_time = time.time()
 
-            registry_data = {}
+            registry_data: Dict[str, RegistryModel] = {}
             for updater in updaters:
                 try:
                     updater.update(registry_data)
@@ -95,7 +97,7 @@ def index(ctx):
     updaters = load_updaters(cfg)
     indexer = Indexer(cfg)
 
-    registry_data = {}
+    registry_data: Dict[str, RegistryModel] = {}
     for updater in updaters:
         updater.start()
         try:

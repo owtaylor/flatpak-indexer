@@ -1,6 +1,7 @@
 from datetime import datetime
 import logging
 import os
+from typing import List
 
 from .models import TardiffResultModel
 from .redis_utils import get_redis_client
@@ -48,7 +49,7 @@ class Cleaner:
                     result.append(dirent.path)
 
     def _find_files(self):
-        result = []
+        result: List[str] = []
 
         if self.config.icons_dir and os.path.exists(self.config.icons_dir):
             self._find_files_recurse(self.config.icons_dir, result)

@@ -27,6 +27,7 @@ import logging
 import os
 import tempfile
 import time
+from typing import Optional
 from urllib.parse import urlencode, urlparse
 
 import requests
@@ -60,6 +61,8 @@ class BearerAuth(requests.auth.AuthBase):
 
 class RegistrySession(object):
     """Wrapper around requests.Session adding docker-specific behavior."""
+
+    auth: Optional[requests.auth.AuthBase]
 
     def __init__(self, registry, creds=None, cert_dir=None, ca_cert=None):
         """

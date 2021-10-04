@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime, timezone
 import logging
+from typing import Dict, List
 
 import requests
 
@@ -176,14 +177,14 @@ class Registry:
             desired_architectures_koji[index_config.tag].add(index_config.architecture)
 
         # Cache the builds for each tag
-        koji_tag_builds = {}
+        koji_tag_builds: Dict[str, List[FlatpakBuildModel]] = {}
 
         koji_tag_start_date = datetime.fromtimestamp(0, timezone.utc)
 
         for tag, koji_tags in tag_koji_tags.items():
             # if multiple koji_tags are configured for the index, we merge them keeping
             # only the latest build for each name
-            builds_by_name = {}
+            builds_by_name: Dict[str, FlatpakBuildModel] = {}
             for koji_tag in koji_tags:
                 if koji_tag not in koji_tag_builds:
                     koji_tag_builds[koji_tag] = list(self._iterate_flatpak_builds(koji_tag))

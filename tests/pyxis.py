@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 import json
 import re
+from typing import Any, Dict, List
 import responses
 from urllib.parse import parse_qs, urlparse
 
@@ -46,7 +47,7 @@ _REPOSITORIES = [
 ]
 
 
-_REPO_IMAGES = [
+_REPO_IMAGES: List[Dict[str, Any]] = [
     {
         'architecture': 'amd64',
         'brew': {

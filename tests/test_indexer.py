@@ -1,12 +1,14 @@
 import copy
 import json
 import os
+from typing import Dict
 
 import yaml
 
 from flatpak_indexer.cleaner import Cleaner
 from flatpak_indexer.datasource import load_updaters
 from flatpak_indexer.indexer import Indexer
+from flatpak_indexer.models import RegistryModel
 from .bodhi import mock_bodhi
 from .fedora_messaging import mock_fedora_messaging
 from .koji import mock_koji
@@ -17,7 +19,7 @@ from .utils import get_config, mock_brew
 
 
 def run_update(config):
-    registry_data = {}
+    registry_data: Dict[str, RegistryModel] = {}
     for updater in load_updaters(config):
         updater.start()
         updater.update(registry_data)

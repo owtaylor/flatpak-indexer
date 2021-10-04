@@ -4,6 +4,7 @@ import inspect
 import os
 import subprocess
 from tempfile import NamedTemporaryFile
+from typing import Any, Dict, List
 from unittest.mock import DEFAULT, MagicMock, patch
 
 import yaml
@@ -64,7 +65,7 @@ _AISLERIOT2_LABELS = {
 }
 
 
-_KOJI_BUILDS = [
+_KOJI_BUILDS: List[Dict[str, Any]] = [
     {
         'build_id': 1063042,
         'completion_ts': 1598464962.42521,
@@ -375,7 +376,7 @@ _KOJI_BUILDS = [
 ]
 
 
-_KOJI_TAGS = {
+_KOJI_TAGS: Dict[str, List[str]] = {
     'release-candidate': [],
     'release-candidate-2': [],
     'release-candidate-3': ['release-candidate', 'release-candidate-2'],
