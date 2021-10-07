@@ -11,7 +11,7 @@ from flatpak_indexer.utils import (atomic_writer,
                                    format_date,
                                    get_retrying_requests_session,
                                    parse_date,
-                                   parse_pull_spec,
+                                   parse_pull_spec, pseudo_atomic_dir_writer,
                                    unparse_pull_spec,
                                    path_for_digest,
                                    resolve_type,
@@ -95,6 +95,30 @@ def test_atomic_writer_write_failure(tmp_path):
             raise IOError()
 
     assert os.listdir(tmp_path) == []
+
+
+def test_pseudo_atomic_dir_writer(tmp_path):
+    output_path = str(tmp_path / 'out')
+    with pseudo_atomic_dir_writer(output_path) as tempdir:
+        with open(os.path.join(tempdir, "a"), "w") as f:
+            print("Hello", file=f)
+
+    assert os.listdir(tmp_path) == ["out"]
+    assert os.listdir(output_path) == ["a"]
+
+    with pseudo_atomic_dir_writer(output_path) as tempdir:
+        with open(os.path.join(tempdir, "b"), "w") as f:
+            print("Hello", file=f)
+
+    assert os.listdir(tmp_path) == ["out"]
+    assert os.listdir(output_path) == ["b"]
+
+    with pytest.raises(RuntimeError, match=r"fell apart"):
+        with pseudo_atomic_dir_writer(output_path) as tempdir:
+            raise RuntimeError("fell apart")
+
+    assert os.listdir(tmp_path) == ["out"]
+    assert os.listdir(output_path) == ["b"]
 
 
 @pytest.mark.parametrize('steal', (True, False))

@@ -6,8 +6,9 @@ import hashlib
 import logging
 import os
 import re
+from shutil import rmtree
 import subprocess
-from tempfile import NamedTemporaryFile
+from tempfile import mkdtemp, NamedTemporaryFile
 import typing
 from typing import cast, IO, Tuple
 from urllib.parse import urljoin
@@ -132,6 +133,37 @@ def atomic_writer(output_path):
         if not success:
             tmpfile.close()
             os.unlink(tmpfile.name)
+
+
+@contextmanager
+def pseudo_atomic_dir_writer(path: str):
+    """Pretends to atomically overwrite a directory of files with a new version.
+
+    This could actually be done on a local linux filesystem with renameat2(), but we typically
+    are writing out to a network share. So we end up with a short time window where the
+    destination filename points to nothing. Probably the right approach here is to point to the
+    current version of the directory with a symlink.
+
+    Unlike atomic_writer(), no attempt is made to preserve modtime or Etag values.
+    """
+    success = False
+    tempdir = None
+    try:
+        tempdir = mkdtemp(prefix=os.path.basename(path) + '.',
+                          dir=os.path.dirname(path))
+        yield tempdir
+        success = True
+    finally:
+        if success:
+            assert tempdir
+            remove_old = os.path.exists(path)
+            if remove_old:
+                os.rename(path, os.path.join(tempdir, ".old"))
+            os.rename(tempdir, path)
+            if remove_old:
+                rmtree(os.path.join(path, ".old"))
+        elif tempdir:
+            rmtree(tempdir)
 
 
 class TemporaryPathname:
