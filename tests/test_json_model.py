@@ -104,7 +104,7 @@ def test_list_field():
 
 
 class IndexedListStuff(BaseModel):
-    f1: dict[str, StringStuff] = field(index="f1")
+    f1: Dict[str, StringStuff] = field(index="f1")
 
 
 def test_indexed_list_field():

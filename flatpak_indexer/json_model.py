@@ -242,14 +242,14 @@ def _make_model_field(name, type_, field_object):
 
     if indexed_field:
         if resolved != dict or args[0] != str:
-            raise TypeError(f"{name}: field(index=<name>) can only be used with dict[str]")
+            raise TypeError(f"{name}: field(index=<name>) can only be used with Dict[str]")
 
         return IndexedListField(name, json_name, args[1], indexed_field,
                                 optional=optional)
 
     if resolved == dict:
         if args[0] != str:
-            raise TypeError(f"{name}: Only dict[str] is supported")
+            raise TypeError(f"{name}: Only Dict[str] is supported")
         return DictField(name, json_name, args[1], optional=optional)
     elif resolved == list:
         return ListField(name, json_name, args[0], optional=optional)
