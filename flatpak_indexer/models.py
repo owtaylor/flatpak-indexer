@@ -32,6 +32,16 @@ class ImageModel(BaseModel):
     # from the public location of the image.
     pull_spec: Optional[str]
 
+    @property
+    def nvr(self):
+        name = self.labels.get("com.redhat.component")
+        if name:
+            version = self.labels["version"]
+            release = self.labels["release"]
+            return f"{name}-{version}-{release}"
+        else:
+            return None
+
 
 class ListModel(BaseModel):
     digest: str
@@ -122,3 +132,19 @@ class TardiffResultModel(BaseModel):
     elapsed_time_s: Optional[float]
     user_time_s: Optional[float]
     system_time_s: Optional[float]
+
+
+class ModuleImageContentsModel(BaseModel):
+    image_nvr: str
+    module_nvr: str
+    package_builds: List[str]
+
+
+class ModuleStreamContentsModel(BaseModel):
+    images: Dict[str, ModuleImageContentsModel] = field(index="image_nvr")
+
+    def add_package_build(self, image_nvr: str, module_nvr: str, package_nvr: str):
+        if image_nvr not in self.images:
+            self.images[image_nvr] = ModuleImageContentsModel(image_nvr=image_nvr,
+                                                              module_nvr=module_nvr)
+        self.images[image_nvr].package_builds.append(package_nvr)

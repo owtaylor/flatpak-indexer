@@ -1,16 +1,23 @@
 import base64
+from collections import defaultdict
 import copy
 import hashlib
 import logging
 import json
 import os
-from typing import Dict, Optional
+from typing import DefaultDict, Dict, Optional, Set
 
 from .cleaner import Cleaner
 from .config import Config, IndexConfig, RegistryConfig
 from .delta_generator import DeltaGenerator
-from .utils import atomic_writer, path_for_digest, uri_for_digest
-from .models import ImageModel, RegistryModel
+from .koji_query import query_image_build, query_module_build
+from .koji_utils import get_koji_session
+from .redis_utils import get_redis_client
+from .utils import atomic_writer, path_for_digest, pseudo_atomic_dir_writer, uri_for_digest
+from .models import (
+    FlatpakBuildModel, ImageModel, ImageBuildModel, ModuleBuildModel, ModuleStreamContentsModel,
+    RegistryModel
+)
 
 
 logger = logging.getLogger(__name__)
@@ -79,10 +86,11 @@ class BuildCache:
 class IndexWriter:
     def __init__(
         self, conf: IndexConfig, registry_config: RegistryConfig,
-        icon_store: Optional[IconStore]
+        build_cache: BuildCache, icon_store: Optional[IconStore]
     ):
         self.registry_config = registry_config
         self.config = conf
+        self.build_cache = build_cache
         self.icon_store = icon_store
         self.registry = RegistryModel()
 
@@ -135,6 +143,70 @@ class IndexWriter:
 
         self.registry.add_image(name, image)
 
+    def iter_images(self):
+        for repository in self.registry.repositories.values():
+            for image in repository.images.values():
+                yield image
+
+            # We don't currently export lists for anything
+            assert not repository.lists
+            # for list_ in repository.lists.values():
+            #     for image in list_.images:
+            #         yield image
+
+    def iter_image_builds(self):
+        seen: Set[str] = set()
+        for image in self.iter_images():
+            nvr = image.nvr
+            if nvr and nvr not in seen:
+                seen.add(nvr)
+                yield self.build_cache.get_image_build(nvr)
+
+    def write_contents(self):
+        contents_dir = self.config.contents
+        if contents_dir is None:
+            return
+
+        module_stream_contents: DefaultDict[str, ModuleStreamContentsModel] = \
+            defaultdict(ModuleStreamContentsModel)
+
+        for build in self.iter_image_builds():
+            # We only index Flatpak builds currently
+            assert isinstance(build, FlatpakBuildModel)
+            # if not isinstance(build, FlatpakBuildModel):
+            #     continue
+
+            package_to_module: Dict[str, ModuleBuildModel] = {}
+            for module_nvr in build.module_builds:
+                module_build = self.build_cache.get_module_build(module_nvr)
+                for package_nvr in module_build.package_builds:
+                    package_to_module[package_nvr] = module_build
+
+            for package_nvr in build.package_builds:
+                module = package_to_module.get(package_nvr)
+                if module:
+                    n, v, _ = module.nvr.rsplit('-', 2)
+                    name_stream = n + ":" + v
+                    stream_contents = module_stream_contents[name_stream]
+                    stream_contents.add_package_build(build.nvr, module.nvr, package_nvr)
+
+        # We auto-create only one level and don't use os.makedirs,
+        # to better catch configuration mistakes
+        output_dir = os.path.dirname(contents_dir)
+        if not os.path.isdir(output_dir):
+            os.mkdir(output_dir)
+
+        with pseudo_atomic_dir_writer(contents_dir) as tempdir:
+            modules_dir = os.path.join(tempdir, "modules")
+            os.mkdir(modules_dir)
+
+            for name_stream, contents in module_stream_contents.items():
+                path = os.path.join(modules_dir, name_stream + ".json")
+                with open(path, "w", encoding="UTF-8") as f:
+                    json.dump(
+                        contents.to_json(), f, sort_keys=True, indent=4, ensure_ascii=False
+                    )
+
     def write(self):
         # We auto-create only one level and don't use os.makedirs,
         # to better catch configuration mistakes
@@ -151,10 +223,13 @@ class IndexWriter:
                 'Results': [r.to_json() for r in sorted_repos],
             }, writer, sort_keys=True, indent=4, ensure_ascii=False)
 
+        self.write_contents()
+
 
 class Indexer:
     def __init__(self, config: Config, cleaner: Optional[Cleaner] = None):
         self.conf = config
+        self.build_cache = BuildCache(config)
         if cleaner is None:
             cleaner = Cleaner(self.conf)
         self.cleaner = cleaner
@@ -192,6 +267,7 @@ class Indexer:
 
             index = IndexWriter(index_config,
                                 registry_config,
+                                self.build_cache,
                                 icon_store)
 
             for repository in registry_info.repositories.values():

@@ -198,6 +198,7 @@ indexes:
     latest:
         registry: fedora
         output: ${OUTPUT_DIR}/test/flatpak-latest.json
+        contents: ${OUTPUT_DIR}/test/contents/latest
         tag: latest
         bodhi_status: stable
         delta_keep: 10000d
@@ -257,6 +258,20 @@ def test_indexer_fedora(connection_mock, tmp_path):
 
     baobab_image = baobab_repository['Images'][0]
     assert baobab_image['Labels']['org.flatpak.ref'] == 'app/org.gnome.Baobab/x86_64/stable'
+
+    assert os.listdir(tmp_path / "test/contents/latest/modules") == ["baobab:master.json"]
+    with open(tmp_path / "test/contents/latest/modules/baobab:master.json") as f:
+        module_data = json.load(f)
+
+    assert module_data == {
+        'Images': [{
+            'ImageNvr': 'baobab-master-3220200331145937.2',
+            'ModuleNvr': 'baobab-master-3220200331145937.caf21102',
+            'PackageBuilds': [
+                  'baobab-3.34.0-2.module_f32+8432+1f88bc5a'
+              ]
+        }]
+    }
 
 
 @mock_koji

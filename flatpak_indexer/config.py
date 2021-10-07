@@ -22,6 +22,7 @@ class RegistryConfig(BaseConfig):
 class IndexConfig(BaseConfig):
     name: str
     output: str
+    contents: Optional[str] = None
     registry: str
     tag: str
     koji_tags: List[str] = []

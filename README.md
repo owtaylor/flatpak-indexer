@@ -34,6 +34,34 @@ The indexer service is configured via a YAML file (typically provided as a kuber
 config map). You can find examples in [config-fedora.yaml](config-local.yaml) and
 [config-pyxis.yaml](config-pyxis.yaml).
 
+Content index
+-------------
+
+To help build additional automated tooling, such as tools for automatic rebuilds,
+flatpak-indexer supports writing an index of the contents pointed to be an index.
+For example if the config file includes
+`contents: /output/fedora/contents/latest`, then the file
+`/output/fedora/contents/latest/modules/flatpak-common:f34.json` might have look
+like:
+
+```json
+{
+    "Images": [
+        {
+            "ImageNvr": "0ad-stable-3420210401150310.2",
+            "ModuleNvr": "flatpak-common-f34-3420210427070634.b08b4b44",
+            "PackageBuilds": [
+                "libidn-1.36-2.module_f34+11693+744e15c3"
+            ]
+        },
+        ...
+    ]
+}
+```
+
+This says that the image `0ad-stable-3420210401150310.2` includes content
+from the module build `flatpak-common:f34:3420210427070634:b08b4b44` and lists what
+particular module build is included.
 
 Development setup (Red Hat)
 ---------------------------

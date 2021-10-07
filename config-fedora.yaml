@@ -27,6 +27,9 @@ indexes:
                 # path to the output location - environment variable substitions
                 # are possible for all strings
                 output: ${OUTPUT_DIR:out}/fedora/flatpak-latest.json
+                # This creates a directory with JSON files mapping from module
+                # builds to images using these module builds
+                contents: ${OUTPUT_DIR:out}/fedora/contents/latest
                 registry: fedora
                 tag: latest
                 bodhi_status: stable

@@ -48,6 +48,9 @@ indexes:
                 # path to the output location - environment variable substitions
                 # are possible for all strings
                 output: ${OUTPUT_DIR:out}/pyxis/flatpak-latest.json
+                # This creates a directory with JSON files mapping from module
+                # builds to images using these module builds
+                contents: ${OUTPUT_DIR:out}/pyxis/contents/latest
                 registry: registry.access.redhat.com
                 tag: latest
                 extract_icons: True
