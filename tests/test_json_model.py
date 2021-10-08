@@ -131,7 +131,7 @@ def test_indexed_list_field():
 def test_indexed_list_mismatch_field():
     with pytest.raises(
         TypeError,
-        match=r"f1: field\(index=<name>\) can only be used with dict\[str\]"
+        match=r"f1: field\(index=<name>\) can only be used with Dict\[str\]"
     ):
         class IndexedListMismatchStuff(BaseModel):
             f1: List[StringStuff] = field(index="f1")
@@ -219,7 +219,7 @@ def test_optional_list():
 
 
 def test_unexpected_types():
-    with pytest.raises(TypeError, match=r"Only dict\[str\] is supported"):
+    with pytest.raises(TypeError, match=r"Only Dict\[str\] is supported"):
         class A(BaseModel):
             f: Dict[int, int]
 
