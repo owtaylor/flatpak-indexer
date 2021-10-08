@@ -128,6 +128,7 @@ def test_indexer(tmp_path):
     assert icon_url.startswith('https://flatpaks.example.com/icons')
 
 
+@mock_brew
 def test_indexer_missing_data_source(tmp_path):
     os.environ["OUTPUT_DIR"] = str(tmp_path)
     os.mkdir(tmp_path / "icons")
