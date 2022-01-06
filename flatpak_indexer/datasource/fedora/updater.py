@@ -105,7 +105,7 @@ class FedoraUpdater(Updater):
             repo.testing_updates.sort(key=lambda r: r[0].date_testing, reverse=True)
 
             # Now the same for stable
-            current_stable = max((u for u, b in repo.testing_updates
+            current_stable = max((u for u, b in repo.stable_updates
                                   if u.status == 'stable'),
                                  key=lambda u: u.date_stable, default=None)
             repo.stable_updates = [(u, b) for u, b in repo.stable_updates
