@@ -10,7 +10,7 @@ from ...koji_utils import get_koji_session
 from ...models import (FlatpakBuildModel, RegistryModel,
                        TagHistoryItemModel, TagHistoryModel)
 from ...redis_utils import get_redis_client
-from ...utils import get_retrying_requests_session, parse_date, rpm_nvr_compare
+from ...utils import parse_date, rpm_nvr_compare
 
 from .. import Updater
 
@@ -31,7 +31,7 @@ class Registry:
         self.registry = RegistryModel()
         self.image_to_build = dict()
 
-        self.session = get_retrying_requests_session()
+        self.session = global_config.get_requests_session()
         self.koji_session = get_koji_session(global_config)
         self.redis_client = get_redis_client(global_config)
 
@@ -44,12 +44,6 @@ class Registry:
     def _get_pyxis_url(self, url):
         kwargs = {
         }
-
-        cert = self.global_config.find_local_cert(self.global_config.pyxis_url)
-        if cert:
-            kwargs['verify'] = cert
-        else:
-            kwargs['verify'] = True
 
         if self.global_config.pyxis_client_cert:
             kwargs['cert'] = (self.global_config.pyxis_client_cert,

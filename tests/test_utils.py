@@ -2,7 +2,7 @@ import datetime
 import os
 from socket import error as SocketError
 from typing import List, Optional
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from pytest import raises
@@ -36,6 +36,31 @@ def test_retrying_requests_session():
         with patch("urllib3.connectionpool.HTTPConnectionPool._make_request",
                    side_effect=SocketError):
             session.get('http://www.example.com/')
+
+
+def test_retrying_requests_session_find_ca_cert():
+    def find_ca_cert(url):
+        if url.startswith("https://www.example.com"):
+            return "test.crt"
+
+    session = get_retrying_requests_session(backoff_factor=0.0, find_ca_cert=find_ca_cert)
+
+    with patch("urllib3.connectionpool.HTTPConnectionPool._make_request",
+               side_effect=SocketError), \
+         patch("requests.adapters.HTTPAdapter.cert_verify") as p:
+
+        with raises(Exception, match="Max retries exceeded with url"):
+            session.get('https://www.example.com/')
+
+        p.assert_called_once_with(ANY, 'https://www.example.com/', "test.crt", None)
+
+        p.reset_mock()
+
+        # Check that we pass verify=True for other URLs
+        with raises(Exception, match="Max retries exceeded with url"):
+            session.get('https://other.example.com/')
+
+        p.assert_called_once_with(ANY, 'https://other.example.com/', True, None)
 
 
 @pytest.mark.parametrize('val, expected, exception',

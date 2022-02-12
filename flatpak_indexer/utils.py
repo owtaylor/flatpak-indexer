@@ -31,8 +31,23 @@ _RETRY_STATUSES = (
 )
 
 
+class _FindCACertAdapter(HTTPAdapter):
+    def __init__(self, find_ca_cert=None, **kwargs):
+        super().__init__(**kwargs)
+        self.find_ca_cert = find_ca_cert
+
+    def cert_verify(self, conn, url, verify, cert):
+        if url.lower().startswith('https') and verify and self.find_ca_cert:
+            ca_cert = self.find_ca_cert(url)
+            if ca_cert is not None:
+                verify = ca_cert
+
+        return super().cert_verify(conn, url, verify, cert)
+
+
+# Don't use this directly, use config.get_requests_session()
 # If we want to retry POST, etc, need to set method_whitelist here
-def get_retrying_requests_session(backoff_factor=3):
+def get_retrying_requests_session(backoff_factor=3, find_ca_cert=None):
     retry = Retry(
         backoff_factor=backoff_factor,
         raise_on_status=True,
@@ -40,8 +55,9 @@ def get_retrying_requests_session(backoff_factor=3):
         total=_RETRY_MAX_TIMES,
     )
     session = Session()
-    session.mount('http://', HTTPAdapter(max_retries=retry))
-    session.mount('https://', HTTPAdapter(max_retries=retry))
+
+    session.mount('http://', _FindCACertAdapter(max_retries=retry, find_ca_cert=find_ca_cert))
+    session.mount('https://', _FindCACertAdapter(max_retries=retry, find_ca_cert=find_ca_cert))
 
     return session
 

@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 
 from .base_config import BaseConfig, ConfigError, configfield, Lookup
+from .utils import get_retrying_requests_session
 
 
 class RegistryConfig(BaseConfig):
@@ -174,3 +175,15 @@ class Config(BaseConfig):
         if hostname is None:
             return None
         return self.local_certs.get(hostname)
+
+    def get_requests_session(self, backoff_factor=3):
+        """
+        Get a requests.Session object with appropriate modifications
+
+        Args:
+            backoff_factor (float): factor by which to increase delay - here
+                so we can override for tests.
+            find_local_cert (function): Function to get the CA cert for an URL
+        """
+        return get_retrying_requests_session(backoff_factor=backoff_factor,
+                                             find_ca_cert=self.find_local_cert)

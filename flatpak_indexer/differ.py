@@ -60,7 +60,7 @@ class Differ:
 
     def _download_layer(self, image, diff_id, output_path, progress_callback=None):
         client = RegistryClient(image.registry,
-                                ca_cert=self.config.find_local_cert(self.config.pyxis_url))
+                                session=self.config.get_requests_session())
         client.download_layer(image.repository, image.ref, diff_id, output_path,
                               progress_callback=progress_callback)
 

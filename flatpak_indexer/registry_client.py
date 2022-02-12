@@ -34,8 +34,6 @@ import requests
 import requests.auth
 import www_authenticate
 
-from .utils import get_retrying_requests_session
-
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +62,7 @@ class RegistrySession(object):
 
     auth: Optional[requests.auth.AuthBase]
 
-    def __init__(self, registry, creds=None, cert_dir=None, ca_cert=None):
+    def __init__(self, registry, creds=None, cert_dir=None, ca_cert=None, session=None):
         """
         Initialize the RegistrySession.
 
@@ -73,6 +71,7 @@ class RegistrySession(object):
             creds (str): user:password (may be None).
             cert_dir (str): A path to directory holding client certificates, or None.
            ca_cert (str): A path to a bundle of trusted ca certificates
+           session (requests.Session): a requests.Session object to wrap, instead of creating one
         """
         self.registry_url = registry
 
@@ -90,7 +89,7 @@ class RegistrySession(object):
 
         self.orig_auth = self.auth
 
-        self.session = get_retrying_requests_session()
+        self.session = session or requests.Session()
 
     def _find_cert_dir(self):
         """
@@ -228,7 +227,7 @@ class RegistrySession(object):
 class RegistryClient(object):
     """The source or destination of a copy operation to a docker registry."""
 
-    def __init__(self, registry_url, creds=None, cert_dir=None, ca_cert=None):
+    def __init__(self, registry_url, creds=None, cert_dir=None, ca_cert=None, session=None):
         """
         Initialize the registry spec.
 
@@ -237,9 +236,11 @@ class RegistryClient(object):
            creds (str): user:password (may be None).
            cert_dir (str): A path to directory holding client certificates, or None.
            ca_cert (str): A path to a bundle of trusted ca certificates
+           session (str): A requests.Session object to use, or None
         """
         self.session = RegistrySession(registry_url,
-                                       creds=creds, cert_dir=cert_dir, ca_cert=ca_cert)
+                                       creds=creds, cert_dir=cert_dir, ca_cert=ca_cert,
+                                       session=session)
 
     def download_blob(self, repository, digest, size, blob_path,
                       progress_callback=None):
