@@ -8,7 +8,7 @@ pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
 # URL to a local Redis index for caching and queuing
 redis_url: ${REDIS_URL:redis://localhost:6379}
 # Optional password to connect to Redis
-# redis_password: BRICK_SPINE_HORSE
+redis_password: abc123
 # name of a Koji config section
 koji_config: brew
 # Allowing overriding the system trust DB for https connections to certain hosts;
