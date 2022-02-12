@@ -22,27 +22,27 @@ _REPOSITORIES = [
     {
         'registry': 'registry2.example.com',
         'repository': 'testrepo',
-        'image_usage_type': 'Standalone Image',
+        'build_categories': ['Standalone Image'],
     },
     {
         'registry': 'registry.example.com',
         'repository': 'testrepo',
-        'image_usage_type': 'Standalone Image',
+        'build_categories': ['Standalone Image'],
     },
     {
         'registry': 'registry.example.com',
         'repository': 'aisleriot',
-        'image_usage_type': 'Flatpak',
+        'build_categories': ['Flatpak'],
     },
     {
         'registry': 'registry.example.com',
         'repository': 'aisleriot2',
-        'image_usage_type': 'Flatpak',
+        'build_categories': ['Flatpak'],
     },
     {
         'registry': 'registry.example.com',
         'repository': 'aisleriot3',
-        'image_usage_type': 'Flatpak',
+        'build_categories': ['Flatpak'],
     }
 ]
 
@@ -256,9 +256,16 @@ class MockPyxis:
         m = _GET_REPOSITORIES_RE.match('https://pyxis.example.com' + parsed.path)
         assert m is not None
 
-        if 'image_usage_type' in params:
-            image_usage_type = params['image_usage_type'][0]
-            repos = [r for r in _REPOSITORIES if r['image_usage_type'] == image_usage_type]
+        if 'filter' in params:
+            filter = params['filter'][0]
+            # TRUE if any member of build_categories is in s single-item set
+            m = re.match(r'build_categories=in=\(([^),]+)\)', filter)
+            assert m
+            build_categories = set([m.group(1)])
+            repos = [
+                r for r in _REPOSITORIES
+                if any(c in build_categories for c in r['build_categories'])
+            ]
         else:
             repos = _REPOSITORIES
 

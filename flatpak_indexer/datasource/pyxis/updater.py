@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 import logging
 from typing import Dict, List
+from urllib.parse import urlencode
 
 import requests
 
@@ -94,8 +95,12 @@ class Registry:
             yield from self.config.repositories
             return
 
-        url = '{api_url}repositories?image_usage_type=Flatpak'.format(
-            api_url=self.global_config.pyxis_url)
+        url = '{api_url}repositories?{query}'.format(
+            api_url=self.global_config.pyxis_url,
+            query=urlencode({
+                'filter': 'build_categories=in=(Flatpak)'
+            })
+        )
 
         for item in self._do_iterate_pyxis_results(url):
             if item['registry'] == self.name:
