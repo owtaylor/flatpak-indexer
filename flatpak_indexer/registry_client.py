@@ -177,7 +177,7 @@ class RegistrySession(object):
             params.append(('scope', scope))
 
         url = realm + '?' + urlencode(params)
-        res = requests.get(url, **self._kwargs(dict()))
+        res = self.session.get(url, **self._kwargs(dict()))
         if res.status_code != 200:
             return False
 
