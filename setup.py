@@ -29,7 +29,7 @@ setup(name='flatpak-indexer',
       install_requires=[
           'click',
           'koji',
-          'redis',
+          'redis >= 4.0.0',
           'pika',
           'requests',
           'PyYAML',
