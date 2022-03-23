@@ -103,6 +103,31 @@ def test_bodhi_change_monitor_lost_stream(connection_mock):
     monitor.stop()
 
 
+@patch(
+    'flatpak_indexer.datasource.fedora.bodhi_change_monitor.BodhiChangeMonitor.'
+    'INITIAL_RECONNECT_TIMEOUT',
+    0.01,
+)
+@mock_fedora_messaging
+def test_bodhi_change_monitor_channel_cancelled(connection_mock):
+    monitor = BodhiChangeMonitor()
+
+    connection_mock.put_inactivity_timeout()
+    monitor.start()
+
+    # Channel was cancelled (queue deleted?)
+    connection_mock.put_channel_cancelled()
+
+    # Successful reconnection
+    connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
+    connection_mock.put_inactivity_timeout()
+
+    connection_mock.wait()
+    assert_changes(monitor, {'FEDORA-2018-1a0cf961a1'})
+
+    monitor.stop()
+
+
 @mock_fedora_messaging
 def test_bodhi_change_monitor_failure(connection_mock):
     monitor = BodhiChangeMonitor()
@@ -184,3 +209,23 @@ def test_bodhi_change_monitor_stop_during_connection_failure(connection_mock):
         # Wait until we are into the reconnect loop, and then try to stop
         event.wait()
         monitor.stop()
+
+
+@patch(
+    'flatpak_indexer.datasource.fedora.bodhi_change_monitor.BodhiChangeMonitor.'
+    'INITIAL_RECONNECT_TIMEOUT',
+    0.01,
+)
+@mock_fedora_messaging
+def test_bodhi_change_monitor_cancelled_during_connect(connection_mock):
+    monitor = BodhiChangeMonitor()
+
+    connection_mock.put_channel_cancelled()
+    connection_mock.put_inactivity_timeout()
+    connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
+
+    monitor.start()
+    connection_mock.wait()
+    assert_changes(monitor, {'FEDORA-2018-1a0cf961a1'})
+
+    monitor.stop()

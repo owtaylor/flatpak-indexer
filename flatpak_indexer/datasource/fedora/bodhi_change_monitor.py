@@ -15,6 +15,10 @@ import pika.exceptions
 logger = logging.getLogger(__name__)
 
 
+class ChannelCancelled(Exception):
+    pass
+
+
 class BodhiChangeMonitor:
     INITIAL_RECONNECT_TIMEOUT = 1
     MAX_RECONNECT_TIMEOUT = 10 * 60
@@ -133,6 +137,10 @@ class BodhiChangeMonitor:
                 break
             else:
                 self._update_from_message(body_json)
+        else:
+            # If the iterator exits, that means the channel has been cancelled
+            connection.close()
+            raise ChannelCancelled()
 
         with self.lock:
             if self.stopping:
@@ -147,25 +155,30 @@ class BodhiChangeMonitor:
         for method, properties, body_json in channel.consume(queue_name,
                                                              inactivity_timeout=None):
             self._update_from_message(body_json)
+        else:
+            with self.lock:
+                if self.stopping:
+                    # If we called connection.close(), we're done
+                    return
+                else:
+                    # Otherwise, channel was cancelled, trigger a reconnection
+                    connection.close()
+                    raise ChannelCancelled()
 
     def _run(self):
         while True:
             try:
                 self._wait_for_messages()
                 return
+            except ChannelCancelled:
+                logger.warning("fedora-messaging channel was cancelled")
             except (pika.exceptions.AMQPConnectionError, ssl.SSLError) as e:
                 # This includes stream-lost and connection-refused, which
                 # we might get from a broker restart, but also authentication
                 # failures, protocol failures, etc. Trying to parse out
                 # the exact case would be a future-compat headache.
-                logger.warning("fedora-messaging connection failure (%r), "
-                               "sleeping for %ss and retrying",
-                               e, self.reconnect_timeout, exc_info=e)
-                time.sleep(self.reconnect_timeout)
-                self.reconnect_timeout = min(
-                    self.reconnect_timeout * self.RECONNECT_TIMEOUT_MULTIPLIER,
-                    self.MAX_RECONNECT_TIMEOUT
-                )
+                logger.warning("fedora-messaging connection failure (%r)",
+                               e, exc_info=e)
             except Exception as e:
                 # The main loop might be in a timeout waiting for the next time
                 # to poll - we don't have an easy way to interrupt that, so just
@@ -178,3 +191,10 @@ class BodhiChangeMonitor:
                     logger.error("Error communicating with fedora-messaging", exc_info=e)
                 self.started.set()
                 return
+
+            logger.warning("sleeping for %ss before retrying to connect", self.reconnect_timeout)
+            time.sleep(self.reconnect_timeout)
+            self.reconnect_timeout = min(
+                self.reconnect_timeout * self.RECONNECT_TIMEOUT_MULTIPLIER,
+                self.MAX_RECONNECT_TIMEOUT
+            )
