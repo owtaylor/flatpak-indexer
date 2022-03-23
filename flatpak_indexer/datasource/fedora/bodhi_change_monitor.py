@@ -4,6 +4,7 @@ import os
 import ssl
 import time
 import threading
+from typing import Set, Tuple
 import uuid
 
 import pika
@@ -25,7 +26,7 @@ class BodhiChangeMonitor:
         self.failure = None
         self.started = threading.Event()
         self.thread = threading.Thread(name="BodhiChangeMonitor", target=self._run)
-        self.changed_updates = set()
+        self.changed_updates: Set[str] = set()
         self.reconnect_timeout = self.INITIAL_RECONNECT_TIMEOUT
 
     def maybe_reraise_failure(self, msg):
@@ -33,14 +34,13 @@ class BodhiChangeMonitor:
             if self.failure:
                 raise RuntimeError(msg) from self.failure
 
-    def start(self) -> str:
+    def start(self):
         self.thread.start()
         self.started.wait()
 
         self.maybe_reraise_failure("Failed to start connection to fedora-messaging")
 
         assert self.queue_name
-        return self.queue_name
 
     def stop(self):
         # Check first if thread is already in a failed state
@@ -56,13 +56,13 @@ class BodhiChangeMonitor:
 
         self.maybe_reraise_failure("Failed to stop connection to fedora-messaging")
 
-    def get_changed(self):
+    def get_changed(self) -> Tuple[str, Set[str]]:
         self.maybe_reraise_failure("Error communicating with fedora-messaging")
 
         with self.lock:
             changed_updates = self.changed_updates
             self.changed_updates = set()
-            return changed_updates
+            return self.queue_name, changed_updates
 
     def _update_from_message(self, body_json):
         body = json.loads(body_json)
@@ -107,7 +107,9 @@ class BodhiChangeMonitor:
             channel.queue_declare(queue_name,
                                   passive=False, durable=True, exclusive=False,
                                   auto_delete=False)
-            self.queue_name = queue_name
+            with self.lock:
+                self.queue_name = queue_name
+                self.changed_updates = set()
 
         logger.info(f"Connected to fedora-messaging, queue={queue_name}")
 
