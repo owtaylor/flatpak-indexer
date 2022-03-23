@@ -56,7 +56,7 @@ class ConfigField:
         self.extra = extra
 
 
-def configfield(*, skip=False, default=Defaults.REQUIRED, **kwargs) -> Any:
+def configfield(*, skip=False, default: Any = Defaults.REQUIRED, **kwargs) -> Any:
     return ConfigField(skip=skip, default=default, extra=kwargs)
 
 

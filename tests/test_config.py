@@ -100,7 +100,7 @@ def test_get_requests_session(tmp_path):
     }
 
     config = get_config(tmp_path, config_data)
-    session = config.get_requests_session(backoff_factor=0.0)
+    session = config.get_requests_session(backoff_factor=0)
 
     with patch("urllib3.connectionpool.HTTPConnectionPool._make_request",
                side_effect=SocketError), \
