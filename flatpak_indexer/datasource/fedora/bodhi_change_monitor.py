@@ -25,6 +25,7 @@ class BodhiChangeMonitor:
         self.lock = threading.Lock()
         self.failure = None
         self.started = threading.Event()
+        self.stopping = False
         self.thread = threading.Thread(name="BodhiChangeMonitor", target=self._run)
         self.changed_updates: Set[str] = set()
         self.reconnect_timeout = self.INITIAL_RECONNECT_TIMEOUT
@@ -46,12 +47,14 @@ class BodhiChangeMonitor:
         # Check first if thread is already in a failed state
         self.maybe_reraise_failure("Error communicating with fedora-messaging")
 
-        connection = self.connection
+        with self.lock:
+            self.stopping = True
+            connection = self.connection
 
         def do_stop():
             connection.close()
 
-        self.connection.add_callback_threadsafe(do_stop)
+        connection.add_callback_threadsafe(do_stop)
         self.thread.join()
 
         self.maybe_reraise_failure("Failed to stop connection to fedora-messaging")
@@ -70,6 +73,10 @@ class BodhiChangeMonitor:
             self.changed_updates.add(body['update']['alias'])
 
     def _wait_for_messages(self):
+        with self.lock:
+            if self.stopping:
+                return
+
         cert_dir = os.path.join(os.path.dirname(__file__), 'messaging-certs')
 
         ssl_context = ssl.create_default_context(cafile=os.path.join(cert_dir, "cacert.pem"))
@@ -123,14 +130,18 @@ class BodhiChangeMonitor:
         for method, properties, body_json in channel.consume(queue_name,
                                                              inactivity_timeout=0):
             if method is None:
-                self.connection = connection
-                self.started.set()
-                channel.cancel
                 break
             else:
                 self._update_from_message(body_json)
 
+        with self.lock:
+            if self.stopping:
+                # stop() called during reconnection
+                return
+            self.connection = connection
+
         self.reconnect_timeout = self.INITIAL_RECONNECT_TIMEOUT
+        self.started.set()
 
         # Then we use a timeout of None (never), until the channel is closed
         for method, properties, body_json in channel.consume(queue_name,
