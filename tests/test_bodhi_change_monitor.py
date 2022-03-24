@@ -4,21 +4,45 @@ from unittest.mock import patch
 
 import pika.exceptions
 import pytest
+import redis
+import yaml
 
 from flatpak_indexer.datasource.fedora.bodhi_change_monitor import BodhiChangeMonitor
 
 from .fedora_messaging import mock_fedora_messaging
+from .redis import mock_redis
+from .utils import get_config
+
+
+CONFIG = yaml.safe_load("""
+redis_url: redis://localhost
+koji_config: fedora
+""")
+
+
+@pytest.fixture
+def config(tmp_path):
+    return get_config(tmp_path, CONFIG)
 
 
 def assert_changes(monitor, expected_changes):
-    _, changes = monitor.get_changed()
+    changes, serial = monitor.get_changed()
 
     assert changes == expected_changes
+    monitor.clear_changed(serial)
 
 
-@mock_fedora_messaging
-def test_bodhi_change_monitor(connection_mock):
-    monitor = BodhiChangeMonitor()
+def set_queue_name(config, queue_name="MYQUEUE"):
+    redis_client = redis.Redis.from_url(config.redis_url)
+    redis_client.set("fedora-messaging-queue", queue_name)
+
+
+@mock_fedora_messaging(passive_behavior="exist")
+@mock_redis
+def test_bodhi_change_monitor(connection_mock, config):
+    set_queue_name(config)
+
+    monitor = BodhiChangeMonitor(config)
 
     connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
     connection_mock.put_inactivity_timeout()
@@ -30,14 +54,17 @@ def test_bodhi_change_monitor(connection_mock):
 
     monitor.stop()
     assert_changes(monitor, {'FEDORA-2018-5ebe0eb1f2'})
+    assert_changes(monitor, set())
 
 
 @mock_fedora_messaging(raise_on_close=False)
+@mock_redis
 @pytest.mark.parametrize('passive_behavior', ["exist", "not_exist", "exception"])
-def test_bodhi_change_monitor_reuse(connection_mock, passive_behavior):
+def test_bodhi_change_monitor_reuse(connection_mock, config, passive_behavior):
     connection_mock.passive_behavior = passive_behavior
+    set_queue_name(config)
 
-    monitor = BodhiChangeMonitor("MYQUEUE")
+    monitor = BodhiChangeMonitor(config)
 
     connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
     connection_mock.put_inactivity_timeout()
@@ -53,18 +80,17 @@ def test_bodhi_change_monitor_reuse(connection_mock, passive_behavior):
     monitor.start()
     queue_name, changes = monitor.get_changed()
     if passive_behavior == 'exist':
-        assert queue_name == "MYQUEUE"
+        assert_changes(monitor, {'FEDORA-2018-1a0cf961a1'})
     else:
-        assert queue_name != "MYQUEUE"
-
-    assert changes == {'FEDORA-2018-1a0cf961a1'}
+        assert_changes(monitor, None)
 
     monitor.stop()
 
 
 @mock_fedora_messaging(raise_on_close=True)
-def test_bodhi_change_monitor_stop_exception(connection_mock):
-    monitor = BodhiChangeMonitor()
+@mock_redis
+def test_bodhi_change_monitor_stop_exception(connection_mock, config):
+    monitor = BodhiChangeMonitor(config)
 
     connection_mock.put_inactivity_timeout()
     monitor.start()
@@ -80,9 +106,11 @@ def test_bodhi_change_monitor_stop_exception(connection_mock):
     'INITIAL_RECONNECT_TIMEOUT',
     0.01,
 )
-@mock_fedora_messaging
-def test_bodhi_change_monitor_lost_stream(connection_mock):
-    monitor = BodhiChangeMonitor()
+@mock_fedora_messaging(passive_behavior="exist")
+@mock_redis
+def test_bodhi_change_monitor_lost_stream(connection_mock, config):
+    set_queue_name(config)
+    monitor = BodhiChangeMonitor(config)
 
     connection_mock.put_inactivity_timeout()
     monitor.start()
@@ -109,8 +137,9 @@ def test_bodhi_change_monitor_lost_stream(connection_mock):
     0.01,
 )
 @mock_fedora_messaging
-def test_bodhi_change_monitor_channel_cancelled(connection_mock):
-    monitor = BodhiChangeMonitor()
+@mock_redis
+def test_bodhi_change_monitor_channel_cancelled(connection_mock, config):
+    monitor = BodhiChangeMonitor(config)
 
     connection_mock.put_inactivity_timeout()
     monitor.start()
@@ -123,14 +152,15 @@ def test_bodhi_change_monitor_channel_cancelled(connection_mock):
     connection_mock.put_inactivity_timeout()
 
     connection_mock.wait()
-    assert_changes(monitor, {'FEDORA-2018-1a0cf961a1'})
+    assert_changes(monitor, None)
 
     monitor.stop()
 
 
 @mock_fedora_messaging
-def test_bodhi_change_monitor_failure(connection_mock):
-    monitor = BodhiChangeMonitor()
+@mock_redis
+def test_bodhi_change_monitor_failure(connection_mock, config):
+    monitor = BodhiChangeMonitor(config)
 
     connection_mock.put_inactivity_timeout()
     monitor.start()
@@ -150,10 +180,11 @@ def test_bodhi_change_monitor_failure(connection_mock):
     0.01,
 )
 @mock_fedora_messaging
-def test_bodhi_change_monitor_stop_during_reconnect(connection_mock):
+@mock_redis
+def test_bodhi_change_monitor_stop_during_reconnect(connection_mock, config):
     """Check that stopping works before we set monitor.connection"""
 
-    monitor = BodhiChangeMonitor()
+    monitor = BodhiChangeMonitor(config)
 
     event = threading.Event()
 
@@ -185,10 +216,11 @@ def test_bodhi_change_monitor_stop_during_reconnect(connection_mock):
     0.01,
 )
 @mock_fedora_messaging
-def test_bodhi_change_monitor_stop_during_connection_failure(connection_mock):
+@mock_redis
+def test_bodhi_change_monitor_stop_during_connection_failure(connection_mock, config):
     """Check that stopping works even if we never get to the point of consuming messages"""
 
-    monitor = BodhiChangeMonitor()
+    monitor = BodhiChangeMonitor(config)
 
     # Connect
     connection_mock.put_inactivity_timeout()
@@ -217,15 +249,15 @@ def test_bodhi_change_monitor_stop_during_connection_failure(connection_mock):
     0.01,
 )
 @mock_fedora_messaging
-def test_bodhi_change_monitor_cancelled_during_connect(connection_mock):
-    monitor = BodhiChangeMonitor()
+@mock_redis
+def test_bodhi_change_monitor_cancelled_during_connect(connection_mock, config):
+    monitor = BodhiChangeMonitor(config)
 
     connection_mock.put_channel_cancelled()
     connection_mock.put_inactivity_timeout()
-    connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
 
     monitor.start()
     connection_mock.wait()
-    assert_changes(monitor, {'FEDORA-2018-1a0cf961a1'})
+    assert_changes(monitor, None)
 
     monitor.stop()

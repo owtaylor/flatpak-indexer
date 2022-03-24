@@ -7,6 +7,7 @@ import pika
 import pika.adapters
 import pika.adapters.blocking_connection
 import pika.exceptions
+import pika.spec
 
 from .utils import WithArgDecorator
 
@@ -99,7 +100,7 @@ class MockMessaging():
         self.plan = []
 
     def put_update_message(self, update_alias):
-        self.plan_put(('X', 'X', make_message(update_alias)))
+        self.plan_put((pika.spec.Basic.Deliver(), 'X', make_message(update_alias)))
 
     def put_inactivity_timeout(self):
         self.plan_put((None, None, None))

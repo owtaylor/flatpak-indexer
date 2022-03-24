@@ -52,25 +52,23 @@ class FedoraUpdater(Updater):
         self.koji_session = get_koji_session(self.conf)
 
     def start(self):
-        queue_name_raw = self.redis_client.get('fedora-messaging-queue')
-        self.queue_name = queue_name_raw.decode('utf-8') if queue_name_raw else None
-        self.change_monitor = BodhiChangeMonitor(self.queue_name)
+        self.change_monitor = BodhiChangeMonitor(self.conf)
         self.change_monitor.start()
 
     def update(self, registry_data):
         assert self.change_monitor, "start() must be called before update()"
 
-        queue_name, changed = self.change_monitor.get_changed()
-        if queue_name != self.queue_name:
+        changed, serial = self.change_monitor.get_changed()
+        if changed is None:
             # If we reconnected to a different queue, we don't have any
             # information about the status of cached updates, and need to start over
             reset_update_cache(self.redis_client)
+        else:
+            for bodhi_update_id in changed:
+                refresh_update_status(self.koji_session, self.redis_client, bodhi_update_id)
 
-            self.redis_client.set('fedora-messaging-queue', queue_name)
-            self.queue_name = queue_name
-
-        for bodhi_update_id in changed:
-            refresh_update_status(self.koji_session, self.redis_client, bodhi_update_id)
+        # Now we've updated, we can remove old entries from the log
+        self.change_monitor.clear_changed(serial)
 
         refresh_all_updates(self.koji_session, self.redis_client, content_type='flatpak')
         updates = list_updates(self.redis_client, content_type='flatpak')

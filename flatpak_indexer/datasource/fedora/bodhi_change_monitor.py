@@ -1,15 +1,21 @@
+from functools import partial
 import json
 import logging
 import os
 import ssl
 import time
 import threading
-from typing import Set, Tuple
+from typing import Optional, Set, Tuple, cast
 import uuid
 
 import pika
 import pika.credentials
 import pika.exceptions
+import redis
+
+
+from ...config import Config
+from ...redis_utils import get_redis_client
 
 
 logger = logging.getLogger(__name__)
@@ -20,62 +26,147 @@ class ChannelCancelled(Exception):
 
 
 class BodhiChangeMonitor:
+    """
+    Monitor for changes to Bodhi updates
+
+    The BodhiChangeMonitor class is used to track when the status of Bodhi updates
+    changes by listing to Fedora Messaging messages. The basic way it works is
+    that there's a worker thread that receives the messages, and enters them
+    into a "changelog" stores in Redis. The get_changed() and clear_changed()
+    methods are then used to retrieve and (after processing) retire the
+    changelog entries.
+    """
     INITIAL_RECONNECT_TIMEOUT = 1
     MAX_RECONNECT_TIMEOUT = 10 * 60
     RECONNECT_TIMEOUT_MULTIPLIER = 5
 
-    def __init__(self, queue_name=None):
-        self.queue_name = queue_name
+    def __init__(self, config: Config):
+        self.config = config
+
+        # This is the redis client for the main thread - the worker thread
+        # needs to use self.thread_redis_client
+        self.redis_client = get_redis_client(config)
+
+        self.thread = threading.Thread(name="BodhiChangeMonitor", target=self._run)
+        self.started = threading.Event()
+
         self.lock = threading.Lock()
         self.failure = None
-        self.started = threading.Event()
         self.stopping = False
-        self.thread = threading.Thread(name="BodhiChangeMonitor", target=self._run)
-        self.changed_updates: Set[str] = set()
+        self.connection = None
+
         self.reconnect_timeout = self.INITIAL_RECONNECT_TIMEOUT
 
-    def maybe_reraise_failure(self, msg):
-        with self.lock:
-            if self.failure:
-                raise RuntimeError(msg) from self.failure
-
     def start(self):
+        """
+        Start the worker thread and consume queued messages
+
+        This starts the worker thread and waits for it to connect to Fedora Messaging
+        and consume immediately available change messages before returning. The
+        idea of this is to avoid indexing once with stale data, then only indexing
+        with correct data on the second run.
+        """
         self.thread.start()
         self.started.wait()
 
-        self.maybe_reraise_failure("Failed to start connection to fedora-messaging")
-
-        assert self.queue_name
+        self._maybe_reraise_failure("Failed to start connection to fedora-messaging")
 
     def stop(self):
+        """
+        Stop the worker thread
+
+        Signals the worker thread to exit and waits for it. There's a lot of complexity
+        to make this bulletproof, though it's basically just useful for tests.
+        """
         # Check first if thread is already in a failed state
-        self.maybe_reraise_failure("Error communicating with fedora-messaging")
+        self._maybe_reraise_failure("Error communicating with fedora-messaging")
 
         with self.lock:
             self.stopping = True
             connection = self.connection
 
-        def do_stop():
-            connection.close()
+        if connection:
+            def do_stop():
+                connection.close()
 
-        connection.add_callback_threadsafe(do_stop)
+            connection.add_callback_threadsafe(do_stop)
+
         self.thread.join()
 
-        self.maybe_reraise_failure("Failed to stop connection to fedora-messaging")
+        self._maybe_reraise_failure("Failed to stop connection to fedora-messaging")
 
-    def get_changed(self) -> Tuple[str, Set[str]]:
-        self.maybe_reraise_failure("Error communicating with fedora-messaging")
+    def get_changed(self) -> Tuple[Optional[Set[str]], int]:
+        """
+        Return Bodhi updates that have changed.
 
+        This returns a set of Bodhi updates known to have changed since the last time
+        that get_changed() was called (in this process or in a previous run
+        of flatpak-indexer). Once cached information has been updated, clear_changed()
+        should be called to remove these entries from the log we store.
+
+        Return value:
+        A tuple: the first value either either a set of changed Bodhi IDs,
+        or None. None means that we don't have reliable change information and
+        all updates must be refetched. The second value is a serial to pass to
+        clear_changed().
+        """
+
+        self._maybe_reraise_failure("Error communicating with fedora-messaging")
+
+        result: Optional[Set[str]] = set()
+        entries = self.redis_client.zrangebyscore(
+            "updatechangelog", 0, float("inf"), withscores=True, score_cast_func=int
+        )
+        for key, _ in entries:
+            if key == b"":
+                result = None
+            elif result is not None:
+                result.add(key.decode("utf-8"))
+
+        if len(entries) > 0:
+            serial = entries[-1][1]
+        else:
+            serial = 0
+
+        return result, serial
+
+    def clear_changed(self, serial):
+        """Remove old changelog entries after they have been processed"""
+
+        self.redis_client.zremrangebyscore("updatechangelog", 0, serial)
+
+    def _maybe_reraise_failure(self, msg):
         with self.lock:
-            changed_updates = self.changed_updates
-            self.changed_updates = set()
-            return self.queue_name, changed_updates
+            if self.failure:
+                raise RuntimeError(msg) from self.failure
+
+    def _do_add_to_log(self, new_queue_name, update_id, pipe: "redis.client.Pipeline[bytes]"):
+        pipe.watch("updatechangelog:serial")
+        pipe.watch("updatechangelog")
+
+        pre = cast("redis.Redis[bytes]", pipe)
+        serial = 1 + int(pre.get("updatequeue:serial") or 0)
+
+        pipe.multi()
+        pipe.set("updatechangelog:serial", serial)
+        if new_queue_name:
+            pipe.set("fedora-messaging-queue", new_queue_name)
+            pipe.delete("updatechangelog")
+            pipe.zadd("updatechangelog", {b'': serial})
+        else:
+            pipe.zadd("updatechangelog", {update_id: serial})
+
+    def _add_to_log(self, update_id):
+        self.thread_redis_client.transaction(partial(self._do_add_to_log, None, update_id))
+
+    def _reset_changelog(self, queue_name):
+        self.thread_redis_client.transaction(partial(self._do_add_to_log, queue_name, None))
 
     def _update_from_message(self, body_json):
         body = json.loads(body_json)
-        logger.info("Saw change to %s", body['update']['alias'])
-        with self.lock:
-            self.changed_updates.add(body['update']['alias'])
+        update_id = body['update']['alias']
+        logger.info("Saw change to Bodhi Update %s", update_id)
+        self._add_to_log(update_id)
 
     def _wait_for_messages(self):
         with self.lock:
@@ -99,7 +190,8 @@ class BodhiChangeMonitor:
         connection = pika.BlockingConnection(conn_params)
         channel = connection.channel()
 
-        queue_name = self.queue_name
+        queue_name_raw = self.thread_redis_client.get('fedora-messaging-queue')
+        queue_name = queue_name_raw.decode('utf-8') if queue_name_raw else None
 
         if queue_name:
             try:
@@ -119,9 +211,8 @@ class BodhiChangeMonitor:
             channel.queue_declare(queue_name,
                                   passive=False, durable=True, exclusive=False,
                                   auto_delete=False)
-            with self.lock:
-                self.queue_name = queue_name
-                self.changed_updates = set()
+
+            self._reset_changelog(queue_name)
 
         logger.info(f"Connected to fedora-messaging, queue={queue_name}")
 
@@ -170,6 +261,8 @@ class BodhiChangeMonitor:
                     raise ChannelCancelled()
 
     def _run(self):
+        self.thread_redis_client = get_redis_client(self.config)
+
         while True:
             try:
                 self._wait_for_messages()

@@ -1,6 +1,8 @@
 import copy
 from typing import Dict
 
+import pytest
+import redis
 import yaml
 
 from flatpak_indexer.datasource.fedora import FedoraUpdater
@@ -136,3 +138,36 @@ def test_fedora_updater_no_stable_no_testing(connection_mock, tmp_path):
     data = registry_data['registry.example.com']
 
     assert len(data.repositories) == 0
+
+
+@mock_bodhi
+@mock_fedora_messaging
+@mock_koji
+@mock_redis
+@pytest.mark.parametrize('passive_behavior', ["exist", "not_exist"])
+def test_fedora_updater_bodhi_changes(connection_mock, tmp_path, passive_behavior):
+    """Test the code interface with BodhiChangeMonitor"""
+
+    connection_mock.passive_behavior = passive_behavior
+
+    connection_mock.put_update_message('fedora-2018-12456789')
+    connection_mock.put_inactivity_timeout()
+
+    config = get_config(tmp_path, CONFIG)
+
+    redis_client = redis.Redis.from_url(config.redis_url)
+    redis_client.set("fedora-messaging-queue", "MYQUEUE")
+
+    updater = FedoraUpdater(config)
+
+    registry_data: Dict[str, RegistryModel] = {}
+
+    updater.start()
+    try:
+        updater.update(registry_data)
+    finally:
+        updater.stop()
+
+    data = registry_data['registry.example.com']
+
+    assert len(data.repositories) == 6
