@@ -73,6 +73,7 @@ class BodhiChangeMonitor:
 
     def _update_from_message(self, body_json):
         body = json.loads(body_json)
+        logger.info("Saw change to %s", body['update']['alias'])
         with self.lock:
             self.changed_updates.add(body['update']['alias'])
 
@@ -137,6 +138,7 @@ class BodhiChangeMonitor:
                 break
             else:
                 self._update_from_message(body_json)
+                channel.basic_ack(method.delivery_tag)
         else:
             # If the iterator exits, that means the channel has been cancelled
             connection.close()
@@ -154,7 +156,9 @@ class BodhiChangeMonitor:
         # Then we use a timeout of None (never), until the channel is closed
         for method, properties, body_json in channel.consume(queue_name,
                                                              inactivity_timeout=None):
+            assert method is not None  # only should occur on timeout
             self._update_from_message(body_json)
+            channel.basic_ack(method.delivery_tag)
         else:
             with self.lock:
                 if self.stopping:
