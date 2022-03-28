@@ -12,10 +12,19 @@ import pika.spec
 from .utils import WithArgDecorator
 
 
-def make_message(alias):
+def make_bodhi_message(alias):
     return json.dumps({
         'update': {
             'alias': alias
+        }
+    })
+
+
+def make_distgit_message(namespace, repo):
+    return json.dumps({
+        'commit': {
+            'namespace': namespace,
+            'repo': repo
         }
     })
 
@@ -100,7 +109,20 @@ class MockMessaging():
         self.plan = []
 
     def put_update_message(self, update_alias):
-        self.plan_put((pika.spec.Basic.Deliver(), 'X', make_message(update_alias)))
+        self.plan_put((
+            pika.spec.Basic.Deliver(
+                routing_key='org.fedoraproject.prod.bodhi.update.complete.stable'
+            ),
+            'X',
+            make_bodhi_message(update_alias)
+        ))
+
+    def put_distgit_message(self, namespace, repo):
+        self.plan_put((
+            pika.spec.Basic.Deliver(routing_key='org.fedoraproject.prod.git.receive'),
+            'X',
+            make_distgit_message(namespace, repo)
+        ))
 
     def put_inactivity_timeout(self):
         self.plan_put((None, None, None))

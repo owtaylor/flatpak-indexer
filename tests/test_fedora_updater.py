@@ -146,7 +146,7 @@ def test_fedora_updater_no_stable_no_testing(connection_mock, tmp_path):
 @mock_redis
 @pytest.mark.parametrize('passive_behavior', ["exist", "not_exist"])
 def test_fedora_updater_bodhi_changes(connection_mock, tmp_path, passive_behavior):
-    """Test the code interface with BodhiChangeMonitor"""
+    """Test the code interface with FedoraMonitor"""
 
     connection_mock.passive_behavior = passive_behavior
 

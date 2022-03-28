@@ -24,14 +24,19 @@ class ChannelCancelled(Exception):
     pass
 
 
-class BodhiChangeMonitor:
-    """
-    Monitor for changes to Bodhi updates
+KEY_SERIAL = "changelog:serial"
+KEY_UPDATE_CHANGELOG = "changelog:updates"
+KEY_DISTGIT_CHANGELOG = "changelog:distgit"
 
-    The BodhiChangeMonitor class is used to track when the status of Bodhi updates
-    changes by listing to Fedora Messaging messages. The basic way it works is
+
+class FedoraMonitor:
+    """
+    Monitor for changes to Fedora infrastructure objects
+
+    The FedoraMonitor class is used to track when Bodhi updates or distgit repositories
+    change by listing to Fedora Messaging messages. The basic way it works is
     that there's a worker thread that receives the messages, and enters them
-    into a "changelog" stores in Redis. The get_changed() and clear_changed()
+    into a "changelog" stores in Redis. The get_*_changed() and clear_*_changed()
     methods are then used to retrieve and (after processing) retire the
     changelog entries.
     """
@@ -39,14 +44,16 @@ class BodhiChangeMonitor:
     MAX_RECONNECT_TIMEOUT = 10 * 60
     RECONNECT_TIMEOUT_MULTIPLIER = 5
 
-    def __init__(self, config: RedisConfig):
+    def __init__(self, config: RedisConfig, watch_bodhi_updates=False, watch_distgit_changes=False):
         self.config = config
+        self.watch_bodhi_updates = watch_bodhi_updates
+        self.watch_distgit_changes = watch_distgit_changes
 
         # This is the redis client for the main thread - the worker thread
         # needs to use self.thread_redis_client
         self.redis_client = get_redis_client(config)
 
-        self.thread = threading.Thread(name="BodhiChangeMonitor", target=self._run)
+        self.thread = threading.Thread(name="FedoraMonitor", target=self._run)
         self.started = threading.Event()
 
         self.lock = threading.Lock()
@@ -94,27 +101,12 @@ class BodhiChangeMonitor:
 
         self._maybe_reraise_failure("Failed to stop connection to fedora-messaging")
 
-    def get_changed(self) -> Tuple[Optional[Set[str]], int]:
-        """
-        Return Bodhi updates that have changed.
-
-        This returns a set of Bodhi updates known to have changed since the last time
-        that get_changed() was called (in this process or in a previous run
-        of flatpak-indexer). Once cached information has been updated, clear_changed()
-        should be called to remove these entries from the log we store.
-
-        Return value:
-        A tuple: the first value either either a set of changed Bodhi IDs,
-        or None. None means that we don't have reliable change information and
-        all updates must be refetched. The second value is a serial to pass to
-        clear_changed().
-        """
-
+    def _get_changed(self, changelog_key) -> Tuple[Optional[Set[str]], int]:
         self._maybe_reraise_failure("Error communicating with fedora-messaging")
 
         result: Optional[Set[str]] = set()
         entries = self.redis_client.zrangebyscore(
-            "updatechangelog", 0, float("inf"), withscores=True, score_cast_func=int
+            changelog_key, 0, float("inf"), withscores=True, score_cast_func=int
         )
         for key, _ in entries:
             if key == b"":
@@ -129,43 +121,111 @@ class BodhiChangeMonitor:
 
         return result, serial
 
-    def clear_changed(self, serial):
-        """Remove old changelog entries after they have been processed"""
+    def _clear_changed(self, changelog_key, serial):
+        self.redis_client.zremrangebyscore(changelog_key, 0, serial)
 
-        self.redis_client.zremrangebyscore("updatechangelog", 0, serial)
+    def get_bodhi_changed(self) -> Tuple[Optional[Set[str]], int]:
+        """
+        Return Bodhi updates that have changed.
+
+        This returns a set of Bodhi updates known to have changed since the last time
+        that get_changed() was called (in this process or in a previous run
+        of flatpak-indexer). Once cached information has been updated, clear_changed()
+        should be called to remove these entries from the log we store.
+
+        Return value:
+        A tuple: the first value either either a set of changed Bodhi IDs,
+        or None. None means that we don't have reliable change information and
+        all updates must be refetched. The second value is a serial to pass to
+        clear_changed().
+        """
+        assert self.watch_bodhi_updates
+
+        return self._get_changed(KEY_UPDATE_CHANGELOG)
+
+    def clear_bodhi_changed(self, serial):
+        """Remove old changelog entries after they have been processed"""
+        assert self.watch_bodhi_updates
+
+        self._clear_changed(KEY_UPDATE_CHANGELOG, serial)
+
+    def get_distgit_changed(self) -> Tuple[Optional[Set[str]], int]:
+        """
+        Return distgit repositories that have changed.
+
+        This returns a set of distgit repositories known to have changed since the last time
+        that get_changed() was called (in this process or in a previous run
+        of flatpak-indexer). Once cached information has been updated, clear_changed()
+        should be called to remove these entries from the log we store.
+
+        Return value:
+        A tuple: the first value either either a set of changed repository paths,
+        or None. None means that we don't have reliable change information and
+        all repositories must be pulled. The second value is a serial to pass to
+        clear_changed().
+        """
+        assert self.watch_distgit_changes
+
+        return self._get_changed(KEY_DISTGIT_CHANGELOG)
+
+    def clear_distgit_changed(self, serial):
+        """Remove old changelog entries after they have been processed"""
+        assert self.watch_distgit_changes
+
+        self._clear_changed(KEY_DISTGIT_CHANGELOG, serial)
 
     def _maybe_reraise_failure(self, msg):
         with self.lock:
             if self.failure:
                 raise RuntimeError(msg) from self.failure
 
-    def _do_add_to_log(self, new_queue_name, update_id, pipe: "redis.client.Pipeline[bytes]"):
-        pipe.watch("updatechangelog:serial")
-        pipe.watch("updatechangelog")
+    def _do_add_to_log(
+        self, new_queue_name, update_id, distgit_path, pipe: "redis.client.Pipeline[bytes]"
+    ):
+        pipe.watch(KEY_SERIAL)
+        if self.watch_bodhi_updates and (new_queue_name or update_id):
+            pipe.watch(KEY_UPDATE_CHANGELOG)
+        if self.watch_distgit_changes and (new_queue_name or distgit_path):
+            pipe.watch(KEY_DISTGIT_CHANGELOG)
 
         pre = cast("redis.Redis[bytes]", pipe)
         serial = 1 + int(pre.get("updatequeue:serial") or 0)
 
         pipe.multi()
-        pipe.set("updatechangelog:serial", serial)
+        pipe.set(KEY_SERIAL, serial)
         if new_queue_name:
             pipe.set("fedora-messaging-queue", new_queue_name)
-            pipe.delete("updatechangelog")
-            pipe.zadd("updatechangelog", {b'': serial})
-        else:
-            pipe.zadd("updatechangelog", {update_id: serial})
+            if self.watch_bodhi_updates:
+                pipe.delete(KEY_UPDATE_CHANGELOG)
+                pipe.zadd(KEY_UPDATE_CHANGELOG, {b'': serial})
+            if self.watch_distgit_changes:
+                pipe.delete(KEY_DISTGIT_CHANGELOG)
+                pipe.zadd(KEY_DISTGIT_CHANGELOG, {b'': serial})
+        elif update_id:
+            pipe.zadd(KEY_UPDATE_CHANGELOG, {update_id: serial})
+        elif distgit_path:
+            pipe.zadd(KEY_DISTGIT_CHANGELOG, {distgit_path: serial})
 
-    def _add_to_log(self, update_id):
-        self.thread_redis_client.transaction(partial(self._do_add_to_log, None, update_id))
+    def _add_to_update_log(self, update_id):
+        self.thread_redis_client.transaction(partial(self._do_add_to_log, None, update_id, None))
+
+    def _add_to_distgit_log(self, distgit_path):
+        self.thread_redis_client.transaction(partial(self._do_add_to_log, None, None, distgit_path))
 
     def _reset_changelog(self, queue_name):
-        self.thread_redis_client.transaction(partial(self._do_add_to_log, queue_name, None))
+        self.thread_redis_client.transaction(partial(self._do_add_to_log, queue_name, None, None))
 
-    def _update_from_message(self, body_json):
+    def _update_from_message(self, routing_key, body_json):
         body = json.loads(body_json)
-        update_id = body['update']['alias']
-        logger.info("Saw change to Bodhi Update %s", update_id)
-        self._add_to_log(update_id)
+
+        if routing_key == 'org.fedoraproject.prod.git.receive':
+            path = body['commit']['namespace'] + '/' + body['commit']['repo']
+            logger.info("Saw commit on %s", path)
+            self._add_to_distgit_log(path)
+        else:
+            update_id = body['update']['alias']
+            logger.info("Saw change to Bodhi Update %s", update_id)
+            self._add_to_update_log(update_id)
 
     def _wait_for_messages(self):
         with self.lock:
@@ -215,10 +275,15 @@ class BodhiChangeMonitor:
 
         logger.info(f"Connected to fedora-messaging, queue={queue_name}")
 
-        channel.queue_bind(queue_name, 'amq.topic',
-                           routing_key="org.fedoraproject.prod.bodhi.update.request.#")
-        channel.queue_bind(queue_name, 'amq.topic',
-                           routing_key="org.fedoraproject.prod.bodhi.update.complete.#")
+        if self.watch_bodhi_updates:
+            channel.queue_bind(queue_name, 'amq.topic',
+                               routing_key="org.fedoraproject.prod.bodhi.update.request.#")
+            channel.queue_bind(queue_name, 'amq.topic',
+                               routing_key="org.fedoraproject.prod.bodhi.update.complete.#")
+
+        if self.watch_distgit_changes:
+            channel.queue_bind(queue_name, 'amq.topic',
+                               routing_key="org.fedoraproject.prod.git.receive")
 
         # We first consume messages with a timeout of zero until we block to clean
         # out anything queued
@@ -227,7 +292,7 @@ class BodhiChangeMonitor:
             if method is None:
                 break
             else:
-                self._update_from_message(body_json)
+                self._update_from_message(method.routing_key, body_json)
                 channel.basic_ack(method.delivery_tag)
         else:
             # If the iterator exits, that means the channel has been cancelled
@@ -247,7 +312,7 @@ class BodhiChangeMonitor:
         for method, properties, body_json in channel.consume(queue_name,
                                                              inactivity_timeout=None):
             assert method is not None  # only should occur on timeout
-            self._update_from_message(body_json)
+            self._update_from_message(method.routing_key, body_json)
             channel.basic_ack(method.delivery_tag)
         else:
             with self.lock:

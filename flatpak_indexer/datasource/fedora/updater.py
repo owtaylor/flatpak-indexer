@@ -3,7 +3,7 @@ from typing import DefaultDict, Optional, Set
 
 import redis
 
-from ...bodhi_change_monitor import BodhiChangeMonitor
+from ...fedora_monitor import FedoraMonitor
 from ...bodhi_query import (list_updates, refresh_all_updates,
                             refresh_update_status, reset_update_cache)
 from ...config import Config
@@ -40,7 +40,7 @@ def _fix_pull_spec(image, registry_url, repo_name):
 
 class FedoraUpdater(Updater):
     redis_client: "redis.Redis[bytes]"
-    change_monitor: Optional[BodhiChangeMonitor]
+    change_monitor: Optional[FedoraMonitor]
 
     def __init__(self, config: Config):
         self.conf = config
@@ -51,13 +51,13 @@ class FedoraUpdater(Updater):
         self.koji_session = get_koji_session(self.conf)
 
     def start(self):
-        self.change_monitor = BodhiChangeMonitor(self.conf)
+        self.change_monitor = FedoraMonitor(self.conf, watch_bodhi_updates=True)
         self.change_monitor.start()
 
     def update(self, registry_data):
         assert self.change_monitor, "start() must be called before update()"
 
-        changed, serial = self.change_monitor.get_changed()
+        changed, serial = self.change_monitor.get_bodhi_changed()
         if changed is None:
             # If we reconnected to a different queue, we don't have any
             # information about the status of cached updates, and need to start over
@@ -67,7 +67,7 @@ class FedoraUpdater(Updater):
                 refresh_update_status(self.koji_session, self.redis_client, bodhi_update_id)
 
         # Now we've updated, we can remove old entries from the log
-        self.change_monitor.clear_changed(serial)
+        self.change_monitor.clear_bodhi_changed(serial)
 
         refresh_all_updates(self.koji_session, self.redis_client, content_type='flatpak')
         updates = list_updates(self.redis_client, content_type='flatpak')
