@@ -10,8 +10,8 @@ from urllib.parse import parse_qs, urlparse
 from iso8601 import iso8601
 import responses
 
-from flatpak_indexer.datasource.fedora.bodhi_query import parse_date_value
-from flatpak_indexer.datasource.fedora.release_info import Release, ReleaseStatus
+from flatpak_indexer.bodhi_query import parse_date_value
+from flatpak_indexer.release_info import Release, ReleaseStatus
 
 from .utils import WithArgDecorator
 
@@ -173,7 +173,7 @@ MOCK_RELEASES = [
 
 @contextmanager
 def _setup_bodhi(**kwargs):
-    with patch("flatpak_indexer.datasource.fedora.release_info.releases", MOCK_RELEASES):
+    with patch("flatpak_indexer.release_info.releases", MOCK_RELEASES):
         with responses._default_mock:
             bodhi_mock = MockBodhi(**kwargs)
 

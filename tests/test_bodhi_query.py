@@ -4,10 +4,10 @@ import logging
 
 import pytest
 
-from flatpak_indexer.datasource.fedora.bodhi_query import (list_updates, refresh_all_updates,
-                                                           refresh_update_status, refresh_updates,
-                                                           reset_update_cache)
-from flatpak_indexer.datasource.fedora.models import BodhiUpdateModel
+from flatpak_indexer.bodhi_query import (
+    list_updates, refresh_all_updates, refresh_update_status, refresh_updates, reset_update_cache
+)
+from flatpak_indexer.models import BodhiUpdateModel
 from .bodhi import mock_bodhi
 from .koji import make_koji_session
 from .redis import make_redis_client

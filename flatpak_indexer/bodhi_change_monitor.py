@@ -14,8 +14,8 @@ import pika.exceptions
 import redis
 
 
-from ...config import Config
-from ...redis_utils import get_redis_client
+from .config import Config
+from .redis_utils import get_redis_client
 
 
 logger = logging.getLogger(__name__)

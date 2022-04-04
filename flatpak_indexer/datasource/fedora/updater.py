@@ -3,6 +3,9 @@ from typing import DefaultDict, Optional, Set
 
 import redis
 
+from ...bodhi_change_monitor import BodhiChangeMonitor
+from ...bodhi_query import (list_updates, refresh_all_updates,
+                            refresh_update_status, reset_update_cache)
 from ...config import Config
 from ...koji_query import query_image_build
 from ...koji_utils import get_koji_session
@@ -11,10 +14,6 @@ from ...redis_utils import get_redis_client
 from ...utils import unparse_pull_spec
 
 from .. import Updater
-
-from .bodhi_change_monitor import BodhiChangeMonitor
-from .bodhi_query import (list_updates, refresh_all_updates,
-                          refresh_update_status, reset_update_cache)
 
 
 class RepoInfo:

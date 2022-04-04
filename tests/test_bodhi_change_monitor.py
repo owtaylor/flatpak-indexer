@@ -7,7 +7,7 @@ import pytest
 import redis
 import yaml
 
-from flatpak_indexer.datasource.fedora.bodhi_change_monitor import BodhiChangeMonitor
+from flatpak_indexer.bodhi_change_monitor import BodhiChangeMonitor
 
 from .fedora_messaging import mock_fedora_messaging
 from .redis import mock_redis
@@ -102,7 +102,7 @@ def test_bodhi_change_monitor_stop_exception(connection_mock, config):
 
 
 @patch(
-    'flatpak_indexer.datasource.fedora.bodhi_change_monitor.BodhiChangeMonitor.'
+    'flatpak_indexer.bodhi_change_monitor.BodhiChangeMonitor.'
     'INITIAL_RECONNECT_TIMEOUT',
     0.01,
 )
@@ -132,7 +132,7 @@ def test_bodhi_change_monitor_lost_stream(connection_mock, config):
 
 
 @patch(
-    'flatpak_indexer.datasource.fedora.bodhi_change_monitor.BodhiChangeMonitor.'
+    'flatpak_indexer.bodhi_change_monitor.BodhiChangeMonitor.'
     'INITIAL_RECONNECT_TIMEOUT',
     0.01,
 )
@@ -175,7 +175,7 @@ def test_bodhi_change_monitor_failure(connection_mock, config):
 
 
 @patch(
-    'flatpak_indexer.datasource.fedora.bodhi_change_monitor.BodhiChangeMonitor.'
+    'flatpak_indexer.bodhi_change_monitor.BodhiChangeMonitor.'
     'INITIAL_RECONNECT_TIMEOUT',
     0.01,
 )
@@ -211,7 +211,7 @@ def test_bodhi_change_monitor_stop_during_reconnect(connection_mock, config):
 
 
 @patch(
-    'flatpak_indexer.datasource.fedora.bodhi_change_monitor.BodhiChangeMonitor.'
+    'flatpak_indexer.bodhi_change_monitor.BodhiChangeMonitor.'
     'INITIAL_RECONNECT_TIMEOUT',
     0.01,
 )
@@ -244,7 +244,7 @@ def test_bodhi_change_monitor_stop_during_connection_failure(connection_mock, co
 
 
 @patch(
-    'flatpak_indexer.datasource.fedora.bodhi_change_monitor.BodhiChangeMonitor.'
+    'flatpak_indexer.bodhi_change_monitor.BodhiChangeMonitor.'
     'INITIAL_RECONNECT_TIMEOUT',
     0.01,
 )

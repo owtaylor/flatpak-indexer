@@ -7,11 +7,10 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
-from ...utils import format_date, parse_date
-
 from .models import BodhiUpdateModel
 from . import release_info
 from .release_info import ReleaseStatus
+from .utils import format_date, parse_date
 
 logger = logging.getLogger(__name__)
 
