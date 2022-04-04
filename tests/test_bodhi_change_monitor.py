@@ -5,24 +5,22 @@ from unittest.mock import patch
 import pika.exceptions
 import pytest
 import redis
-import yaml
 
 from flatpak_indexer.bodhi_change_monitor import BodhiChangeMonitor
+from flatpak_indexer.redis_utils import RedisConfig
 
 from .fedora_messaging import mock_fedora_messaging
 from .redis import mock_redis
-from .utils import get_config
 
 
-CONFIG = yaml.safe_load("""
+CONFIG = """
 redis_url: redis://localhost
-koji_config: fedora
-""")
+"""
 
 
 @pytest.fixture
-def config(tmp_path):
-    return get_config(tmp_path, CONFIG)
+def config():
+    return RedisConfig.from_str(CONFIG)
 
 
 def assert_changes(monitor, expected_changes):

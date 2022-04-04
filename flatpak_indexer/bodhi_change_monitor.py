@@ -14,8 +14,7 @@ import pika.exceptions
 import redis
 
 
-from .config import Config
-from .redis_utils import get_redis_client
+from .redis_utils import get_redis_client, RedisConfig
 
 
 logger = logging.getLogger(__name__)
@@ -40,7 +39,7 @@ class BodhiChangeMonitor:
     MAX_RECONNECT_TIMEOUT = 10 * 60
     RECONNECT_TIMEOUT_MULTIPLIER = 5
 
-    def __init__(self, config: Config):
+    def __init__(self, config: RedisConfig):
         self.config = config
 
         # This is the redis client for the main thread - the worker thread

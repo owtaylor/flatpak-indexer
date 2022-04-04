@@ -1,15 +1,21 @@
 import logging
 import time
+from typing import Optional
 from urllib.parse import quote, urlparse, urlunparse
 
 import redis
 
-from .config import Config
+from .base_config import BaseConfig
 
 logger = logging.getLogger(__name__)
 
 
-def get_redis_client(config: Config) -> "redis.Redis[bytes]":
+class RedisConfig(BaseConfig):
+    redis_url: str
+    redis_password: Optional[str] = None
+
+
+def get_redis_client(config: RedisConfig) -> "redis.Redis[bytes]":
     url = config.redis_url
 
     # redis.Redis.from_url() doesn't support passing the password separately

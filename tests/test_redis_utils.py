@@ -6,24 +6,22 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import redis
-import yaml
 
-from flatpak_indexer.redis_utils import do_pubsub_work, get_redis_client
+from flatpak_indexer.redis_utils import do_pubsub_work, get_redis_client, RedisConfig
 
 from .redis import mock_redis
-from .utils import get_config
 
 
-CONFIG = yaml.safe_load("""
+CONFIG = """
 redis_url: redis://localhost:6379
 redis_password: BRICK+SPINE+HORSE
 koji_config: brew
-""")
+"""
 
 
 @pytest.fixture
-def config(tmp_path):
-    return get_config(tmp_path, CONFIG)
+def config():
+    return RedisConfig.from_str(CONFIG)
 
 
 @mock_redis(expect_url='redis://:BRICK%2BSPINE%2BHORSE@localhost:6379')
