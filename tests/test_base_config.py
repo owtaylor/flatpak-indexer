@@ -1,6 +1,7 @@
 import copy
 from datetime import timedelta
 import os
+from textwrap import dedent
 from typing import Dict, List, Optional
 
 import pytest
@@ -97,6 +98,25 @@ def test_field_defaults():
     config = Config(lookup)
 
     assert config.str_field == "foo_default"
+
+
+def test_inheritance():
+    class Config1(BaseConfig):
+        field1: str
+
+    class Config2(BaseConfig):
+        field2: str
+
+    class Config3(Config1, Config2):
+        pass
+
+    config = Config3.from_str(dedent("""
+        field1: foo
+        field2: bar
+    """))
+
+    assert config.field1 == "foo"
+    assert config.field2 == "bar"
 
 
 def test_config_field():

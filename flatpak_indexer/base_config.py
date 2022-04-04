@@ -176,8 +176,11 @@ class Lookup:
 
 
 class BaseConfig:
-    def __init__(self, lookup: Lookup):
-        annotations = getattr(self, '__annotations__', None)
+    def _init_from_class(self, cls, lookup: Lookup):
+        if not issubclass(cls, BaseConfig):
+            return
+
+        annotations = getattr(cls, '__annotations__', None)
         if annotations:
             for name, v in annotations.items():
                 resolved, args, optional = resolve_type(v)
@@ -208,6 +211,10 @@ class BaseConfig:
                     raise RuntimeError(f"Don't know how to handle config field of type {v}")
 
                 setattr(self, name, val)
+
+    def __init__(self, lookup: Lookup):
+        for cls in self.__class__.mro():
+            self._init_from_class(cls, lookup)
 
     @classmethod
     def from_path(cls, path: str):
