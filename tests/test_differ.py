@@ -67,6 +67,7 @@ def check_success(key, old_layer, new_layer):
     assert redis_client.zscore('tardiff:active', key) is not None
 
     result_raw = redis_client.get(f"tardiff:result:{key}")
+    assert result_raw is not None
     result = TardiffResultModel.from_json_text(result_raw)
 
     assert result.status == "success"
@@ -89,6 +90,7 @@ def check_failure(key, status, message):
     assert redis_client.zscore('tardiff:active', key) is None
 
     result_raw = redis_client.get(f"tardiff:result:{key}")
+    assert result_raw is not None
     result = TardiffResultModel.from_json_text(result_raw)
 
     assert result.status == status

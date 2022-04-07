@@ -67,6 +67,7 @@ class Cleaner:
 
             to_delete = []
             for key, result_raw in zip(batch_keys, results_raw):
+                assert result_raw is not None
                 result = TardiffResultModel.from_json_text(result_raw)
                 if result.status == 'success':
                     path = path_for_digest(self.config.deltas_dir,

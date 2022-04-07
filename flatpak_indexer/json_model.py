@@ -2,7 +2,7 @@
 
 from datetime import datetime
 import json
-from typing import Any, Dict
+from typing import Any, Dict, TypeVar, Union
 
 from .utils import format_date, parse_date, resolve_type
 
@@ -292,6 +292,9 @@ class BaseModelMeta(type):
         return x
 
 
+M = TypeVar('M', bound='BaseModel')
+
+
 class BaseModel(metaclass=BaseModelMeta):
     def __init__(self, **kwargs):
         for field in self.__class__._fields().values():
@@ -301,7 +304,7 @@ class BaseModel(metaclass=BaseModelMeta):
     def _fields(cls) -> Dict[str, ModelField]:
         return getattr(cls, '__fields__')
 
-    def to_json(self):
+    def to_json(self) -> Dict[str, Any]:
         return {
             field.json_name: field.json_value(self)
             for field in self._fields().values()
@@ -312,14 +315,18 @@ class BaseModel(metaclass=BaseModelMeta):
         return json.dumps(self.to_json())
 
     @classmethod
-    def class_from_json(cls, data):
+    def class_from_json(cls: type[M], data: Any) -> type[M]:
         # Perhaps this would be better if a type-tag-field was required
         # with declarative tag => subclass.
         """Returns the appropriate subclass to instantiate for the data"""
         return cls
 
     @classmethod
-    def from_json(cls, data):
+    def check_json_current(cls, data: Any) -> bool:
+        return True
+
+    @classmethod
+    def from_json(cls: type[M], data: Any) -> M:
         cls = cls.class_from_json(data)
 
         result = cls.__new__(cls)
@@ -329,5 +336,5 @@ class BaseModel(metaclass=BaseModelMeta):
         return result
 
     @classmethod
-    def from_json_text(cls, text):
+    def from_json_text(cls: type[M], text: Union[str, bytes]) -> M:
         return cls.from_json(json.loads(text))

@@ -323,6 +323,7 @@ def test_delta_generator_expire(tmp_path):
         all_tardiffs_raw = redis_client.zrangebyscore('tardiff:active', 0, float("inf"))
         all_tardiffs = (k.decode("utf-8") for k in all_tardiffs_raw)
         for result_raw in redis_client.mget(*(f"tardiff:result:{k}" for k in all_tardiffs)):
+            assert result_raw is not None
             result = TardiffResultModel.from_json_text(result_raw)
             os.unlink(path_for_digest(config.deltas_dir, result.digest, ".tardiff"))
         redis_client.delete('tardiff:active')
