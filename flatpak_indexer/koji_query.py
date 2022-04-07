@@ -188,9 +188,10 @@ def refresh_flatpak_builds(koji_session, redis_client, flatpaks):
 
     with redis_client.pipeline() as pipe:
         pipe.multi()
-        pipe.zadd('builds-by-entity:flatpak', {
-            f"{n}:{v}-{r}": 0 for n, v, r in (b.nvr.rsplit('-', 2) for b in results)
-        })
+        if results:
+            pipe.zadd('builds-by-entity:flatpak', {
+                f"{n}:{v}-{r}": 0 for n, v, r in (b.nvr.rsplit('-', 2) for b in results)
+            })
 
         formatted_current_ts = format_date(current_ts)
         redis_client.hset('build-cache:flatpak', mapping={
