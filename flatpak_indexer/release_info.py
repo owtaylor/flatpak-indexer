@@ -25,8 +25,8 @@ releases = [
     Release(name='F30', branch='f30',     tag='f30', status=ReleaseStatus.EOL),
     Release(name='F31', branch='f31',     tag='f31', status=ReleaseStatus.EOL),
     Release(name='F32', branch='f32',     tag='f32', status=ReleaseStatus.EOL),
-    Release(name='F33', branch='f33',     tag='f33', status=ReleaseStatus.GA),
+    Release(name='F33', branch='f33',     tag='f33', status=ReleaseStatus.EOL),
     Release(name='F34', branch='f34',     tag='f34', status=ReleaseStatus.GA),
-    Release(name='F35', branch='f35',     tag='f35', status=ReleaseStatus.BRANCHED),
-    Release(name='F36', branch='rawhide', tag='f36', status=ReleaseStatus.RAWHIDE),
+    Release(name='F35', branch='f35',     tag='f35', status=ReleaseStatus.GA),
+    Release(name='F36', branch='rawhide', tag='f36', status=ReleaseStatus.BRANCHED),
 ]
