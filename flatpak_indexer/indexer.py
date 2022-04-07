@@ -7,15 +7,13 @@ import json
 import os
 from typing import DefaultDict, Dict, Optional, Set
 
+from .build_cache import BuildCache
 from .cleaner import Cleaner
 from .config import Config, IndexConfig, RegistryConfig
 from .delta_generator import DeltaGenerator
-from .koji_query import query_image_build, query_module_build
-from .koji_utils import get_koji_session
-from .redis_utils import get_redis_client
 from .utils import atomic_writer, path_for_digest, pseudo_atomic_dir_writer, uri_for_digest
 from .models import (
-    FlatpakBuildModel, ImageModel, ImageBuildModel, ModuleBuildModel, ModuleStreamContentsModel,
+    FlatpakBuildModel, ImageModel, ModuleBuildModel, ModuleStreamContentsModel,
     RegistryModel
 )
 
@@ -52,35 +50,6 @@ class IconStore(object):
         self.cleaner.reference(fullpath)
 
         return uri_for_digest(self.icons_uri, digest, ".png")
-
-
-class BuildCache:
-    image_builds: Dict[str, ImageBuildModel]
-    module_builds: Dict[str, ModuleBuildModel]
-
-    def __init__(self, global_config: Config):
-        self.koji_session = get_koji_session(global_config)
-        self.redis_client = get_redis_client(global_config)
-        self.image_builds = {}
-        self.module_builds = {}
-
-    def get_image_build(self, nvr: str):
-        image_build = self.image_builds.get(nvr)
-        if image_build:
-            return image_build
-
-        image_build = query_image_build(self.koji_session, self.redis_client, nvr)
-        self.image_builds[nvr] = image_build
-        return image_build
-
-    def get_module_build(self, nvr: str):
-        module_build = self.module_builds.get(nvr)
-        if module_build:
-            return module_build
-
-        module_build = query_module_build(self.koji_session, self.redis_client, nvr)
-        self.module_builds[nvr] = module_build
-        return module_build
 
 
 class IndexWriter:

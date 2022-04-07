@@ -7,7 +7,7 @@ import yaml
 
 from flatpak_indexer.cleaner import Cleaner
 from flatpak_indexer.datasource import load_updaters
-from flatpak_indexer.indexer import BuildCache, Indexer
+from flatpak_indexer.indexer import Indexer
 from flatpak_indexer.models import RegistryModel
 from .bodhi import mock_bodhi
 from .fedora_messaging import mock_fedora_messaging
@@ -274,22 +274,3 @@ def test_indexer_fedora(connection_mock, tmp_path):
               ]
         }]
     }
-
-
-@mock_koji
-@mock_redis
-def test_build_cache(tmp_path):
-    os.environ["OUTPUT_DIR"] = str(tmp_path)
-
-    config = get_config(tmp_path, FEDORA_CONFIG)
-    build_cache = BuildCache(config)
-
-    image_a = build_cache.get_image_build("baobab-master-3220200331145937.2")
-    image_b = build_cache.get_image_build("baobab-master-3220200331145937.2")
-
-    assert image_b is image_a
-
-    module_a = build_cache.get_module_build('baobab-master-3220200331145937')
-    module_b = build_cache.get_module_build('baobab-master-3220200331145937')
-
-    assert module_b is module_a
