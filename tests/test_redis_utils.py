@@ -42,7 +42,7 @@ class IffyPubSub(redis.client.PubSub):
 
 
 @mock_redis
-@pytest.mark.parametrize('fail_first_method', ('subscribe', 'get_message'))
+@pytest.mark.parametrize('fail_first_method', (None, 'subscribe', 'get_message'))
 def test_do_pubsub_work(config, fail_first_method, caplog):
     def run_thread():
         redis_client = redis.Redis.from_url("redis://localhost")
@@ -78,13 +78,18 @@ def test_do_pubsub_work(config, fail_first_method, caplog):
             return found_message is None
 
         fill_queue_thread.start()
-        do_pubsub_work(redis_client, 'test:queue', do_work,
-                       initial_reconnect_timeout=0.05)
+        if fail_first_method is None:
+            do_pubsub_work(redis_client, 'test:queue', do_work)
+        else:
+            do_pubsub_work(redis_client, 'test:queue', do_work,
+                           initial_reconnect_timeout=0.05)
 
         assert found_message is not None
         assert found_message['data'] == b'foo'
 
-        if fail_first_method == 'subscribe':
+        if fail_first_method is None:
+            assert "sleeping" not in caplog.text
+        elif fail_first_method == 'subscribe':
             assert "Failed to connect to Redis, sleeping for 0.05 seconds" in caplog.text
-        else:
+        elif fail_first_method == 'get_message':
             assert "Disconnected from Redis, sleeping for 0.05 seconds" in caplog.text

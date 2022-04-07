@@ -246,6 +246,14 @@ def test_timedelta_formats(input, expected_seconds):
     assert Config(lookup).timedelta_field.total_seconds() == expected_seconds
 
 
+def test_timedelta_default():
+    class Config(BaseConfig):
+        timedelta_field: timedelta = configfield(default=timedelta(days=1))
+
+    lookup = Lookup({})
+    assert Config(lookup).timedelta_field == timedelta(days=1)
+
+
 def test_timedelta_optional():
     class Config(BaseConfig):
         timedelta_field: Optional[timedelta] = None

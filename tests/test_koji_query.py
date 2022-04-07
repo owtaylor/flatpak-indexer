@@ -118,6 +118,20 @@ def test_query_image_build(caplog):
     assert isinstance(build2, FlatpakBuildModel)
 
 
+def test_query_image_build_no_images():
+    def filter_archives(build, archives):
+        archives = copy.deepcopy(archives)
+        for a in archives:
+            a['extra'].pop('docker', None)
+
+        return archives
+
+    koji_session = make_koji_session(filter_archives=filter_archives)
+    redis_client = make_redis_client()
+    build = query_image_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
+    assert build.images == []
+
+
 def test_query_image_build_missing_digest():
     def filter_archives(build, archives):
         archives = copy.deepcopy(archives)

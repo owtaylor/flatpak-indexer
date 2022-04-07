@@ -5,7 +5,11 @@ IMAGE1 = {
     "Annotations": {"key1": "value1"},
     "Architecture": "amd64",
     "Digest": "sha256:baabaa",
-    "Labels": {"key2": "value2"},
+    "Labels": {
+        "com.redhat.component": "baobob",
+        "version": "master",
+        "release": "3220200331145937.2"
+    },
     "MediaType": "application/vnd.docker.distribution.manifest.v2+json",
     "OS": "linux",
     "Tags": ["tag1"],
@@ -79,6 +83,15 @@ def test_registry_model_add_image():
     model.add_image('aisleriot2', image)
 
     assert model.repositories['aisleriot2'].images[image.digest] == image
+
+
+def test_image_nvr():
+    image = ImageModel.from_json(IMAGE1)
+
+    assert image.nvr == 'baobob-master-3220200331145937.2'
+
+    image.labels = {}
+    assert image.nvr is None
 
 
 def test_image_build_repository():
