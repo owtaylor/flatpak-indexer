@@ -7,7 +7,7 @@ import koji
 import redis
 
 from .utils import format_date, parse_date
-from .models import (FlatpakBuildModel,
+from .models import (BinaryPackage, FlatpakBuildModel,
                      KojiBuildModel, ImageBuildModel, ImageModel,
                      ModuleBuildModel, PackageBuildModel)
 
@@ -34,7 +34,9 @@ KEY_BUILD_ID_TO_NVR = 'build-id-to-nvr'
 # all builds older than this query time will be in build-by-entity:flatpak
 KEY_BUILD_CACHE_FLATPAK = 'build-cache:flatpak'
 # sorted set of <n>:<v>-<r> of flatpaks (scores are all zero, lexical ordering used)
-# build:<nvr> keys are created along with these, so will exist
+# build:<nvr> keys are created along with these, so will typically exist, though
+# the code will backfill as necessary for missing keys or ones invalidated by
+# schema evolution
 KEY_BUILDS_BY_ENTITY_FLATPAK = 'builds-by-entity:flatpak'
 # sorted set of <tag>:<n>:<v>-<r> with the latest builds tagged into <tag>
 # build:<nvr> keys do *not* necessarily exist for these builds
@@ -96,9 +98,12 @@ def _get_build(koji_session, redis_client, build_info, build_cls: type[B]) -> B:
                             continue
                         seen.add(c['build_id'])
 
-                        build.package_builds.append(c['nvr'])
-
-                        _query_package_build_by_id(koji_session, redis_client, c['build_id'])
+                        package_build = _query_package_build_by_id(
+                            koji_session, redis_client, c['build_id']
+                        )
+                        build.package_builds.append(
+                            BinaryPackage(nvr=c['nvr'], source_nvr=package_build.nvr)
+                        )
 
             docker_info = None
             archive_extra = archive.get('extra')
@@ -135,7 +140,7 @@ def _get_build(koji_session, redis_client, build_info, build_cls: type[B]) -> B:
                 build.module_builds.append(module_build.nvr)
 
             build.module_builds.sort()
-            build.package_builds.sort()
+            build.package_builds.sort(key=lambda pb: pb.nvr)
 
     elif isinstance(build, ModuleBuildModel):
         logger.info("Calling koji.listArchives(%s); nvr=%s",
@@ -155,9 +160,9 @@ def _get_build(koji_session, redis_client, build_info, build_cls: type[B]) -> B:
                 continue
             seen.add(c['build_id'])
             package_build = _query_package_build_by_id(koji_session, redis_client, c['build_id'])
-            build.package_builds.append(package_build.nvr)
+            build.package_builds.append(BinaryPackage(nvr=c['nvr'], source_nvr=package_build.nvr))
 
-        build.package_builds.sort()
+        build.package_builds.sort(key=lambda pb: pb.nvr)
 
     redis_client.set(KEY_PREFIX_BUILD + build.nvr, build.to_json_text())
     redis_client.hset(KEY_BUILD_ID_TO_NVR, build.build_id, build.nvr)
@@ -230,7 +235,9 @@ def refresh_flatpak_builds(koji_session, redis_client, flatpaks):
         pipe.execute()
 
 
-def list_flatpak_builds(koji_session, flatpak: str) -> List[FlatpakBuildModel]:
+def list_flatpak_builds(
+    koji_session, redis_client: "redis.Redis[bytes]", flatpak: str
+) -> List[FlatpakBuildModel]:
     matches = redis_client.zrangebylex(KEY_BUILDS_BY_ENTITY_FLATPAK,
                                        '[' + flatpak + ':', '(' + flatpak + ';')
 
@@ -239,8 +246,23 @@ def list_flatpak_builds(koji_session, flatpak: str) -> List[FlatpakBuildModel]:
             name, vr = m.decode("utf-8").split(":")
             yield KEY_PREFIX_BUILD + name + '-' + vr
 
-    return [FlatpakBuildModel.from_json_text(x)
-            for x in redis_client.mget(matches_to_keys())]
+    result_json = redis_client.mget(matches_to_keys())
+    result = []
+    for i, item_json in enumerate(result_json):
+        if item_json:
+            flatpak_build = FlatpakBuildModel.from_json_text(item_json, check_current=True)
+        else:
+            flatpak_build = None
+
+        if flatpak_build:
+            result.append(flatpak_build)
+        else:
+            name, vr = matches[i].decode("utf-8").split(":")
+            image_build = query_image_build(koji_session, redis_client, name + '-' + vr)
+            assert isinstance(image_build, FlatpakBuildModel)
+            result.append(image_build)
+
+    return result
 
 
 def get_package_id(koji_session, redis_client, entity_name):
@@ -260,8 +282,10 @@ def get_package_id(koji_session, redis_client, entity_name):
 
 def _query_build(koji_session, redis_client, nvr, build_cls: type[B]) -> B:
     raw = redis_client.get(KEY_PREFIX_BUILD + nvr)
-    if raw is not None:
-        return build_cls.from_json_text(raw)
+    if raw:
+        build = build_cls.from_json_text(raw, check_current=True)
+        if build:
+            return build
 
     logger.info("Calling koji.getBuild(%s)", nvr)
     build_info = koji_session.getBuild(nvr)

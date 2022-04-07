@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from flatpak_indexer.models import FlatpakBuildModel, ImageModel, ImageBuildModel, RegistryModel
 
 
@@ -65,7 +67,7 @@ FLATPAK_BUILD = {
     'UserName': 'jdoe',
     'Images': [IMAGE1],
     'ModuleBuilds': ['baobab-1.2.3-3020190603102507'],
-    'PackageBuilds': ['baobab-1.2.3-1'],
+    'PackageBuilds': [{'Nvr': 'baobab-1.2.3-1', 'SourceNvr': 'baobab-1.2.3-1'}],
 }
 
 
@@ -110,3 +112,11 @@ def test_image_build_from_json():
 def test_koji_build_model_name():
     image = ImageBuildModel.from_json(IMAGE_BUILD)
     assert image.name == 'testrepo'
+
+
+def test_koji_build_model_is_json_current():
+    assert FlatpakBuildModel.from_json(FLATPAK_BUILD, check_current=True) is not None
+
+    json = deepcopy(FLATPAK_BUILD)
+    json["PackageBuilds"] = [pb["Nvr"] for pb in json["PackageBuilds"]]
+    assert FlatpakBuildModel.from_json(json, check_current=True) is None

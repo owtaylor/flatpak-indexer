@@ -179,16 +179,16 @@ class IndexWriter:
             package_to_module: Dict[str, ModuleBuildModel] = {}
             for module_nvr in build.module_builds:
                 module_build = self.build_cache.get_module_build(module_nvr)
-                for package_nvr in module_build.package_builds:
-                    package_to_module[package_nvr] = module_build
+                for binary_package in module_build.package_builds:
+                    package_to_module[binary_package.nvr] = module_build
 
-            for package_nvr in build.package_builds:
-                module = package_to_module.get(package_nvr)
+            for binary_package in build.package_builds:
+                module = package_to_module.get(binary_package.nvr)
                 if module:
                     n, v, _ = module.nvr.rsplit('-', 2)
                     name_stream = n + ":" + v
                     stream_contents = module_stream_contents[name_stream]
-                    stream_contents.add_package_build(build.nvr, module.nvr, package_nvr)
+                    stream_contents.add_package_build(build.nvr, module.nvr, binary_package)
 
         # We auto-create only one level and don't use os.makedirs,
         # to better catch configuration mistakes

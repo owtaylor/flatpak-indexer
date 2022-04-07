@@ -1,4 +1,5 @@
 import copy
+import json
 import logging
 import time
 
@@ -31,7 +32,7 @@ def test_query_builds(caplog):
     refresh_flatpak_builds(koji_session, redis_client, ['eog'])
     assert "Calling koji.listBuilds({'type': 'image', 'state': 1, 'packageID': 303})" in caplog.text
 
-    builds = list_flatpak_builds(redis_client, 'eog')
+    builds = list_flatpak_builds(koji_session, redis_client, 'eog')
     sort_builds(builds)
     assert len(builds) == 2
     assert builds[0].nvr == 'eog-master-20180821163756.2'
@@ -44,11 +45,11 @@ def test_query_builds(caplog):
     assert ("Calling koji.listBuilds({'type': 'image', 'state': 1, 'packageID': 303})"
             not in caplog.text)
 
-    new_builds = list_flatpak_builds(redis_client, 'eog')
+    new_builds = list_flatpak_builds(koji_session, redis_client, 'eog')
     sort_builds(new_builds)
     assert len(new_builds) == 2
 
-    new_builds = list_flatpak_builds(redis_client, 'quadrapassel')
+    new_builds = list_flatpak_builds(koji_session, redis_client, 'quadrapassel')
     assert len(new_builds) == 1
     assert new_builds[0].nvr == 'quadrapassel-master-20181203181243.2'
 
@@ -68,7 +69,7 @@ def test_query_builds_refresh():
     koji_session = make_koji_session(filter_build=filter_build_1)
     refresh_flatpak_builds(koji_session, redis_client, ['eog'])
 
-    builds = list_flatpak_builds(redis_client, 'eog')
+    builds = list_flatpak_builds(koji_session, redis_client, 'eog')
     assert len(builds) == 1
 
     current_ts = time.time()
@@ -83,8 +84,45 @@ def test_query_builds_refresh():
     koji_session = make_koji_session(filter_build=filter_build_2)
     refresh_flatpak_builds(koji_session, redis_client, ['eog'])
 
-    builds = list_flatpak_builds(redis_client, 'eog')
+    builds = list_flatpak_builds(koji_session, redis_client, 'eog')
     assert len(builds) == 2
+
+
+def test_query_builds_refetch(caplog):
+    caplog.set_level(logging.INFO)
+
+    def sort_builds(builds):
+        builds.sort(key=lambda x: x.build_id)
+
+    koji_session = make_koji_session()
+    redis_client = make_redis_client()
+
+    # query from scratch from Koji to prime the redis cache
+    refresh_flatpak_builds(koji_session, redis_client, ['eog'])
+    assert "Calling koji.listBuilds({'type': 'image', 'state': 1, 'packageID': 303})" in caplog.text
+
+    builds = list_flatpak_builds(koji_session, redis_client, 'eog')
+    sort_builds(builds)
+    assert len(builds) == 2
+
+    # Now we simulate having old schemas and missing data
+    raw = redis_client.get('build:' + builds[0].nvr)
+    assert raw
+    data = json.loads(raw)
+    data["PackageBuilds"] = [pb["Nvr"] for pb in data["PackageBuilds"]]
+    redis_client.set('build:' + builds[0].nvr, json.dumps(data))
+
+    redis_client.delete('build:' + builds[1].nvr)
+
+    caplog.clear()
+    new_builds = list_flatpak_builds(koji_session, redis_client, 'eog')
+    sort_builds(new_builds)
+    assert len(new_builds) == 2
+    assert new_builds[0].nvr == builds[0].nvr
+    assert new_builds[1].nvr == builds[1].nvr
+
+    assert "Calling koji.getBuild(eog-master-20180821163756.2)" in caplog.text
+    assert "Calling koji.getBuild(eog-master-20181128204005.1)" in caplog.text
 
 
 def test_query_image_build(caplog):

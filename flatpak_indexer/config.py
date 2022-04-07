@@ -2,6 +2,9 @@ from datetime import timedelta
 import os
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
+from flatpak_indexer.koji_utils import KojiConfig
+
+from flatpak_indexer.redis_utils import RedisConfig
 
 
 from .base_config import BaseConfig, ConfigError, configfield, Lookup
@@ -51,17 +54,13 @@ class DaemonConfig(BaseConfig):
         super().__init__(lookup)
 
 
-class Config(BaseConfig):
+class Config(KojiConfig, RedisConfig):
     indexes: List[IndexConfig] = configfield(skip=True)
     registries: Dict[str, RegistryConfig] = configfield(skip=True)
 
-    koji_config: str
     pyxis_client_cert: Optional[str] = None
     pyxis_client_key: Optional[str] = None
     pyxis_url: Optional[str] = configfield(default=None, force_trailing_slash=True)
-
-    redis_url: str
-    redis_password: Optional[str] = None
 
     local_certs: Dict[str, str] = configfield(skip=True)
 

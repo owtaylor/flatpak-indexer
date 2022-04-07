@@ -269,7 +269,8 @@ def test_indexer_fedora(connection_mock, tmp_path):
             'ImageNvr': 'baobab-master-3220200331145937.2',
             'ModuleNvr': 'baobab-master-3220200331145937.caf21102',
             'PackageBuilds': [
-                  'baobab-3.34.0-2.module_f32+8432+1f88bc5a'
+                  {'Nvr': 'baobab-3.34.0-2.module_f32+8432+1f88bc5a',
+                   'SourceNvr': 'baobab-3.34.0-2.module_f32+8432+1f88bc5a'}
               ]
         }]
     }

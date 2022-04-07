@@ -74,6 +74,17 @@ class KojiBuildModel(BaseModel):
     completion_time: datetime
     user_name: str
 
+    @classmethod
+    def check_json_current(cls, data):
+        # For both ImageBuildModule and ModuleBuildModule
+        # PackageBuilds changed from <nvr> to { Nvr: <nvr>, SourceNvr: <nvr> }
+        package_builds = data.get('PackageBuilds')
+        if package_builds:
+            if not isinstance(package_builds[0], dict):
+                return False
+
+        return True
+
     @property
     def name(self):
         return self.nvr.rsplit('-', 2)[0]
@@ -95,15 +106,20 @@ class ImageBuildModel(KojiBuildModel):
         return repository
 
 
+class BinaryPackage(BaseModel):
+    nvr: str
+    source_nvr: str
+
+
 class FlatpakBuildModel(ImageBuildModel):
     module_builds: List[str]
-    package_builds: List[str]
+    package_builds: List[BinaryPackage]
 
 
 class ModuleBuildModel(KojiBuildModel):
     modulemd: str
 
-    package_builds: List[str]
+    package_builds: List[BinaryPackage]
 
 
 class PackageBuildModel(KojiBuildModel):
@@ -154,14 +170,14 @@ class TardiffResultModel(BaseModel):
 class ModuleImageContentsModel(BaseModel):
     image_nvr: str
     module_nvr: str
-    package_builds: List[str]
+    package_builds: List[BinaryPackage]
 
 
 class ModuleStreamContentsModel(BaseModel):
     images: Dict[str, ModuleImageContentsModel] = field(index="image_nvr")
 
-    def add_package_build(self, image_nvr: str, module_nvr: str, package_nvr: str):
+    def add_package_build(self, image_nvr: str, module_nvr: str, binary_package: BinaryPackage):
         if image_nvr not in self.images:
             self.images[image_nvr] = ModuleImageContentsModel(image_nvr=image_nvr,
                                                               module_nvr=module_nvr)
-        self.images[image_nvr].package_builds.append(package_nvr)
+        self.images[image_nvr].package_builds.append(binary_package)

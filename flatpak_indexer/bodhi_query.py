@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from functools import partial
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -156,11 +156,11 @@ def _query_updates(requests_session,
                    rows_per_page=100):
 
     url = "https://bodhi.fedoraproject.org/updates/"
-    params = {
+    params: Dict[str, Union[int, str, List[str]]] = {
         'rows_per_page': rows_per_page,
     }
 
-    bodhi_releases = []
+    bodhi_releases: List[str] = []
     for release in release_info.releases:
         if release.status == ReleaseStatus.EOL or release.status == ReleaseStatus.RAWHIDE:
             continue
