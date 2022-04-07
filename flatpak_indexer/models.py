@@ -74,6 +74,10 @@ class KojiBuildModel(BaseModel):
     completion_time: datetime
     user_name: str
 
+    @property
+    def name(self):
+        return self.nvr.rsplit('-', 2)[0]
+
 
 class ImageBuildModel(KojiBuildModel):
     images: List[ImageModel]
