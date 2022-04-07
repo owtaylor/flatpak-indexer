@@ -2,12 +2,18 @@
 
 set +e -x
 
+if [ "$#" -eq 0 ] ; then
+    TESTS=( tests )
+else
+    TESTS=( "$@" )
+fi
+
 pytest \
     --cov=flatpak_indexer \
     --cov-report=term-missing \
     --cov-fail-under=100 \
     --disable-socket \
-    tests
+    "${TESTS[@]}"
 
 [ $? == 0 ] || failed="$failed pytest"
 flake8 flatpak_indexer setup.py tests tools
