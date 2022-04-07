@@ -90,6 +90,16 @@ def test_from_path_not_object(tmpdir):
         Config.from_path(config_file)
 
 
+def test_from_str(tmpdir):
+    config = Config.from_str(CONFIG)
+    assert config.str_field == "foo"
+
+
+def test_from_str_not_object(tmpdir):
+    with raises(ConfigError, match="Top level of config must be an object with keys"):
+        Config.from_str("42")
+
+
 def test_field_defaults():
     class Config(BaseConfig):
         str_field: str = "foo_default"
