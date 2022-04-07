@@ -251,6 +251,27 @@ def test_class_from_json():
     assert isinstance(derived_obj2, DerivedClassStuff)
 
 
+def test_class_from_json_check_current():
+    class SimpleStuff(BaseModel):
+        f1: str
+
+    # Basemodel.check_json_current just returns true
+    new_obj = SimpleStuff.from_json_text('{"F1": "foo"}', check_current=True)
+    assert new_obj is not None
+
+    class Stuff(BaseModel):
+        f1: str
+
+        @classmethod
+        def check_json_current(cls, data):
+            return 'F1' in data and isinstance(data['F1'], str)
+
+    assert Stuff.from_json_text('{"F1": 1}', check_current=True) is None
+    new_obj = Stuff.from_json_text('{"F1": "foo"}', check_current=True)
+    assert new_obj is not None
+    assert new_obj.f1 == "foo"
+
+
 def test_to_json_text():
     obj = StringStuff(f1="foo")
     new_obj = obj.from_json_text(obj.to_json_text())

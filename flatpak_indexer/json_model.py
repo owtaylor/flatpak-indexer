@@ -2,7 +2,7 @@
 
 from datetime import datetime
 import json
-from typing import Any, Dict, TypeVar, Union
+from typing import Any, Dict, Literal, Optional, TypeVar, Union, overload
 
 from .utils import format_date, parse_date, resolve_type
 
@@ -323,10 +323,37 @@ class BaseModel(metaclass=BaseModelMeta):
 
     @classmethod
     def check_json_current(cls, data: Any) -> bool:
+        """
+        Checks if the value of data is considered 'current'
+
+        An application can pass check_current=True to cls.from_json() or
+        cls.from_json_text() to make from_json() return None for not-current items.
+        The idea here is schema-migration: the application can refetch and
+        recache such items.
+
+        For performance reasons, this isn't called at all unless check_current
+        is passed - there is no assertion in the check_current=False case - we
+        assume that demarshaling will fail.
+        """
         return True
 
+    @overload
     @classmethod
-    def from_json(cls: type[M], data: Any) -> M:
+    def from_json(cls: type[M], data: Any) -> M: ...
+
+    @overload
+    @classmethod
+    def from_json(cls: type[M], data: Any, check_current: Literal[True] = ...) -> Optional[M]: ...
+
+    @overload
+    @classmethod
+    def from_json(cls: type[M], data: Any, check_current: Literal[False] = ...) -> M: ...
+
+    @classmethod
+    def from_json(cls, data, check_current: bool = False):
+        if check_current and not cls.check_json_current(data):
+            return None
+
         cls = cls.class_from_json(data)
 
         result = cls.__new__(cls)
@@ -335,6 +362,25 @@ class BaseModel(metaclass=BaseModelMeta):
 
         return result
 
+    @overload
     @classmethod
-    def from_json_text(cls: type[M], text: Union[str, bytes]) -> M:
-        return cls.from_json(json.loads(text))
+    def from_json_text(cls: type[M], text: Union[str, bytes]) -> M: ...
+
+    @overload
+    @classmethod
+    def from_json_text(
+        cls: type[M], text: Union[str, bytes], check_current: Literal[True] = ...
+    ) -> Optional[M]: ...
+
+    @overload
+    @classmethod
+    def from_json_text(
+        cls: type[M], text: Union[str, bytes], check_current: Literal[False] = ...
+    ) -> M: ...
+
+    @classmethod
+    def from_json_text(cls: type[M], text: Union[str, bytes], check_current: bool = False):
+        if check_current:
+            return cls.from_json(json.loads(text), check_current=True)
+        else:
+            return cls.from_json(json.loads(text), check_current=False)
