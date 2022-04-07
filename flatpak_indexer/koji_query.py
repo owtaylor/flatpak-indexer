@@ -25,6 +25,29 @@ ALL_IMAGES_MAX_INTERVAL = timedelta(days=1)
 TIMESTAMP_FUZZ = timedelta(minutes=1)
 
 
+# build:<nvr> - json representation of the build
+KEY_PREFIX_BUILD = 'build:'
+# hash of <build id> => <nvr>
+KEY_BUILD_ID_TO_NVR = 'build-id-to-nvr'
+# hash of <flatpak name> => last queried timestamp string (as per utils.format_date())
+# all builds older than this query time will be in build-by-entity:flatpak
+KEY_BUILD_CACHE_FLATPAK = 'build-cache:flatpak'
+# sorted set of <n>:<v>-<r> of flatpaks (scores are all zero, lexical ordering used)
+# build:<nvr> keys are created along with these, so will exist
+KEY_BUILDS_BY_ENTITY_FLATPAK = 'builds-by-entity:flatpak'
+# sorted set of <tag>:<n>:<v>-<r> with the latest builds tagged into <tag>
+# build:<nvr> keys do *not* necessarily exist for these builds
+KEY_BUILDS_BY_TAG = 'builds-by-tag'
+# hash of <package/module/flatpak name> => koji package ID
+KEY_ENTITY_NAME_TO_PACKAGE_ID = 'entity-name-to-package-id'
+# hash from old-style module NVR (<name>-<stream>-<version>) to newer
+# <name>-<stream>-<version>.context
+KEY_MODULE_NVR_TO_NVRC = 'module-nvr-to-nvrc'
+# hash of <tag> => event id. This is the koji event ID corresponding to the current
+# state of <tag> in builds-by-tag
+KEY_TAG_BUILD_CACHE = 'tag-build-cache'
+
+
 def _get_build(koji_session, redis_client, build_info, build_cls):
     completion_time = datetime.fromtimestamp(build_info['completion_ts'], tz=timezone.utc)
 
@@ -129,8 +152,8 @@ def _get_build(koji_session, redis_client, build_info, build_cls):
 
         build.package_builds.sort()
 
-    redis_client.set('build:' + build.nvr, build.to_json_text())
-    redis_client.hset('build-id-to-nvr', build.build_id, build.nvr)
+    redis_client.set(KEY_PREFIX_BUILD + build.nvr, build.to_json_text())
+    redis_client.hset(KEY_BUILD_ID_TO_NVR, build.build_id, build.nvr)
 
     return build
 
@@ -155,7 +178,7 @@ def _query_flatpak_builds(koji_session, redis_client,
         if include_only is not None and not build_info['name'] in include_only:
             continue
 
-        if not redis_client.exists('build:' + build_info['nvr']):
+        if not redis_client.exists(KEY_PREFIX_BUILD + build_info['nvr']):
             result.append(_get_build(koji_session, redis_client, build_info, FlatpakBuildModel))
 
     return result
@@ -167,7 +190,7 @@ def refresh_flatpak_builds(koji_session, redis_client, flatpaks):
 
     current_ts = datetime.utcnow().replace(tzinfo=timezone.utc)
 
-    queried_ts = redis_client.hmget('build-cache:flatpak', *flatpaks)
+    queried_ts = redis_client.hmget(KEY_BUILD_CACHE_FLATPAK, *flatpaks)
     parsed_ts = [parse_date(ts.decode("utf-8")) if ts else None for ts in queried_ts]
 
     refresh_ts = max((ts for ts in parsed_ts if ts is not None), default=None)
@@ -189,32 +212,32 @@ def refresh_flatpak_builds(koji_session, redis_client, flatpaks):
     with redis_client.pipeline() as pipe:
         pipe.multi()
         if results:
-            pipe.zadd('builds-by-entity:flatpak', {
+            pipe.zadd(KEY_BUILDS_BY_ENTITY_FLATPAK, {
                 f"{n}:{v}-{r}": 0 for n, v, r in (b.nvr.rsplit('-', 2) for b in results)
             })
 
         formatted_current_ts = format_date(current_ts)
-        redis_client.hset('build-cache:flatpak', mapping={
+        redis_client.hset(KEY_BUILD_CACHE_FLATPAK, mapping={
             n: formatted_current_ts for n in flatpaks
         })
         pipe.execute()
 
 
 def list_flatpak_builds(redis_client, flatpak):
-    matches = redis_client.zrangebylex('builds-by-entity:flatpak',
+    matches = redis_client.zrangebylex(KEY_BUILDS_BY_ENTITY_FLATPAK,
                                        '[' + flatpak + ':', '(' + flatpak + ';')
 
     def matches_to_keys():
         for m in matches:
             name, vr = m.decode("utf-8").split(":")
-            yield 'build:' + name + '-' + vr
+            yield KEY_PREFIX_BUILD + name + '-' + vr
 
     return [FlatpakBuildModel.from_json_text(x)
             for x in redis_client.mget(matches_to_keys())]
 
 
 def get_package_id(koji_session, redis_client, entity_name):
-    package_id = redis_client.hget('entity-name-to-package-id', entity_name)
+    package_id = redis_client.hget(KEY_ENTITY_NAME_TO_PACKAGE_ID, entity_name)
     if package_id:
         return int(package_id)
 
@@ -223,13 +246,13 @@ def get_package_id(koji_session, redis_client, entity_name):
     if package_id is None:
         raise RuntimeError(f"Could not look up package ID for {entity_name}")
 
-    redis_client.hset('entity-name-to-package-id', entity_name, package_id)
+    redis_client.hset(KEY_ENTITY_NAME_TO_PACKAGE_ID, entity_name, package_id)
 
     return package_id
 
 
 def _query_build(koji_session, redis_client, nvr, build_cls):
-    raw = redis_client.get('build:' + nvr)
+    raw = redis_client.get(KEY_PREFIX_BUILD + nvr)
     if raw is not None:
         return build_cls.from_json_text(raw)
 
@@ -242,7 +265,7 @@ def _query_build(koji_session, redis_client, nvr, build_cls):
 
 
 def _query_module_build_no_context(koji_session, redis_client, nvr) -> ModuleBuildModel:
-    full_nvr = redis_client.hget('module-nvr-to-nvrc', nvr)
+    full_nvr = redis_client.hget(KEY_MODULE_NVR_TO_NVRC, nvr)
     if full_nvr:
         return cast(ModuleBuildModel,
                     _query_build(koji_session, redis_client, full_nvr.decode("utf-8"),
@@ -268,13 +291,13 @@ def _query_module_build_no_context(koji_session, redis_client, nvr) -> ModuleBui
 
     module_build = cast(ModuleBuildModel,
                         _get_build(koji_session, redis_client, builds[0], ModuleBuildModel))
-    redis_client.hset('module-nvr-to-nvrc', nvr, module_build.nvr)
+    redis_client.hset(KEY_MODULE_NVR_TO_NVRC, nvr, module_build.nvr)
 
     return module_build
 
 
 def _query_package_build_by_id(koji_session, redis_client, build_id) -> PackageBuildModel:
-    nvr = redis_client.hget('build-id-to-nvr', build_id)
+    nvr = redis_client.hget(KEY_BUILD_ID_TO_NVR, build_id)
     if nvr:
         return query_package_build(koji_session, redis_client, nvr.decode("utf-8"))
 
@@ -307,12 +330,12 @@ def query_package_build(koji_session, redis_client, nvr) -> PackageBuildModel:
 
 
 def _refresh_tag_builds(koji_session, tag, pipe):
-    pipe.watch('tag-build-cache')
+    pipe.watch(KEY_TAG_BUILD_CACHE)
 
-    latest_event_raw = pipe.hget('tag-build-cache', tag)
+    latest_event_raw = pipe.hget(KEY_TAG_BUILD_CACHE, tag)
     latest_event = int(latest_event_raw) if latest_event_raw is not None else None
 
-    old_keys = set(pipe.zrangebylex('builds-by-tag',
+    old_keys = set(pipe.zrangebylex(KEY_BUILDS_BY_TAG,
                                     '[' + tag + ':', '(' + tag + ';'))
     new_keys = set(old_keys)
 
@@ -343,11 +366,11 @@ def _refresh_tag_builds(koji_session, tag, pipe):
     pipe.multi()
     to_remove = old_keys - new_keys
     if to_remove:
-        pipe.zrem('builds-by-tag', *to_remove)
+        pipe.zrem(KEY_BUILDS_BY_TAG, *to_remove)
     to_add = new_keys - old_keys
     if to_add:
-        pipe.zadd('builds-by-tag', {key: 0 for key in to_add})
-    pipe.hset('tag-build-cache', tag, latest_event)
+        pipe.zadd(KEY_BUILDS_BY_TAG, {key: 0 for key in to_add})
+    pipe.hset(KEY_TAG_BUILD_CACHE, tag, latest_event)
     pipe.execute()
 
 
@@ -357,7 +380,7 @@ def refresh_tag_builds(koji_session, redis_client, tag):
 
 def query_tag_builds(redis_client, tag, entity_name):
     key = tag + ':' + entity_name
-    matches = redis_client.zrangebylex('builds-by-tag',
+    matches = redis_client.zrangebylex(KEY_BUILDS_BY_TAG,
                                        '[' + key + ':', '(' + key + ';')
 
     def matches_to_nvr():
