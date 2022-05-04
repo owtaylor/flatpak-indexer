@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 import pytest
 
 from flatpak_indexer.json_model import BaseModel, field
+from flatpak_indexer.nvr import NVR
 
 
 class StringStuff(BaseModel):
@@ -75,6 +76,22 @@ def test_datetime_field():
 
     from_json = DateTimeStuff.from_json(JSON)
     assert from_json.f1 == obj.f1
+
+
+class NVRStuff(BaseModel):
+    f1: NVR
+
+
+def test_nvr_field():
+    obj = NVRStuff(f1=NVR("abc-libs-1.2-1.fc30"))
+    JSON = {"F1": "abc-libs-1.2-1.fc30"}
+
+    assert obj.to_json() == JSON
+
+    from_json = NVRStuff.from_json(JSON)
+    assert from_json.f1.name == "abc-libs"
+    assert from_json.f1.version == "1.2"
+    assert from_json.f1.release == "1.fc30"
 
 
 class ClassStuff(BaseModel):
