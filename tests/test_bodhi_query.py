@@ -8,6 +8,7 @@ import pytest
 from flatpak_indexer.bodhi_query import (
     list_updates, refresh_all_updates, refresh_update_status, refresh_updates, reset_update_cache
 )
+from flatpak_indexer.http_utils import HttpConfig
 from flatpak_indexer.koji_utils import KojiConfig
 from flatpak_indexer.models import BodhiUpdateModel
 from flatpak_indexer.redis_utils import RedisConfig
@@ -17,7 +18,7 @@ from .koji import mock_koji
 from .redis import mock_redis
 
 
-class TestConfig(KojiConfig, RedisConfig):
+class TestConfig(HttpConfig, KojiConfig, RedisConfig):
     pass
 
 

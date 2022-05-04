@@ -3,11 +3,8 @@ from functools import partial
 import logging
 from typing import Any, Dict, List, Union
 
-import requests
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
-
 from . import release_info
+from .http_utils import HttpConfig
 from .models import BodhiUpdateModel
 from .release_info import ReleaseStatus
 from .session import Session
@@ -32,18 +29,6 @@ TIMESTAMP_FUZZ = timedelta(minutes=1)
 
 def parse_date_value(value):
     return datetime.strptime(value, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
-
-
-def _get_retrying_session():
-    s = requests.Session()
-
-    retries = Retry(total=5,
-                    backoff_factor=0.1,
-                    status_forcelist=[500, 502, 503, 504])
-
-    s.mount('https://', HTTPAdapter(max_retries=retries))
-
-    return s
 
 
 def _update_update_from_response(pipe, update_json, old_update):
@@ -214,10 +199,11 @@ def _query_updates(requests_session,
                    results)
 
 
-def _refresh_updates(content_type, entities, pipe, rows_per_page=None):
+def _refresh_updates(session: Session, content_type, entities, pipe, rows_per_page=None):
     pipe.watch('updates-by-entity:' + content_type)
 
-    requests_session = _get_retrying_session()
+    assert isinstance(session.config, HttpConfig)
+    requests_session = session.config.get_requests_session()
 
     to_query = set(entities)
     to_refresh = set()
@@ -269,14 +255,15 @@ def _refresh_updates(content_type, entities, pipe, rows_per_page=None):
 def refresh_updates(session: Session,
                     content_type, entities, rows_per_page=10):
     session.redis_client.transaction(
-        partial(_refresh_updates, content_type, entities, rows_per_page=rows_per_page)
+        partial(_refresh_updates, session, content_type, entities, rows_per_page=rows_per_page)
     )
 
 
-def _refresh_all_updates(content_type, pipe, rows_per_page=10):
+def _refresh_all_updates(session: Session, content_type, pipe, rows_per_page=10):
     pipe.watch('updates-by-entity:' + content_type)
 
-    requests_session = _get_retrying_session()
+    assert isinstance(session.config, HttpConfig)
+    requests_session = session.config.get_requests_session()
 
     current_ts = datetime.utcnow()
 
@@ -301,8 +288,9 @@ def _refresh_all_updates(content_type, pipe, rows_per_page=10):
 
 
 def refresh_all_updates(session, content_type, rows_per_page=10):
-    session.redis_client.transaction(partial(_refresh_all_updates, content_type,
-                                     rows_per_page=rows_per_page))
+    session.redis_client.transaction(
+        partial(_refresh_all_updates, session, content_type, rows_per_page=rows_per_page)
+    )
 
 
 def _refresh_update(update_json, pipe):
@@ -319,7 +307,9 @@ def _refresh_update(update_json, pipe):
 def refresh_update_status(session, update_id):
     """Refreshes the status of a single update"""
     url = f"https://bodhi.fedoraproject.org/updates/{update_id}"
-    requests_session = _get_retrying_session()
+
+    assert isinstance(session.config, HttpConfig)
+    requests_session = session.config.get_requests_session()
 
     if session.redis_client.get('update:' + update_id) is None:
         logger.info("Update %s not found, no need to update status", update_id)
