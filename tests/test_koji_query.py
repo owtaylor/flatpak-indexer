@@ -1,9 +1,10 @@
 import copy
 import json
 import logging
+from textwrap import dedent
 import time
 
-from pytest import raises
+from pytest import fixture, raises
 
 from flatpak_indexer.koji_query import (
     _query_package_build_by_id,
@@ -14,26 +15,41 @@ from flatpak_indexer.koji_query import (
     refresh_flatpak_builds,
     refresh_tag_builds
 )
+from flatpak_indexer.koji_utils import KojiConfig
 from flatpak_indexer.models import FlatpakBuildModel
-from .koji import make_koji_session
-from .redis import make_redis_client
+from flatpak_indexer.redis_utils import RedisConfig
+from flatpak_indexer.session import Session
+from .koji import make_koji_session, mock_koji
+from .redis import make_redis_client, mock_redis
 
 
-def test_query_builds(caplog):
+class TestConfig(KojiConfig, RedisConfig):
+    pass
+
+
+@fixture
+def session():
+    config = TestConfig.from_str(dedent("""
+        koji_config: fedora
+        redis_url: redis://localhost
+"""))
+    yield Session(config)
+
+
+@mock_koji
+@mock_redis
+def test_query_builds(session, caplog):
     caplog.set_level(logging.INFO)
 
     def sort_builds(builds):
         builds.sort(key=lambda x: x.build_id)
 
-    koji_session = make_koji_session()
-    redis_client = make_redis_client()
-
     # First try, we query from scratch from Koji
     caplog.clear()
-    refresh_flatpak_builds(koji_session, redis_client, ['eog'])
+    refresh_flatpak_builds(session, ['eog'])
     assert "Calling koji.listBuilds({'type': 'image', 'state': 1, 'packageID': 303})" in caplog.text
 
-    builds = list_flatpak_builds(koji_session, redis_client, 'eog')
+    builds = list_flatpak_builds(session, 'eog')
     sort_builds(builds)
     assert len(builds) == 2
     assert builds[0].nvr == 'eog-master-20180821163756.2'
@@ -42,24 +58,24 @@ def test_query_builds(caplog):
 
     # Add quadrapassel to the set we request
     caplog.clear()
-    refresh_flatpak_builds(koji_session, redis_client, ['eog', 'quadrapassel'])
+    refresh_flatpak_builds(session, ['eog', 'quadrapassel'])
     assert ("Calling koji.listBuilds({'type': 'image', 'state': 1, 'packageID': 303})"
             not in caplog.text)
 
-    new_builds = list_flatpak_builds(koji_session, redis_client, 'eog')
+    new_builds = list_flatpak_builds(session, 'eog')
     sort_builds(new_builds)
     assert len(new_builds) == 2
 
-    new_builds = list_flatpak_builds(koji_session, redis_client, 'quadrapassel')
+    new_builds = list_flatpak_builds(session, 'quadrapassel')
     assert len(new_builds) == 1
     assert new_builds[0].nvr == 'quadrapassel-master-20181203181243.2'
 
 
-def test_query_builds_refresh():
+@mock_koji
+@mock_redis
+def test_query_builds_refresh(session):
     EOG_NVR = 'eog-master-20180821163756.2'
     QUADRAPASSEL_NVR = 'quadrapassel-master-20181203181243.2'
-
-    redis_client = make_redis_client()
 
     def filter_build_1(build):
         if build['nvr'] in (EOG_NVR, QUADRAPASSEL_NVR):
@@ -67,10 +83,10 @@ def test_query_builds_refresh():
 
         return build
 
-    koji_session = make_koji_session(filter_build=filter_build_1)
-    refresh_flatpak_builds(koji_session, redis_client, ['eog'])
+    session.koji_session = make_koji_session(filter_build=filter_build_1)
+    refresh_flatpak_builds(session, ['eog'])
 
-    builds = list_flatpak_builds(koji_session, redis_client, 'eog')
+    builds = list_flatpak_builds(session, 'eog')
     assert len(builds) == 1
 
     current_ts = time.time()
@@ -82,41 +98,40 @@ def test_query_builds_refresh():
 
         return build
 
-    koji_session = make_koji_session(filter_build=filter_build_2)
-    refresh_flatpak_builds(koji_session, redis_client, ['eog'])
+    session.koji_session = make_koji_session(filter_build=filter_build_2)
+    refresh_flatpak_builds(session, ['eog'])
 
-    builds = list_flatpak_builds(koji_session, redis_client, 'eog')
+    builds = list_flatpak_builds(session, 'eog')
     assert len(builds) == 2
 
 
-def test_query_builds_refetch(caplog):
+@mock_koji
+@mock_redis
+def test_query_builds_refetch(session, caplog):
     caplog.set_level(logging.INFO)
 
     def sort_builds(builds):
         builds.sort(key=lambda x: x.build_id)
 
-    koji_session = make_koji_session()
-    redis_client = make_redis_client()
-
     # query from scratch from Koji to prime the redis cache
-    refresh_flatpak_builds(koji_session, redis_client, ['eog'])
+    refresh_flatpak_builds(session, ['eog'])
     assert "Calling koji.listBuilds({'type': 'image', 'state': 1, 'packageID': 303})" in caplog.text
 
-    builds = list_flatpak_builds(koji_session, redis_client, 'eog')
+    builds = list_flatpak_builds(session, 'eog')
     sort_builds(builds)
     assert len(builds) == 2
 
     # Now we simulate having old schemas and missing data
-    raw = redis_client.get('build:' + builds[0].nvr)
+    raw = session.redis_client.get('build:' + builds[0].nvr)
     assert raw
     data = json.loads(raw)
     data["PackageBuilds"] = [pb["Nvr"] for pb in data["PackageBuilds"]]
-    redis_client.set('build:' + builds[0].nvr, json.dumps(data))
+    session.redis_client.set('build:' + builds[0].nvr, json.dumps(data))
 
-    redis_client.delete('build:' + builds[1].nvr)
+    session.redis_client.delete('build:' + builds[1].nvr)
 
     caplog.clear()
-    new_builds = list_flatpak_builds(koji_session, redis_client, 'eog')
+    new_builds = list_flatpak_builds(session, 'eog')
     sort_builds(new_builds)
     assert len(new_builds) == 2
     assert new_builds[0].nvr == builds[0].nvr
@@ -126,14 +141,13 @@ def test_query_builds_refetch(caplog):
     assert "Calling koji.getBuild(eog-master-20181128204005.1)" in caplog.text
 
 
-def test_query_image_build(caplog):
+@mock_koji
+@mock_redis
+def test_query_image_build(session, caplog):
     caplog.set_level(logging.INFO)
 
-    koji_session = make_koji_session()
-    redis_client = make_redis_client()
-
     caplog.clear()
-    build = query_image_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
+    build = query_image_build(session, 'baobab-master-3220200331145937.2')
     assert "Calling koji.getBuild" in caplog.text
 
     assert isinstance(build, FlatpakBuildModel)
@@ -151,13 +165,15 @@ def test_query_image_build(caplog):
     ]
 
     caplog.clear()
-    build2 = query_image_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
+    build2 = query_image_build(session, 'baobab-master-3220200331145937.2')
     assert "Calling koji.getBuild" not in caplog.text
 
     assert isinstance(build2, FlatpakBuildModel)
 
 
-def test_query_image_build_no_images():
+@mock_koji
+@mock_redis
+def test_query_image_build_no_images(session):
     def filter_archives(build, archives):
         archives = copy.deepcopy(archives)
         for a in archives:
@@ -165,13 +181,14 @@ def test_query_image_build_no_images():
 
         return archives
 
-    koji_session = make_koji_session(filter_archives=filter_archives)
-    redis_client = make_redis_client()
-    build = query_image_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
+    session.koji_session = make_koji_session(filter_archives=filter_archives)
+    build = query_image_build(session, 'baobab-master-3220200331145937.2')
     assert build.images == []
 
 
-def test_query_image_build_missing_digest():
+@mock_koji
+@mock_redis
+def test_query_image_build_missing_digest(session):
     def filter_archives(build, archives):
         archives = copy.deepcopy(archives)
         for a in archives:
@@ -179,83 +196,77 @@ def test_query_image_build_missing_digest():
 
         return archives
 
-    koji_session = make_koji_session(filter_archives=filter_archives)
-    redis_client = make_redis_client()
+    session.koji_session = make_koji_session(filter_archives=filter_archives)
 
     with raises(RuntimeError, match=r"Can't find OCI or docker digest in image"):
-        query_image_build(koji_session, redis_client, 'baobab-master-3220200331145937.2')
+        query_image_build(session, 'baobab-master-3220200331145937.2')
 
 
-def test_query_module_build(caplog):
+@mock_koji
+@mock_redis
+def test_query_module_build(session, caplog):
     caplog.set_level(logging.INFO)
-
-    koji_session = make_koji_session()
-    redis_client = make_redis_client()
 
     # Try with a context
     caplog.clear()
-    build = query_module_build(koji_session, redis_client, 'eog-master-20180821163756.775baa8e')
+    build = query_module_build(session, 'eog-master-20180821163756.775baa8e')
     assert build.nvr == 'eog-master-20180821163756.775baa8e'
     assert "Calling koji.getBuild" in caplog.text
 
     caplog.clear()
-    build = query_module_build(koji_session, redis_client, 'eog-master-20180821163756.775baa8e')
+    build = query_module_build(session, 'eog-master-20180821163756.775baa8e')
     assert build.nvr == 'eog-master-20180821163756.775baa8e'
     assert "Calling koji.getBuild" not in caplog.text
 
     # And without a context (again from scratch)
-    redis_client = make_redis_client()
+    session.redis_client = make_redis_client()
 
     caplog.clear()
-    build = query_module_build(koji_session, redis_client, 'eog-master-20180821163756')
+    build = query_module_build(session, 'eog-master-20180821163756')
     assert "Calling koji.getPackageID" in caplog.text
     assert "Calling koji.listBuilds" in caplog.text
 
     caplog.clear()
-    build = query_module_build(koji_session, redis_client, 'eog-master-20180821163756')
+    build = query_module_build(session, 'eog-master-20180821163756')
     assert build.nvr == 'eog-master-20180821163756.775baa8e'
     assert "Calling koji.getPackageID" not in caplog.text
     assert "Calling koji.listBuilds" not in caplog.text
 
 
-def test_query_module_build_multiple_contexts(caplog):
-    koji_session = make_koji_session()
-    redis_client = make_redis_client()
-
+@mock_koji
+@mock_redis
+def test_query_module_build_multiple_contexts(session, caplog):
     caplog.clear()
-    build = query_module_build(koji_session, redis_client, 'django-1.6-20180828135711')
+    build = query_module_build(session, 'django-1.6-20180828135711')
     assert build.nvr == 'django-1.6-20180828135711.a5b0195c'
     assert "More than one context for django-1.6-20180828135711, using most recent!" in caplog.text
 
 
-def test_query_package_build_by_bad_id():
-    koji_session = make_koji_session()
-    redis_client = make_redis_client()
-
+@mock_koji
+@mock_redis
+def test_query_package_build_by_bad_id(session):
     with raises(RuntimeError, match="Could not look up build ID -1 in Koji"):
-        _query_package_build_by_id(koji_session, redis_client, -1)
+        _query_package_build_by_id(session, -1)
 
 
-def test_query_build_missing():
-    koji_session = make_koji_session()
-    redis_client = make_redis_client()
-
+@mock_koji
+@mock_redis
+def test_query_build_missing(session):
     with raises(RuntimeError, match="Could not look up BAH-1-1 in Koji"):
-        query_image_build(koji_session, redis_client, 'BAH-1-1')
+        query_image_build(session, 'BAH-1-1')
 
     with raises(RuntimeError, match="Could not look up package ID for BAH"):
-        query_module_build(koji_session, redis_client, 'BAH-1-1')
+        query_module_build(session, 'BAH-1-1')
 
     with raises(RuntimeError, match="Could not look up eog-1-1 in Koji"):
-        query_module_build(koji_session, redis_client, 'eog-1-1')
+        query_module_build(session, 'eog-1-1')
 
 
-def test_query_tag_builds():
-    koji_session = make_koji_session()
-    redis_client = make_redis_client()
-
-    refresh_tag_builds(koji_session, redis_client, 'f28')
-    build_names = sorted(query_tag_builds(redis_client, 'f28', 'quadrapassel'))
+@mock_koji
+@mock_redis
+def test_query_tag_builds(session):
+    refresh_tag_builds(session, 'f28')
+    build_names = sorted(query_tag_builds(session, 'f28', 'quadrapassel'))
 
     assert build_names == [
         'quadrapassel-3.22.0-2.fc26',
@@ -264,15 +275,16 @@ def test_query_tag_builds():
     ]
 
 
-def test_query_tag_builds_incremental():
+@mock_koji
+@mock_redis
+def test_query_tag_builds_incremental(session):
     # Start off with a koji session that will return tag history
     # mid-way through the f28 development cycle
-    koji_session = make_koji_session(tag_query_timestamp=1521520000)
-    redis_client = make_redis_client()
+    session.koji_session = make_koji_session(tag_query_timestamp=1521520000)
 
-    refresh_tag_builds(koji_session, redis_client, 'f28')
+    refresh_tag_builds(session, 'f28')
 
-    build_names = sorted(query_tag_builds(redis_client, 'f28', 'gnome-desktop3'))
+    build_names = sorted(query_tag_builds(session, 'f28', 'gnome-desktop3'))
     assert build_names == [
         'gnome-desktop3-3.26.1-1.fc28',
         'gnome-desktop3-3.26.2-1.fc28',
@@ -281,11 +293,11 @@ def test_query_tag_builds_incremental():
 
     # Now switch to a koji session without that limitation,
     # check that when we refresh, we add and remove builds properly
-    koji_session = make_koji_session()
+    session.koji_session = make_koji_session()
 
-    refresh_tag_builds(koji_session, redis_client, 'f28')
+    refresh_tag_builds(session, 'f28')
 
-    build_names = sorted(query_tag_builds(redis_client, 'f28', 'gnome-desktop3'))
+    build_names = sorted(query_tag_builds(session, 'f28', 'gnome-desktop3'))
     assert build_names == [
         'gnome-desktop3-3.27.90-1.fc28',
         'gnome-desktop3-3.28.0-1.fc28',

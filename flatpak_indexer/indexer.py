@@ -7,7 +7,6 @@ import logging
 import os
 from typing import DefaultDict, Dict, Optional, Set
 
-from .build_cache import BuildCache
 from .cleaner import Cleaner
 from .config import Config, IndexConfig, RegistryConfig
 from .delta_generator import DeltaGenerator
@@ -15,6 +14,7 @@ from .models import (
     FlatpakBuildModel, ImageModel, ModuleBuildModel, ModuleStreamContentsModel,
     RegistryModel
 )
+from .session import Session
 from .utils import atomic_writer, path_for_digest, pseudo_atomic_dir_writer, uri_for_digest
 
 
@@ -55,11 +55,11 @@ class IconStore(object):
 class IndexWriter:
     def __init__(
         self, conf: IndexConfig, registry_config: RegistryConfig,
-        build_cache: BuildCache, icon_store: Optional[IconStore]
+        session: Session, icon_store: Optional[IconStore]
     ):
         self.registry_config = registry_config
         self.config = conf
-        self.build_cache = build_cache
+        self.session = session
         self.icon_store = icon_store
         self.registry = RegistryModel()
 
@@ -129,7 +129,7 @@ class IndexWriter:
             nvr = image.nvr
             if nvr and nvr not in seen:
                 seen.add(nvr)
-                yield self.build_cache.get_image_build(nvr)
+                yield self.session.build_cache.get_image_build(nvr)
 
     def write_contents(self):
         contents_dir = self.config.contents
@@ -147,7 +147,7 @@ class IndexWriter:
 
             package_to_module: Dict[str, ModuleBuildModel] = {}
             for module_nvr in build.module_builds:
-                module_build = self.build_cache.get_module_build(module_nvr)
+                module_build = self.session.build_cache.get_module_build(module_nvr)
                 for binary_package in module_build.package_builds:
                     package_to_module[binary_package.nvr] = module_build
 
@@ -198,7 +198,7 @@ class IndexWriter:
 class Indexer:
     def __init__(self, config: Config, cleaner: Optional[Cleaner] = None):
         self.conf = config
-        self.build_cache = BuildCache(config)
+        self.session = Session(config)
         if cleaner is None:
             cleaner = Cleaner(self.conf)
         self.cleaner = cleaner
@@ -236,7 +236,7 @@ class Indexer:
 
             index = IndexWriter(index_config,
                                 registry_config,
-                                self.build_cache,
+                                self.session,
                                 icon_store)
 
             for repository in registry_info.repositories.values():

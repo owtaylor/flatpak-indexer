@@ -1,6 +1,6 @@
 import yaml
 
-from flatpak_indexer.build_cache import BuildCache
+from flatpak_indexer.session import Session
 from .koji import mock_koji
 from .redis import mock_redis
 from .utils import get_config
@@ -16,7 +16,7 @@ redis_url: redis://localhost
 @mock_redis
 def test_build_cache(tmp_path):
     config = get_config(tmp_path, CONFIG)
-    build_cache = BuildCache(config)
+    build_cache = Session(config).build_cache
 
     image_a = build_cache.get_image_build("baobab-master-3220200331145937.2")
     image_b = build_cache.get_image_build("baobab-master-3220200331145937.2")

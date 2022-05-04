@@ -10,6 +10,7 @@ from requests.packages.urllib3.util.retry import Retry
 from . import release_info
 from .models import BodhiUpdateModel
 from .release_info import ReleaseStatus
+from .session import Session
 from .utils import format_date, parse_date
 
 logger = logging.getLogger(__name__)
@@ -265,10 +266,11 @@ def _refresh_updates(content_type, entities, pipe, rows_per_page=None):
     pipe.execute()
 
 
-def refresh_updates(koji_session, redis_client,
+def refresh_updates(session: Session,
                     content_type, entities, rows_per_page=10):
-    redis_client.transaction(partial(_refresh_updates, content_type, entities,
-                                     rows_per_page=rows_per_page))
+    session.redis_client.transaction(
+        partial(_refresh_updates, content_type, entities, rows_per_page=rows_per_page)
+    )
 
 
 def _refresh_all_updates(content_type, pipe, rows_per_page=10):
@@ -298,8 +300,8 @@ def _refresh_all_updates(content_type, pipe, rows_per_page=10):
     pipe.execute()
 
 
-def refresh_all_updates(koji_session, redis_client, content_type, rows_per_page=10):
-    redis_client.transaction(partial(_refresh_all_updates, content_type,
+def refresh_all_updates(session, content_type, rows_per_page=10):
+    session.redis_client.transaction(partial(_refresh_all_updates, content_type,
                                      rows_per_page=rows_per_page))
 
 
@@ -314,12 +316,12 @@ def _refresh_update(update_json, pipe):
     pipe.execute()
 
 
-def refresh_update_status(koji_session, redis_client, update_id):
+def refresh_update_status(session, update_id):
     """Refreshes the status of a single update"""
     url = f"https://bodhi.fedoraproject.org/updates/{update_id}"
     requests_session = _get_retrying_session()
 
-    if redis_client.get('update:' + update_id) is None:
+    if session.redis_client.get('update:' + update_id) is None:
         logger.info("Update %s not found, no need to update status", update_id)
         return
 
@@ -329,15 +331,15 @@ def refresh_update_status(koji_session, redis_client, update_id):
     response.raise_for_status()
 
     # Could optimize to avoid updating the updates-by-entity index
-    redis_client.transaction(partial(_refresh_update, response.json()['update']))
+    session.redis_client.transaction(partial(_refresh_update, response.json()['update']))
 
 
-def reset_update_cache(redis_client):
-    redis_client.delete('update-cache:flatpak')
-    redis_client.delete('update-cache:rpm')
+def reset_update_cache(session):
+    session.redis_client.delete('update-cache:flatpak')
+    session.redis_client.delete('update-cache:rpm')
 
 
-def list_updates(redis_client, content_type, entity_name=None, release_branch=None):
+def list_updates(session, content_type, entity_name=None, release_branch=None):
     """ Returns a list of (PackageUpdateBuild, PackageBuild)"""
 
     if release_branch is not None:
@@ -352,10 +354,11 @@ def list_updates(redis_client, content_type, entity_name=None, release_branch=No
         first_key = key + ':' + branches[0]
         last_key = key + ':' + branches[-1]
 
-        updates_by_entity = redis_client.zrangebylex('updates-by-entity:' + content_type,
-                                                     '[' + first_key + ':', '(' + last_key + ';')
+        updates_by_entity = session.redis_client.zrangebylex(
+            'updates-by-entity:' + content_type, '[' + first_key + ':', '(' + last_key + ';'
+        )
     else:
-        updates_by_entity = redis_client.zrange('updates-by-entity:' + content_type, 0, -1)
+        updates_by_entity = session.redis_client.zrange('updates-by-entity:' + content_type, 0, -1)
 
     def filter_results(keys):
         for key in keys:
@@ -366,4 +369,4 @@ def list_updates(redis_client, content_type, entity_name=None, release_branch=No
     # Remove duplicates
     to_fetch = sorted(set(filter_results(updates_by_entity)))
 
-    return [BodhiUpdateModel.from_json_text(x) for x in redis_client.mget(to_fetch)]
+    return [BodhiUpdateModel.from_json_text(x) for x in session.redis_client.mget(to_fetch)]

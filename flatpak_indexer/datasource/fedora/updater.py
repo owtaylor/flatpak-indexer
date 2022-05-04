@@ -8,10 +8,8 @@ from ...bodhi_query import (list_updates, refresh_all_updates,
                             refresh_update_status, reset_update_cache)
 from ...config import Config
 from ...fedora_monitor import FedoraMonitor
-from ...koji_query import query_image_build
-from ...koji_utils import get_koji_session
 from ...models import RegistryModel, TagHistoryItemModel, TagHistoryModel
-from ...redis_utils import get_redis_client
+from ...session import Session
 from ...utils import unparse_pull_spec
 
 
@@ -44,10 +42,9 @@ class FedoraUpdater(Updater):
     def __init__(self, config: Config):
         self.conf = config
 
-        self.redis_client = get_redis_client(config)
+        self.session = Session(config)
         self.change_monitor = None
         self.queue_name = None
-        self.koji_session = get_koji_session(self.conf)
 
     def start(self):
         self.change_monitor = FedoraMonitor(self.conf, watch_bodhi_updates=True)
@@ -60,17 +57,17 @@ class FedoraUpdater(Updater):
         if changed is None:
             # If we reconnected to a different queue, we don't have any
             # information about the status of cached updates, and need to start over
-            reset_update_cache(self.redis_client)
+            reset_update_cache(self.session)
         else:
             for bodhi_update_id in changed:
-                refresh_update_status(self.koji_session, self.redis_client, bodhi_update_id)
+                refresh_update_status(self.session, bodhi_update_id)
 
         # Now we've updated, we can remove old entries from the log
         self.change_monitor.clear_bodhi_changed(serial)
 
-        refresh_all_updates(self.koji_session, self.redis_client, content_type='flatpak')
-        updates = list_updates(self.redis_client, content_type='flatpak')
-        builds = {nvr: query_image_build(self.koji_session, self.redis_client, nvr)
+        refresh_all_updates(self.session, content_type='flatpak')
+        updates = list_updates(self.session, content_type='flatpak')
+        builds = {nvr: self.session.build_cache.get_image_build(nvr)
                   for update in updates for nvr in update.builds}
 
         repos = {}

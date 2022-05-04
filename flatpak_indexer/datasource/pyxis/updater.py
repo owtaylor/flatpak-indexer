@@ -7,11 +7,9 @@ from urllib.parse import urlencode
 import requests
 
 from .. import Updater
-from ...koji_query import query_image_build
-from ...koji_utils import get_koji_session
 from ...models import (FlatpakBuildModel, RegistryModel,
                        TagHistoryItemModel, TagHistoryModel)
-from ...redis_utils import get_redis_client
+from ...session import Session
 from ...utils import parse_date, rpm_nvr_compare
 
 
@@ -31,9 +29,8 @@ class Registry:
         self.registry = RegistryModel()
         self.image_to_build = dict()
 
-        self.session = global_config.get_requests_session()
-        self.koji_session = get_koji_session(global_config)
-        self.redis_client = get_redis_client(global_config)
+        self.requests_session = global_config.get_requests_session()
+        self.session = Session(global_config)
 
     def add_index(self, index_config):
         if index_config.koji_tags:
@@ -49,7 +46,7 @@ class Registry:
             kwargs['cert'] = (self.global_config.pyxis_client_cert,
                               self.global_config.pyxis_client_key)
 
-        response = self.session.get(url, headers={'Accept': 'application/json'}, **kwargs)
+        response = self.requests_session.get(url, headers={'Accept': 'application/json'}, **kwargs)
         response.raise_for_status()
 
         return response.json()
@@ -112,10 +109,10 @@ class Registry:
         else:
             inherit = False
 
-        tagged_builds = self.koji_session.listTagged(koji_tag, type='image',
-                                                     inherit=inherit, latest=True)
+        tagged_builds = self.session.koji_session.listTagged(koji_tag, type='image',
+                                                             inherit=inherit, latest=True)
         for tagged_build in tagged_builds:
-            build = query_image_build(self.koji_session, self.redis_client, tagged_build['nvr'])
+            build = self.session.build_cache.get_image_build(tagged_build['nvr'])
             if isinstance(build, FlatpakBuildModel):
                 yield build
 
@@ -161,9 +158,7 @@ class Registry:
                     if len(history_items) == 0:
                         continue
 
-                    build_items = [(query_image_build(self.koji_session,
-                                                      self.redis_client,
-                                                      nvr), start_date)
+                    build_items = [(self.session.build_cache.get_image_build(nvr), start_date)
                                    for (nvr, start_date) in history_items]
 
                     self._add_build_history(repository, tag, architectures, build_items)

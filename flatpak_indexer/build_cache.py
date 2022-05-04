@@ -1,20 +1,18 @@
 from typing import Dict
 
 from .koji_query import query_image_build, query_module_build, query_package_build
-from .koji_utils import get_koji_session
 from .models import (
     ImageBuildModel, ModuleBuildModel, PackageBuildModel
 )
-from .redis_utils import get_redis_client
+from .session import Session
 
 
 class BuildCache:
     image_builds: Dict[str, ImageBuildModel]
     module_builds: Dict[str, ModuleBuildModel]
 
-    def __init__(self, global_config):
-        self.koji_session = get_koji_session(global_config)
-        self.redis_client = get_redis_client(global_config)
+    def __init__(self, session: Session):
+        self.session = session
         self.image_builds = {}
         self.module_builds = {}
         self.package_builds = {}
@@ -24,7 +22,7 @@ class BuildCache:
         if image_build:
             return image_build
 
-        image_build = query_image_build(self.koji_session, self.redis_client, nvr)
+        image_build = query_image_build(self.session, nvr)
         self.image_builds[nvr] = image_build
         return image_build
 
@@ -33,7 +31,7 @@ class BuildCache:
         if module_build:
             return module_build
 
-        module_build = query_module_build(self.koji_session, self.redis_client, nvr)
+        module_build = query_module_build(self.session, nvr)
         self.module_builds[nvr] = module_build
         return module_build
 
@@ -42,6 +40,6 @@ class BuildCache:
         if package_build:
             return package_build
 
-        package_build = query_package_build(self.koji_session, self.redis_client, nvr)
+        package_build = query_package_build(self.session, nvr)
         self.package_builds[nvr] = package_build
         return package_build
