@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 from typing import Any, Dict, Literal, Optional, overload, TypeVar, Union
 
+from .nvr import NVR
 from .utils import format_date, parse_date, resolve_type
 
 
@@ -112,6 +113,11 @@ class BooleanField(ScalarField):
 class DateTimeField(ScalarField):
     to_json = staticmethod(format_date)
     from_json = staticmethod(parse_date)
+
+
+class NVRField(ScalarField):
+    to_json = str
+    from_json = NVR
 
 
 class CollectionField(ModelField):
@@ -270,6 +276,8 @@ def _make_model_field(name, type_, field_object):
         return FloatField(name, json_name, optional=optional)
     elif resolved == datetime:
         return DateTimeField(name, json_name, optional=optional)
+    elif resolved == NVR:
+        return NVRField(name, json_name, optional=optional)
 
     raise TypeError(f"{name}: Unsupported type {resolved}")
 
