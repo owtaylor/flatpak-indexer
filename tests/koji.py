@@ -6,7 +6,7 @@ import os
 from typing import Dict, List
 from unittest.mock import create_autospec, DEFAULT, Mock, patch
 
-import koji
+from koji import ClientSession
 
 
 _builds: List[dict] = []
@@ -176,7 +176,7 @@ class MockKojiContext():
 def make_koji_session(**kwargs):
     ctx = MockKojiContext(**kwargs)
 
-    session = create_autospec(koji.ClientSession)
+    session = create_autospec(ClientSession)
     session.getBuild = Mock()
     session.getBuild.side_effect = ctx.get_build
     session.getPackageID = Mock()
