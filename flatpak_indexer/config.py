@@ -2,8 +2,8 @@ from datetime import timedelta
 import os
 from typing import Dict, List, Optional, Tuple
 
-from flatpak_indexer.http_utils import HttpConfig
 from flatpak_indexer.koji_utils import KojiConfig
+from flatpak_indexer.odcs_query import OdcsConfig
 from flatpak_indexer.redis_utils import RedisConfig
 from .base_config import BaseConfig, ConfigError, configfield, Lookup
 
@@ -51,7 +51,7 @@ class DaemonConfig(BaseConfig):
         super().__init__(lookup)
 
 
-class Config(HttpConfig, KojiConfig, RedisConfig):
+class Config(KojiConfig, OdcsConfig, RedisConfig):
     indexes: List[IndexConfig] = configfield(skip=True)
     registries: Dict[str, RegistryConfig] = configfield(skip=True)
 

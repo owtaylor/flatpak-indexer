@@ -11,6 +11,8 @@ redis_url: ${REDIS_URL:redis://localhost:6379}
 redis_password: abc123
 # name of a Koji config section
 koji_config: brew
+# url to the ODCS instance used for container builds
+odcs_uri: https://odcs.engineering.redhat.com/
 # Allowing overriding the system trust DB for https connections to certain hosts;
 # if relative, the path is looked up in included certs
 local_certs:

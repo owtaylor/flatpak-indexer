@@ -8,6 +8,7 @@ import koji
 from .models import (BinaryPackage, FlatpakBuildModel,
                      ImageBuildModel, ImageModel, KojiBuildModel,
                      ModuleBuildModel, PackageBuildModel)
+from .odcs_query import composes_to_modules
 from .session import Session
 from .utils import format_date, parse_date
 
@@ -135,9 +136,16 @@ def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
                                            pull_spec=pull_spec))
 
         if isinstance(build, FlatpakBuildModel):
-            for m in build_info['extra']['image']['modules']:
-                module_build = query_module_build(session, m)
-                build.module_builds.append(module_build.nvr)
+            compose_ids = build_info['extra']['image'].get('odcs', {}).get('compose_ids')
+            if compose_ids is not None:
+                build.module_builds = []
+                for nsvc in composes_to_modules(session, compose_ids):
+                    n, s, v, c = nsvc.split(":")
+                    build.module_builds.append(f"{n}-{s}-{v}.{c}")
+            else:
+                for m in build_info['extra']['image']['modules']:
+                    module_build = query_module_build(session, m)
+                    build.module_builds.append(module_build.nvr)
 
             build.module_builds.sort()
             build.package_builds.sort(key=lambda pb: pb.nvr)

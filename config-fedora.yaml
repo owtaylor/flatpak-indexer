@@ -1,5 +1,7 @@
 # name of a Koji config section
 koji_config: fedora
+# url to the ODCS instance used for container builds
+odcs_uri: https://odcs.fedoraproject.org/
 # URL to a local Redis index for caching and queuing
 redis_url: ${REDIS_URL:redis://localhost:6379}
 redis_password: abc123

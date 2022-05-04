@@ -9,12 +9,13 @@ import yaml
 from flatpak_indexer.cli import cli
 from .pyxis import mock_pyxis
 from .redis import mock_redis
-from .utils import mock_brew, write_config
+from .utils import mock_brew, mock_odcs, write_config
 
 CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 redis_url: redis://localhost
 koji_config: brew
+odcs_uri: https://odcs.example.com/
 icons_dir: ${OUTPUT_DIR}/icons/
 icons_uri: https://flatpaks.example.com/icons
 registries:
@@ -95,6 +96,7 @@ def test_daemon_exception(tmp_path, where):
 
 
 @mock_brew
+@mock_odcs
 @mock_pyxis
 @mock_redis
 @pytest.mark.parametrize('verbose', [False, True])

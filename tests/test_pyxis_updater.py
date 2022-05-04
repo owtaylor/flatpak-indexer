@@ -9,7 +9,7 @@ from flatpak_indexer.datasource.pyxis import PyxisUpdater
 from flatpak_indexer.models import RegistryModel
 from .pyxis import mock_pyxis
 from .redis import mock_redis
-from .utils import get_config, mock_brew, setup_client_cert
+from .utils import get_config, mock_brew, mock_odcs, setup_client_cert
 
 
 def run_update(updater):
@@ -28,6 +28,7 @@ CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 redis_url: redis://localhost
 koji_config: brew
+odcs_uri: https://odcs.example.com/
 registries:
     registry.example.com:
         public_url: https://registry.example.com/
@@ -59,6 +60,7 @@ indexes:
                           (True,  False),
                           (False, True)])
 @mock_brew
+@mock_odcs
 @mock_pyxis
 @mock_redis
 def test_pyxis_updater(tmp_path, server_cert, client_cert):
@@ -86,6 +88,7 @@ def test_pyxis_updater(tmp_path, server_cert, client_cert):
 
 
 @mock_brew
+@mock_odcs
 @mock_pyxis(fail_tag_history=True)
 @mock_redis
 def test_pyxis_updater_tag_history_exception(tmp_path):
@@ -134,6 +137,7 @@ KOJI_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 redis_url: redis://localhost
 koji_config: brew
+odcs_uri: https://odcs.example.com/
 registries:
     brew:
         public_url: https://internal.example.com/
@@ -156,6 +160,7 @@ indexes:
 
 @pytest.mark.parametrize("inherit", (False, True))
 @mock_brew
+@mock_odcs
 @mock_pyxis
 @mock_redis
 def test_pyxis_updater_koji(tmp_path, inherit):

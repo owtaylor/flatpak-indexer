@@ -15,7 +15,7 @@ from .koji import mock_koji
 from .pyxis import mock_pyxis
 from .redis import mock_redis
 from .test_delta_generator import FakeDiffer
-from .utils import get_config, mock_brew
+from .utils import get_config, mock_brew, mock_odcs
 
 
 def run_update(config):
@@ -31,6 +31,7 @@ def run_update(config):
 CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 koji_config: brew
+odcs_uri: https://odcs.example.com/
 deltas_dir: ${OUTPUT_DIR}/deltas
 deltas_uri: https://registry.fedoraproject.org/deltas
 redis_url: redis://localhost
@@ -66,6 +67,7 @@ indexes:
 
 
 @mock_brew
+@mock_odcs
 @mock_pyxis
 @mock_redis
 def test_indexer(tmp_path):
@@ -142,6 +144,7 @@ def test_indexer_missing_data_source(tmp_path):
 KOJI_CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1
 koji_config: brew
+odcs_uri: https://odcs.example.com/
 redis_url: redis://localhost
 registries:
     brew:
@@ -159,6 +162,7 @@ indexes:
 
 
 @mock_brew
+@mock_odcs
 @mock_pyxis
 @mock_redis
 def test_indexer_koji(tmp_path):

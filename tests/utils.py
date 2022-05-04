@@ -1,12 +1,16 @@
 from contextlib import contextmanager
 from functools import partial, update_wrapper, wraps
 import inspect
+import json
 import os
+import re
 import subprocess
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, List
 from unittest.mock import DEFAULT, MagicMock, patch
+from urllib.parse import urlparse
 
+import responses
 import yaml
 
 from flatpak_indexer.config import Config
@@ -86,6 +90,9 @@ _KOJI_BUILDS: List[Dict[str, Any]] = [
                     'tags': ['el8-8020020200121102609.1'],
                 },
                 'modules': ['aisleriot-el8-8020020200121102609'],
+                'odcs': {
+                    'compose_ids': [12345, 34567]
+                }
             }
         },
         'name': 'aisleriot-container',
@@ -476,6 +483,44 @@ def mock_brew(f):
             session.listBuilds.side_effect = _koji_list_builds
             session.listTagged.side_effect = _koji_list_tagged
             session.listTags.side_effect = _koji_list_tags
+
+            return f(*args, **kwargs)
+
+    return wrapper
+
+
+def _odcs_get_compose_callback(request):
+    path = urlparse(request.url).path
+    update_id = int(path.split('/')[-1])
+
+    if update_id == 12345:
+        return (200, {}, json.dumps({
+            "source_type": 2,
+            "source": 'aisleriot:el8:8020020200121102609:73699f59',
+        }))
+    elif update_id == 34567:
+        return (200, {}, json.dumps({
+          "source": "rhel-8-for-x86_64-appstream-eus-rpms__8_DOT_4",
+          "source_type": 4,
+        }))
+    else:
+        return (404, {}, json.dumps({
+            "error": "Not Found",
+            "message": "No such compose found.",
+            "status": 404
+        }))
+
+
+def mock_odcs(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        with responses._default_mock:
+            responses.add_callback(
+                method=responses.GET,
+                url=re.compile(r"https://odcs.example.com/api/1/composes/(\d+)"),
+                callback=_odcs_get_compose_callback,
+                content_type='application/json'
+            )
 
             return f(*args, **kwargs)
 
