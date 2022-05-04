@@ -34,6 +34,20 @@ def test_integer_field():
     assert from_json.f1 == 42
 
 
+class BooleanStuff(BaseModel):
+    f1: bool
+
+
+def test_boolean_field():
+    obj = BooleanStuff(f1=42)
+    JSON = {"F1": True}
+
+    assert obj.to_json() == JSON
+
+    from_json = BooleanStuff.from_json(JSON)
+    assert from_json.f1 is True
+
+
 def test_float_field():
     class FloatStuff(BaseModel):
         f1: float

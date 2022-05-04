@@ -104,6 +104,11 @@ class StringField(ScalarField):
     from_json = str
 
 
+class BooleanField(ScalarField):
+    to_json = bool
+    from_json = bool
+
+
 class DateTimeField(ScalarField):
     to_json = staticmethod(format_date)
     from_json = staticmethod(parse_date)
@@ -259,6 +264,8 @@ def _make_model_field(name, type_, field_object):
         return StringField(name, json_name, optional=optional)
     elif resolved == int:
         return IntegerField(name, json_name, optional=optional)
+    elif resolved == bool:
+        return BooleanField(name, json_name, optional=optional)
     elif resolved == float:
         return FloatField(name, json_name, optional=optional)
     elif resolved == datetime:
