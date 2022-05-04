@@ -90,8 +90,28 @@ def test_from_path_not_object(tmpdir):
         Config.from_path(config_file)
 
 
+def test_from_path_empty(tmpdir):
+    class Config(BaseConfig):
+        str_field: str = "foo"
+
+    config_file = tmpdir / "testconfig.yaml"
+    with open(config_file, "w"):
+        pass
+
+    config = Config.from_path(config_file)
+    assert config.str_field == "foo"
+
+
 def test_from_str(tmpdir):
     config = Config.from_str(CONFIG)
+    assert config.str_field == "foo"
+
+
+def test_from_str_empty():
+    class Config(BaseConfig):
+        str_field: str = "foo"
+
+    config = Config.from_str("")
     assert config.str_field == "foo"
 
 

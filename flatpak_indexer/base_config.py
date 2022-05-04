@@ -221,7 +221,9 @@ class BaseConfig:
         with open(path, 'r') as f:
             yml = yaml.safe_load(f)
 
-        if not isinstance(yml, dict):
+        if yml is None:
+            yml = {}
+        elif not isinstance(yml, dict):
             raise ConfigError(f"Top level of {os.path.basename(path)} must be an object with keys")
 
         return cls(Lookup(yml))
@@ -230,7 +232,9 @@ class BaseConfig:
     def from_str(cls, config_str: str):
         yml = yaml.safe_load(config_str)
 
-        if not isinstance(yml, dict):
+        if yml is None:
+            yml = {}
+        elif not isinstance(yml, dict):
             raise ConfigError("Top level of config must be an object with keys")
 
         return cls(Lookup(yml))
