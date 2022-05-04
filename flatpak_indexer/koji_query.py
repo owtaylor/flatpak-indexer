@@ -229,7 +229,7 @@ def refresh_flatpak_builds(koji_session, redis_client, flatpaks):
             })
 
         formatted_current_ts = format_date(current_ts)
-        redis_client.hset(KEY_BUILD_CACHE_FLATPAK, mapping={
+        pipe.hset(KEY_BUILD_CACHE_FLATPAK, mapping={
             n: formatted_current_ts for n in flatpaks
         })
         pipe.execute()
