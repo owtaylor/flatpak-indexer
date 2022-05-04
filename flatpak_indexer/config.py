@@ -1,12 +1,11 @@
 from datetime import timedelta
 import os
 from typing import Dict, List, Optional, Tuple
-from urllib.parse import urlparse
 
+from flatpak_indexer.http_utils import HttpConfig
+from flatpak_indexer.koji_utils import KojiConfig
+from flatpak_indexer.redis_utils import RedisConfig
 from .base_config import BaseConfig, ConfigError, configfield, Lookup
-from .koji_utils import KojiConfig
-from .redis_utils import RedisConfig
-from .utils import get_retrying_requests_session
 
 
 class RegistryConfig(BaseConfig):
@@ -52,15 +51,13 @@ class DaemonConfig(BaseConfig):
         super().__init__(lookup)
 
 
-class Config(KojiConfig, RedisConfig):
+class Config(HttpConfig, KojiConfig, RedisConfig):
     indexes: List[IndexConfig] = configfield(skip=True)
     registries: Dict[str, RegistryConfig] = configfield(skip=True)
 
     pyxis_client_cert: Optional[str] = None
     pyxis_client_key: Optional[str] = None
     pyxis_url: Optional[str] = configfield(default=None, force_trailing_slash=True)
-
-    local_certs: Dict[str, str] = configfield(skip=True)
 
     icons_dir: Optional[str] = None
     icons_uri: Optional[str] = configfield(default=None, force_trailing_slash=True)
@@ -88,18 +85,6 @@ class Config(KojiConfig, RedisConfig):
             if not os.path.exists(self.pyxis_client_key):
                 raise ConfigError(
                     "pyxis_client_key: {} does not exist".format(self.pyxis_client_key))
-
-        local_certs = lookup.get_str_dict('local_certs', {})
-        self.local_certs = {}
-        for k, v in local_certs.items():
-            if not os.path.isabs(v):
-                cert_dir = os.path.join(os.path.dirname(__file__), 'certs')
-                v = os.path.join(cert_dir, v)
-
-            if not os.path.exists(v):
-                raise ConfigError("local_certs: {} does not exist".format(v))
-
-            self.local_certs[k] = v
 
         if self.icons_dir is not None and self.icons_uri is None:
             raise ConfigError("icons_dir is configured, but not icons_uri")
@@ -166,21 +151,3 @@ class Config(KojiConfig, RedisConfig):
                                       "koji_tags must be consistent for indexes with the same tag")
             else:
                 tag_koji_tags[index_config.tag] = (index_config.name, index_config.koji_tags)
-
-    def find_local_cert(self, url: str):
-        hostname = urlparse(url).hostname
-        if hostname is None:
-            return None
-        return self.local_certs.get(hostname)
-
-    def get_requests_session(self, backoff_factor=3):
-        """
-        Get a requests.Session object with appropriate modifications
-
-        Args:
-            backoff_factor (float): factor by which to increase delay - here
-                so we can override for tests.
-            find_local_cert (function): Function to get the CA cert for an URL
-        """
-        return get_retrying_requests_session(backoff_factor=backoff_factor,
-                                             find_ca_cert=self.find_local_cert)

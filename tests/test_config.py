@@ -1,7 +1,4 @@
 from copy import deepcopy
-import os
-from socket import error as SocketError
-from unittest.mock import patch
 
 from pytest import raises
 import yaml
@@ -60,57 +57,6 @@ indexes:
 def test_config_basic(tmp_path):
     conf = get_config(tmp_path, BASIC_CONFIG)
     assert conf.pyxis_url == "https://pyxis.example.com/v1/"
-
-
-def test_cert_relative(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['local_certs'] = {
-        'pyxis.example.com': 'test.crt'
-    }
-    conf = get_config(tmp_path, config_data)
-    cert = conf.find_local_cert('https://pyxis.example.com')
-    assert cert is not None
-    assert os.path.isabs(cert)
-    assert os.path.exists(cert)
-
-
-def test_cert_missing(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['local_certs'] = {
-        'pyxis.example.com': str(tmp_path / "nothere.crt")
-    }
-    with raises(ConfigError, match="nothere.crt does not exist"):
-        get_config(tmp_path, config_data)
-
-
-def test_cert_no_host(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['local_certs'] = {
-        'pyxis.example.com': 'test.crt'
-    }
-    conf = get_config(tmp_path, config_data)
-    cert = conf.find_local_cert('/no/host')
-    assert cert is None
-
-
-def test_get_requests_session(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['local_certs'] = {
-        'pyxis.example.com': "test.crt"
-    }
-
-    config = get_config(tmp_path, config_data)
-    session = config.get_requests_session(backoff_factor=0)
-
-    with patch("urllib3.connectionpool.HTTPConnectionPool._make_request",
-               side_effect=SocketError), \
-         patch("requests.adapters.HTTPAdapter.cert_verify") as p:
-
-        with raises(Exception, match="Max retries exceeded with url"):
-            session.get('https://pyxis.example.com/')
-
-        p.assert_called_once()
-        assert p.call_args[0][2].endswith("/test.crt")
 
 
 def test_client_cert(tmp_path):

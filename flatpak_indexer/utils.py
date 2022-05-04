@@ -13,53 +13,10 @@ import typing
 from typing import cast, IO, Tuple
 from urllib.parse import urljoin
 
-from requests import Session
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util import Retry
 from version_utils.rpm import compare_versions
 
 
 logger = logging.getLogger(__name__)
-
-_RETRY_MAX_TIMES = 3
-_RETRY_STATUSES = (
-    408,  # Request Timeout
-    500,  # Internal Server Error
-    502,  # Bad Gateway
-    503,  # Service Unavailable
-    504   # Gateway Timeout
-)
-
-
-class _FindCACertAdapter(HTTPAdapter):
-    def __init__(self, find_ca_cert=None, **kwargs):
-        super().__init__(**kwargs)
-        self.find_ca_cert = find_ca_cert
-
-    def cert_verify(self, conn, url, verify, cert):
-        if url.lower().startswith('https') and verify and self.find_ca_cert:
-            ca_cert = self.find_ca_cert(url)
-            if ca_cert is not None:
-                verify = ca_cert
-
-        return super().cert_verify(conn, url, verify, cert)
-
-
-# Don't use this directly, use config.get_requests_session()
-# If we want to retry POST, etc, need to set method_whitelist here
-def get_retrying_requests_session(backoff_factor=3, find_ca_cert=None):
-    retry = Retry(
-        backoff_factor=backoff_factor,
-        raise_on_status=True,
-        status_forcelist=_RETRY_STATUSES,
-        total=_RETRY_MAX_TIMES,
-    )
-    session = Session()
-
-    session.mount('http://', _FindCACertAdapter(max_retries=retry, find_ca_cert=find_ca_cert))
-    session.mount('https://', _FindCACertAdapter(max_retries=retry, find_ca_cert=find_ca_cert))
-
-    return session
 
 
 _ENV_VAR_TOKEN_RE = re.compile(r"\$\{|(?P<varname>[A-Za-z_][A-Za-z0-9_]*)|.")
