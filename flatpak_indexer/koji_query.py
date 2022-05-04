@@ -224,6 +224,7 @@ def refresh_flatpak_builds(session: Session, flatpaks):
 
     results = []
     if len(to_refresh) > 0:
+        assert refresh_ts is not None
         results += _query_flatpak_builds(session, include_only=to_refresh,
                                          complete_after=refresh_ts - TIMESTAMP_FUZZ)
 

@@ -40,7 +40,8 @@ class MockConnection():
         self.raise_on_close = raise_on_close
 
         self._closed = False
-        self._channel = create_autospec(pika.adapters.blocking_connection.BlockingChannel)
+        self._channel = \
+            create_autospec(pika.adapters.blocking_connection.BlockingChannel)  # type: ignore
         self._channel.queue_declare.side_effect = self._queue_declare
         self._channel.consume.side_effect = self._consume
 

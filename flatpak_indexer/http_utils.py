@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 from requests import Session
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util import Retry
+from requests.packages.urllib3.util import Retry  # type: ignore
 
 from .base_config import BaseConfig, ConfigError, configfield, Lookup
 
@@ -57,7 +57,7 @@ class HttpConfig(BaseConfig):
             return None
         return self.local_certs.get(hostname)
 
-    def get_requests_session(self, backoff_factor=3):
+    def get_requests_session(self, backoff_factor: float = 3):
         """
         Get a requests.Session object with appropriate modifications
 
