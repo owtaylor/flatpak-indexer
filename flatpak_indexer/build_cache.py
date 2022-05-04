@@ -1,11 +1,10 @@
 from typing import Dict
 
+from .koji_query import query_image_build, query_module_build, query_package_build
+from .koji_utils import get_koji_session
 from .models import (
     ImageBuildModel, ModuleBuildModel, PackageBuildModel
 )
-
-from .koji_query import query_image_build, query_module_build, query_package_build
-from .koji_utils import get_koji_session
 from .redis_utils import get_redis_client
 
 

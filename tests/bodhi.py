@@ -12,7 +12,6 @@ import responses
 
 from flatpak_indexer.bodhi_query import parse_date_value
 from flatpak_indexer.release_info import Release, ReleaseStatus
-
 from .utils import WithArgDecorator
 
 

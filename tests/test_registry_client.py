@@ -24,14 +24,13 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from contextlib import contextmanager
-from unittest import mock
 import os
+from unittest import mock
 
 import pytest
 import requests
 
 from flatpak_indexer.registry_client import RegistryClient
-
 from .registry import mock_registry
 
 

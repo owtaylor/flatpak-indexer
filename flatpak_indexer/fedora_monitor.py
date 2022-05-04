@@ -3,9 +3,9 @@ import json
 import logging
 import os
 import ssl
-import time
 import threading
-from typing import Optional, Set, Tuple, cast
+import time
+from typing import cast, Optional, Set, Tuple
 import uuid
 
 import pika

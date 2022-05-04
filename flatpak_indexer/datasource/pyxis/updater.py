@@ -6,14 +6,13 @@ from urllib.parse import urlencode
 
 import requests
 
+from .. import Updater
 from ...koji_query import query_image_build
 from ...koji_utils import get_koji_session
 from ...models import (FlatpakBuildModel, RegistryModel,
                        TagHistoryItemModel, TagHistoryModel)
 from ...redis_utils import get_redis_client
 from ...utils import parse_date, rpm_nvr_compare
-
-from .. import Updater
 
 
 logger = logging.getLogger(__name__)

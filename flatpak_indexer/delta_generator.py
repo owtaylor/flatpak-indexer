@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Tuple, cast
-from flatpak_indexer.config import IndexConfig
 import json
 import logging
+import time
+from typing import cast, Dict, List, Tuple
 
 import redis
-import time
 
 from .cleaner import Cleaner
+from .config import IndexConfig
 from .models import (
     RepositoryModel, TagHistoryModel, TardiffImageModel, TardiffResultModel, TardiffSpecModel
 )

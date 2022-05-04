@@ -1,13 +1,12 @@
 from copy import deepcopy
 from typing import Dict
 
-from requests.exceptions import HTTPError
 import pytest
+from requests.exceptions import HTTPError
 import yaml
 
 from flatpak_indexer.datasource.pyxis import PyxisUpdater
 from flatpak_indexer.models import RegistryModel
-
 from .pyxis import mock_pyxis
 from .redis import mock_redis
 from .utils import get_config, mock_brew, setup_client_cert

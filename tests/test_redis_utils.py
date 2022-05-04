@@ -8,7 +8,6 @@ import pytest
 import redis
 
 from flatpak_indexer.redis_utils import do_pubsub_work, get_redis_client, RedisConfig
-
 from .redis import mock_redis
 
 

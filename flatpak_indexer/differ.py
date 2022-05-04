@@ -8,7 +8,7 @@ from typing import cast
 import redis
 import requests
 
-from .models import TardiffSpecModel, TardiffResultModel
+from .models import TardiffResultModel, TardiffSpecModel
 from .redis_utils import do_pubsub_work, get_redis_client
 from .registry_client import RegistryClient
 from .utils import path_for_digest, run_with_stats, TemporaryPathname

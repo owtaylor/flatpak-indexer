@@ -1,15 +1,15 @@
 from datetime import datetime, timedelta, timezone
 from functools import partial
 import logging
-from typing import List, TypeVar, cast
+from typing import cast, List, TypeVar
 
 import koji
 import redis
 
-from .utils import format_date, parse_date
 from .models import (BinaryPackage, FlatpakBuildModel,
-                     KojiBuildModel, ImageBuildModel, ImageModel,
+                     ImageBuildModel, ImageModel, KojiBuildModel,
                      ModuleBuildModel, PackageBuildModel)
+from .utils import format_date, parse_date
 
 
 logger = logging.getLogger(__name__)

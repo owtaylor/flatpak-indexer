@@ -2,10 +2,11 @@ from contextlib import contextmanager
 import json
 import re
 from typing import Any, Dict, List
-import responses
 from urllib.parse import parse_qs, urlparse
 
-from .utils import _AISLERIOT_LABELS, _AISLERIOT2_LABELS, WithArgDecorator
+import responses
+
+from .utils import _AISLERIOT2_LABELS, _AISLERIOT_LABELS, WithArgDecorator
 
 
 def _pyxis_labels(labels):

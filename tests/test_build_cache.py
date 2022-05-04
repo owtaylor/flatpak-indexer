@@ -1,7 +1,6 @@
-from flatpak_indexer.build_cache import BuildCache
-
 import yaml
 
+from flatpak_indexer.build_cache import BuildCache
 from .koji import mock_koji
 from .redis import mock_redis
 from .utils import get_config

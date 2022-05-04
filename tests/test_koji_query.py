@@ -5,15 +5,16 @@ import time
 
 from pytest import raises
 
-from flatpak_indexer.koji_query import (list_flatpak_builds,
-                                        query_image_build,
-                                        query_module_build,
-                                        _query_package_build_by_id,
-                                        query_tag_builds,
-                                        refresh_flatpak_builds,
-                                        refresh_tag_builds)
+from flatpak_indexer.koji_query import (
+    _query_package_build_by_id,
+    list_flatpak_builds,
+    query_image_build,
+    query_module_build,
+    query_tag_builds,
+    refresh_flatpak_builds,
+    refresh_tag_builds
+)
 from flatpak_indexer.models import FlatpakBuildModel
-
 from .koji import make_koji_session
 from .redis import make_redis_client
 

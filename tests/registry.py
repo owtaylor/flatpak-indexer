@@ -8,8 +8,8 @@ import re
 import tarfile
 from urllib.parse import parse_qs, urlparse
 
-import responses
 import requests
+import responses
 
 from .utils import WithArgDecorator
 

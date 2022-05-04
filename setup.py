@@ -1,4 +1,5 @@
 import os
+
 from setuptools import setup
 
 data_files = []
@@ -38,6 +39,7 @@ setup(name='flatpak-indexer',
           # image self-contained for testing.
           'fakeredis',
           'flake8',
+          'flake8-import-order',
           'iso8601',
           'pytest',
           'pytest-cov',

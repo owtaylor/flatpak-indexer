@@ -7,7 +7,6 @@ import yaml
 
 from flatpak_indexer.datasource.fedora import FedoraUpdater
 from flatpak_indexer.models import RegistryModel
-
 from .bodhi import mock_bodhi
 from .fedora_messaging import mock_fedora_messaging
 from .koji import mock_koji

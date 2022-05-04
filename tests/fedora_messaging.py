@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 import json
 import threading
-from unittest.mock import patch, create_autospec
+from unittest.mock import create_autospec, patch
 
 import pika
 import pika.adapters

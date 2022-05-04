@@ -2,12 +2,10 @@ from datetime import timedelta
 import os
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
-from flatpak_indexer.koji_utils import KojiConfig
-
-from flatpak_indexer.redis_utils import RedisConfig
-
 
 from .base_config import BaseConfig, ConfigError, configfield, Lookup
+from .koji_utils import KojiConfig
+from .redis_utils import RedisConfig
 from .utils import get_retrying_requests_session
 
 

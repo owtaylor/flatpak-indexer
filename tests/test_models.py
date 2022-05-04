@@ -1,7 +1,11 @@
 from copy import deepcopy
 
-from flatpak_indexer.models import FlatpakBuildModel, ImageModel, ImageBuildModel, RegistryModel
-
+from flatpak_indexer.models import (
+    FlatpakBuildModel,
+    ImageBuildModel,
+    ImageModel,
+    RegistryModel
+)
 
 IMAGE1 = {
     "Annotations": {"key1": "value1"},

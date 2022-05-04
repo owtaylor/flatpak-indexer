@@ -7,21 +7,23 @@ from unittest.mock import ANY, patch
 import pytest
 from pytest import raises
 
-from flatpak_indexer.utils import (atomic_writer,
-                                   format_date,
-                                   get_retrying_requests_session,
-                                   parse_date,
-                                   parse_pull_spec, pseudo_atomic_dir_writer,
-                                   unparse_pull_spec,
-                                   path_for_digest,
-                                   resolve_type,
-                                   rpm_nvr_compare,
-                                   run_with_stats,
-                                   substitute_env_vars,
-                                   SubstitutionError,
-                                   TemporaryPathname,
-                                   uri_for_digest)
-
+from flatpak_indexer.utils import (
+    atomic_writer,
+    format_date,
+    get_retrying_requests_session,
+    parse_date,
+    parse_pull_spec,
+    path_for_digest,
+    pseudo_atomic_dir_writer,
+    resolve_type,
+    rpm_nvr_compare,
+    run_with_stats,
+    substitute_env_vars,
+    SubstitutionError,
+    TemporaryPathname,
+    unparse_pull_spec,
+    uri_for_digest
+)
 from .utils import timeout_first_popen_wait
 
 

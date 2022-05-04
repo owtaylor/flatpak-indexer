@@ -2,8 +2,8 @@ import base64
 from collections import defaultdict
 import copy
 import hashlib
-import logging
 import json
+import logging
 import os
 from typing import DefaultDict, Dict, Optional, Set
 
@@ -11,11 +11,11 @@ from .build_cache import BuildCache
 from .cleaner import Cleaner
 from .config import Config, IndexConfig, RegistryConfig
 from .delta_generator import DeltaGenerator
-from .utils import atomic_writer, path_for_digest, pseudo_atomic_dir_writer, uri_for_digest
 from .models import (
     FlatpakBuildModel, ImageModel, ModuleBuildModel, ModuleStreamContentsModel,
     RegistryModel
 )
+from .utils import atomic_writer, path_for_digest, pseudo_atomic_dir_writer, uri_for_digest
 
 
 logger = logging.getLogger(__name__)

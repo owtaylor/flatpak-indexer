@@ -1,16 +1,15 @@
-from unittest.mock import patch
 import os
+import sys
+from unittest.mock import patch
 
 from click.testing import CliRunner
 import pytest
-import sys
 import yaml
 
 from flatpak_indexer.cli import cli
-
 from .pyxis import mock_pyxis
 from .redis import mock_redis
-from .utils import write_config, mock_brew
+from .utils import mock_brew, write_config
 
 CONFIG = yaml.safe_load("""
 pyxis_url: https://pyxis.example.com/v1

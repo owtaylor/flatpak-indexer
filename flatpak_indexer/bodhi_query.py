@@ -7,8 +7,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
-from .models import BodhiUpdateModel
 from . import release_info
+from .models import BodhiUpdateModel
 from .release_info import ReleaseStatus
 from .utils import format_date, parse_date
 

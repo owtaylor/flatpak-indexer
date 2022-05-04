@@ -1,14 +1,15 @@
-from typing import Dict
-from flatpak_indexer.models import RegistryModel
-import click
 import logging
 import time
+from typing import Dict
+
+import click
 
 from .cleaner import Cleaner
 from .config import Config
 from .datasource import load_updaters
 from .differ import Differ
 from .indexer import Indexer
+from .models import RegistryModel
 
 
 logger = logging.getLogger(__name__)

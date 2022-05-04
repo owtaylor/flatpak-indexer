@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
+from typing import Dict, List, Optional
+
 import pytest
-from typing import List, Dict, Optional
 
 from flatpak_indexer.json_model import BaseModel, field
 

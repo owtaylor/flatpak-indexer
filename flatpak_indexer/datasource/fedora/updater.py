@@ -3,17 +3,16 @@ from typing import DefaultDict, Optional, Set
 
 import redis
 
-from ...fedora_monitor import FedoraMonitor
+from .. import Updater
 from ...bodhi_query import (list_updates, refresh_all_updates,
                             refresh_update_status, reset_update_cache)
 from ...config import Config
+from ...fedora_monitor import FedoraMonitor
 from ...koji_query import query_image_build
 from ...koji_utils import get_koji_session
-from ...models import RegistryModel, TagHistoryModel, TagHistoryItemModel
+from ...models import RegistryModel, TagHistoryItemModel, TagHistoryModel
 from ...redis_utils import get_redis_client
 from ...utils import unparse_pull_spec
-
-from .. import Updater
 
 
 class RepoInfo:

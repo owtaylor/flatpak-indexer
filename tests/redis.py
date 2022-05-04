@@ -1,6 +1,7 @@
-import fakeredis
 from functools import partial, wraps
 from unittest.mock import patch
+
+import fakeredis
 
 
 def make_redis_client():
