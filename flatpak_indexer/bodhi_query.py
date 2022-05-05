@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Union
 from . import release_info
 from .http_utils import HttpConfig
 from .models import BodhiUpdateModel
+from .nvr import NVR
 from .release_info import ReleaseStatus
 from .session import Session
 from .utils import format_date, parse_date
@@ -31,11 +32,11 @@ def parse_date_value(value):
     return datetime.strptime(value, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
 
 
-def _update_update_from_response(pipe, update_json, old_update):
+def _update_update_from_response(pipe, update_json, old_update: BodhiUpdateModel):
     content_type = update_json['content_type']
 
     if old_update:
-        old_entities = {nvr.rsplit('-', 2)[0] for nvr in old_update.builds}
+        old_entities = {nvr.name for nvr in old_update.builds}
     else:
         old_entities = set()
 
@@ -53,12 +54,10 @@ def _update_update_from_response(pipe, update_json, old_update):
                               status=update_json['status'],
                               type=update_json['type'])
 
-    builds = []
     for build_json in update_json['builds']:
-        builds.append(build_json['nvr'])
+        update.builds.append(NVR(build_json['nvr']))
 
-    update.builds = builds
-    new_entities = {nvr.rsplit('-', 2)[0] for nvr in update.builds}
+    new_entities = {nvr.name for nvr in update.builds}
 
     def _entity_key(entity_name):
         return entity_name + ':' + update.release_branch + ':' + update.update_id

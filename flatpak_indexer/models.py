@@ -3,6 +3,7 @@ from functools import cached_property
 from typing import Any, Dict, List, Optional
 
 from .json_model import BaseModel, field
+from .nvr import NVR
 from .utils import parse_pull_spec
 
 
@@ -38,7 +39,7 @@ class ImageModel(BaseModel):
         if name:
             version = self.labels["version"]
             release = self.labels["release"]
-            return f"{name}-{version}-{release}"
+            return NVR(f"{name}-{version}-{release}")
         else:
             return None
 
@@ -69,7 +70,7 @@ class RegistryModel(BaseModel):
 
 class KojiBuildModel(BaseModel):
     build_id: str
-    nvr: str
+    nvr: NVR
     source: Optional[str]
     completion_time: datetime
     user_name: str
@@ -84,10 +85,6 @@ class KojiBuildModel(BaseModel):
                 return False
 
         return True
-
-    @property
-    def name(self):
-        return self.nvr.rsplit('-', 2)[0]
 
 
 class ImageBuildModel(KojiBuildModel):
@@ -107,12 +104,12 @@ class ImageBuildModel(KojiBuildModel):
 
 
 class BinaryPackage(BaseModel):
-    nvr: str
-    source_nvr: str
+    nvr: NVR
+    source_nvr: NVR
 
 
 class FlatpakBuildModel(ImageBuildModel):
-    module_builds: List[str]
+    module_builds: List[NVR]
     package_builds: List[BinaryPackage]
 
 
@@ -136,7 +133,7 @@ class BodhiUpdateModel(BaseModel):
     date_testing: Optional[datetime]
     date_stable: Optional[datetime]
     user_name: str
-    builds: List[str]
+    builds: List[NVR]
 
 
 class TardiffImageModel(BaseModel):
@@ -168,8 +165,8 @@ class TardiffResultModel(BaseModel):
 
 
 class ModuleImageContentsModel(BaseModel):
-    image_nvr: str
-    module_nvr: str
+    image_nvr: NVR
+    module_nvr: NVR
     package_builds: List[BinaryPackage]
 
 

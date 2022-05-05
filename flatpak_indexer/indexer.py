@@ -154,8 +154,7 @@ class IndexWriter:
             for binary_package in build.package_builds:
                 module = package_to_module.get(binary_package.nvr)
                 if module:
-                    n, v, _ = module.nvr.rsplit('-', 2)
-                    name_stream = n + ":" + v
+                    name_stream = module.nvr.name + ":" + module.nvr.version
                     stream_contents = module_stream_contents[name_stream]
                     stream_contents.add_package_build(build.nvr, module.nvr, binary_package)
 

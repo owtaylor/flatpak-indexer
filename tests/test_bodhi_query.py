@@ -159,7 +159,7 @@ def test_bodhi_query_flatpak_updates_all(session, bodhi_mock, flags):
     updates = list_updates(session, 'flatpak')
     assert len(updates) == 10
 
-    build_map = {u.update_id: [b.rsplit('-', 2)[0] for b in u.builds] for u in updates}
+    build_map = {u.update_id: [b.name for b in u.builds] for u in updates}
 
     assert build_map == {
         'FEDORA-FLATPAK-2018-2f1988821e': ['eog'],

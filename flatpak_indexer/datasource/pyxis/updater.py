@@ -10,8 +10,7 @@ from .. import Updater
 from ...models import (FlatpakBuildModel, RegistryModel,
                        TagHistoryItemModel, TagHistoryModel)
 from ...session import Session
-from ...utils import parse_date, rpm_nvr_compare
-
+from ...utils import parse_date
 
 logger = logging.getLogger(__name__)
 
@@ -120,8 +119,6 @@ class Registry:
         tag_history = TagHistoryModel(name=tag)
 
         for build, start_date in build_items:
-            n, v, r = build.nvr.rsplit('-', 2)
-
             for image in build.images:
                 if not (None in architectures or image.architecture in architectures):
                     continue
@@ -132,7 +129,7 @@ class Registry:
                     if build == build_items[0][0]:
                         old_image.tags.append(tag)
                 else:
-                    image.tags = [v, f"{v}-{r}"]
+                    image.tags = [build.nvr.version, f"{build.nvr.version}-{build.nvr.release}"]
                     if build == build_items[0][0]:
                         image.tags.append(tag)
 
@@ -185,9 +182,9 @@ class Registry:
                     koji_tag_builds[koji_tag] = list(self._iterate_flatpak_builds(koji_tag))
 
                 for build in koji_tag_builds[koji_tag]:
-                    name, _, _ = build.nvr.rsplit('-', 2)
+                    name = build.nvr.name
                     if (name not in builds_by_name or
-                            rpm_nvr_compare(builds_by_name[name].nvr, build.nvr) < 0):
+                            builds_by_name[name].nvr < build.nvr):
                         builds_by_name[name] = build
 
             architectures = desired_architectures_koji[tag]

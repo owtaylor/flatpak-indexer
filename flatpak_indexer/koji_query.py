@@ -8,6 +8,7 @@ import koji
 from .models import (BinaryPackage, FlatpakBuildModel,
                      ImageBuildModel, ImageModel, KojiBuildModel,
                      ModuleBuildModel, PackageBuildModel)
+from .nvr import NVR
 from .odcs_query import composes_to_modules
 from .session import Session
 from .utils import format_date, parse_date
@@ -60,7 +61,7 @@ def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
 
     kwargs = dict(name=build_info['name'],
                   build_id=build_info['build_id'],
-                  nvr=build_info['nvr'],
+                  nvr=NVR(build_info['nvr']),
                   source=build_info['source'],
                   user_name=build_info['owner_name'],
                   completion_time=completion_time)
@@ -103,7 +104,7 @@ def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
                             session, c['build_id']
                         )
                         build.package_builds.append(
-                            BinaryPackage(nvr=c['nvr'], source_nvr=package_build.nvr)
+                            BinaryPackage(nvr=NVR(c['nvr']), source_nvr=package_build.nvr)
                         )
 
             docker_info = None
@@ -141,7 +142,7 @@ def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
                 build.module_builds = []
                 for nsvc in composes_to_modules(session, compose_ids):
                     n, s, v, c = nsvc.split(":")
-                    build.module_builds.append(f"{n}-{s}-{v}.{c}")
+                    build.module_builds.append(NVR(f"{n}-{s}-{v}.{c}"))
             else:
                 for m in build_info['extra']['image']['modules']:
                     module_build = query_module_build(session, m)
@@ -181,7 +182,7 @@ def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
 def _query_flatpak_builds(
     session: Session, flatpak_name=None, include_only=None, complete_after=None
 ):
-    result = []
+    result: List[FlatpakBuildModel] = []
 
     kwargs = {
         'type': 'image',
@@ -222,7 +223,7 @@ def refresh_flatpak_builds(session: Session, flatpaks):
                     to_refresh.add(flatpak_name)
                     to_query.discard(flatpak_name)
 
-    results = []
+    results: List[FlatpakBuildModel] = []
     if len(to_refresh) > 0:
         assert refresh_ts is not None
         results += _query_flatpak_builds(session, include_only=to_refresh,
@@ -235,7 +236,7 @@ def refresh_flatpak_builds(session: Session, flatpaks):
         pipe.multi()
         if results:
             pipe.zadd(KEY_BUILDS_BY_ENTITY_FLATPAK, {
-                f"{n}:{v}-{r}": 0 for n, v, r in (b.nvr.rsplit('-', 2) for b in results)
+                f"{b.nvr.name}:{b.nvr.version}-{b.nvr.release}": 0 for b in results
             })
 
         formatted_current_ts = format_date(current_ts)
@@ -297,7 +298,7 @@ def _query_build(session: Session, nvr, build_cls: type[B]) -> B:
             return build
 
     logger.info("Calling koji.getBuild(%s)", nvr)
-    build_info = session.koji_session.getBuild(nvr)
+    build_info = session.koji_session.getBuild(str(nvr))
     if build_info is None:
         raise RuntimeError(f"Could not look up {nvr} in Koji")
 
@@ -309,9 +310,7 @@ def _query_module_build_no_context(session: Session, nvr):
     if full_nvr:
         return _query_build(session, full_nvr.decode("utf-8"), ModuleBuildModel)
 
-    n, v, r = nvr.rsplit('-', 2)
-
-    package_id = get_package_id(session, n)
+    package_id = get_package_id(session, NVR(nvr).name)
     logger.info("Calling koji.listBuilds(%s, type='module')", package_id)
     builds = session.koji_session.listBuilds(package_id, type='module')
 
@@ -351,8 +350,7 @@ def query_image_build(session: Session, nvr):
 
 
 def query_module_build(session: Session, nvr) -> ModuleBuildModel:
-    n, v, r = nvr.rsplit('-', 2)
-    if '.' not in r:
+    if '.' not in NVR(nvr).release:
         return _query_module_build_no_context(session, nvr)
     else:
         return _query_build(session, nvr, ModuleBuildModel)
@@ -421,6 +419,6 @@ def query_tag_builds(session: Session, tag, entity_name):
     def matches_to_nvr():
         for m in matches:
             _, name, vr = m.decode("utf-8").split(":")
-            yield name + '-' + vr
+            yield NVR(name + '-' + vr)
 
     return list(matches_to_nvr())
