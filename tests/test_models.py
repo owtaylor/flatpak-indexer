@@ -113,11 +113,6 @@ def test_image_build_from_json():
     assert isinstance(flatpak, FlatpakBuildModel)
 
 
-def test_koji_build_model_name():
-    image = ImageBuildModel.from_json(IMAGE_BUILD)
-    assert image.name == 'testrepo'
-
-
 def test_koji_build_model_is_json_current():
     assert FlatpakBuildModel.from_json(FLATPAK_BUILD, check_current=True) is not None
 

@@ -89,9 +89,9 @@ def test_nvr_field():
     assert obj.to_json() == JSON
 
     from_json = NVRStuff.from_json(JSON)
-    assert from_json.f1.n == "abc-libs"
-    assert from_json.f1.v == "1.2"
-    assert from_json.f1.r == "1.fc30"
+    assert from_json.f1.name == "abc-libs"
+    assert from_json.f1.version == "1.2"
+    assert from_json.f1.release == "1.fc30"
 
 
 class ClassStuff(BaseModel):

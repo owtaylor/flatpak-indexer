@@ -148,7 +148,7 @@ class ListField(CollectionField):
     def json_value(self, instance):
         v = getattr(instance, self.python_name)
 
-        if self.item_type == str:
+        if self.item_type == str or self.item_type == NVR:
             return [
                 str(x) for x in v
             ]
@@ -166,6 +166,10 @@ class ListField(CollectionField):
         if self.item_type == str:
             return [
                 str(x) for x in v
+            ]
+        elif self.item_type == NVR:
+            return [
+                NVR(x) for x in v
             ]
         else:
             return [
