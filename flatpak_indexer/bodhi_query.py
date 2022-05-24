@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta, timezone
 from functools import partial
 import logging
+import re
 from typing import Any, Dict, List, Union
 
-from . import release_info
 from .http_utils import HttpConfig
 from .models import BodhiUpdateModel
 from .nvr import NVR
-from .release_info import ReleaseStatus
+from .release_info import Release, ReleaseStatus
 from .session import Session
 from .utils import format_date, parse_date
 
@@ -133,7 +133,8 @@ def _run_query(requests_session,
             page += 1
 
 
-def _query_updates(requests_session,
+def _query_updates(session: Session,
+                   requests_session,
                    content_type, results,
                    query_entities=None,
                    save_entities=None,
@@ -146,7 +147,7 @@ def _query_updates(requests_session,
     }
 
     bodhi_releases: List[str] = []
-    for release in release_info.releases:
+    for release in session.fedora_releases:
         if release.status == ReleaseStatus.EOL or release.status == ReleaseStatus.RAWHIDE:
             continue
 
@@ -172,7 +173,7 @@ def _query_updates(requests_session,
     if query_entities is not None:
         if len(query_entities) > 5:
             for i in range(0, len(query_entities), 5):
-                _query_updates(requests_session,
+                _query_updates(session, requests_session,
                                content_type, results,
                                query_entities=query_entities[i:i+5],
                                save_entities=save_entities,
@@ -224,14 +225,14 @@ def _refresh_updates(session: Session, content_type, entities, pipe, rows_per_pa
                         to_query.remove(entity_name)
 
         if len(to_refresh) > 0:
-            _query_updates(requests_session,
+            _query_updates(session, requests_session,
                            content_type, results,
                            save_entities=to_refresh,
                            after=refresh_ts - TIMESTAMP_FUZZ,
                            rows_per_page=rows_per_page)
 
     if len(to_query) > 0:
-        _query_updates(requests_session,
+        _query_updates(session, requests_session,
                        content_type, results,
                        query_entities=sorted(to_query),
                        save_entities=to_query,
@@ -273,7 +274,7 @@ def _refresh_all_updates(session: Session, content_type, pipe, rows_per_page=10)
         after = None
 
     results: List[Dict[str, Any]] = []
-    _query_updates(requests_session,
+    _query_updates(session, requests_session,
                    content_type, results,
                    after=after,
                    rows_per_page=rows_per_page)
@@ -334,7 +335,7 @@ def list_updates(session, content_type, entity_name=None, release_branch=None):
     if release_branch is not None:
         branches = [release_branch]
     else:
-        branches = [r.branch for r in release_info.releases if
+        branches = [r.branch for r in session.fedora_releases if
                     r.status != ReleaseStatus.EOL and r.status != ReleaseStatus.RAWHIDE]
 
     if entity_name is not None:
@@ -359,3 +360,71 @@ def list_updates(session, content_type, entity_name=None, release_branch=None):
     to_fetch = sorted(set(filter_results(updates_by_entity)))
 
     return [BodhiUpdateModel.from_json_text(x) for x in session.redis_client.mget(to_fetch)]
+
+
+def query_releases(session: Session):
+    """
+    Query current Fedora releases from bodhi.
+
+    Use sesson.fedora_releases instead to get caching and consistency
+    for the duration of the session.
+    """
+    requests_session = session.config.get_requests_session()
+
+    url = "https://bodhi.fedoraproject.org/releases/"
+    params: Dict[str, Union[int, str, List[str]]] = {
+        "rows_per_page": 100,
+        "exclude_archived": 1,
+    }
+
+    result: List[Release] = []
+
+    page = 1
+    while True:
+        params["page"] = page
+        logger.info("Querying Bodhi with params: %s", params)
+        response = requests_session.get(url,
+                                        headers={"Accept": "application/json"},
+                                        params=params)
+        response.raise_for_status()
+        response_json = response.json()
+
+        for release_json in response_json["releases"]:
+            name = release_json["name"]
+            if not re.match(r"F\d+$", name):
+                continue
+
+            branch = release_json["branch"]
+            state = release_json["state"]
+
+            if state == "disabled":
+                # Just treat this the same as absent
+                continue
+            elif state == "pending":
+                if branch == "rawhide":
+                    status = ReleaseStatus.RAWHIDE
+                else:
+                    status = ReleaseStatus.BRANCHED
+            elif state == "frozen":
+                status = ReleaseStatus.BRANCHED
+            elif state == "current":
+                status = ReleaseStatus.GA
+            elif state == "archived":
+                status = ReleaseStatus.EOL
+            else:
+                logger.warn("Unknown state for release %s: %s", name, state)
+                continue
+
+            result.append(Release(
+                name=name,
+                branch=branch,
+                tag=name.lower(),
+                status=status
+            ))
+
+        if page == int(response_json["pages"]):
+            break
+
+    result.sort(key=lambda release: release.name)
+
+    return result

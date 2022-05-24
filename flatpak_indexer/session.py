@@ -21,3 +21,9 @@ class Session:
         # Avoid a circular import
         from flatpak_indexer.build_cache import BuildCache
         return BuildCache(self)
+
+    @cached_property
+    def fedora_releases(self):
+        # Avoid a circular import
+        from flatpak_indexer.bodhi_query import query_releases
+        return query_releases(self)

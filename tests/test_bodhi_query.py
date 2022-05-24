@@ -239,3 +239,71 @@ def test_bodhi_update_cache_per_package(session, caplog):
     refresh_updates(session, 'flatpak', entities=['feedreader'])
     assert "submitted_since" not in caplog.text
     caplog.clear()
+
+
+@mock_bodhi
+def test_query_releases(session):
+    releases = query_releases(session)
+
+    release = next(r for r in releases if r.name == "F29")
+    assert release.branch == "f29"
+    assert release.tag == "f29"
+    assert release.status == ReleaseStatus.GA
+
+
+@mock_bodhi
+def test_query_releases_corner_cases(session, bodhi_mock, caplog):
+    def modify_releases(release_json):
+        # Branched
+        release_json.append({
+            "name": "F90",
+            "branch": "f90",
+            "dist_tag": "f90",
+            "state": "pending",
+        })
+        # Branched and frozen
+        release_json.append({
+            "name": "F91",
+            "branch": "f91",
+            "dist_tag": "f91",
+            "state": "frozen",
+        })
+        # Skip because not F\d+$
+        release_json.append({
+            "name": "F91F",
+            "branch": "f91",
+            "dist_tag": "f90-flatpak",
+            "state": "current",
+        })
+        # Skip because disabled
+        release_json.append({
+            "name": "F92",
+            "branch": "f92",
+            "dist_tag": "f92",
+            "state": "disabled",
+        })
+        # Skip because unknown state
+        release_json.append({
+            "name": "F99",
+            "branch": "f99",
+            "dist_tag": "f99",
+            "state": "weird",
+        })
+
+    bodhi_mock.modify_releases = modify_releases
+    releases = query_releases(session)
+
+    release = next(r for r in releases if r.name == "F90")
+    assert release.branch == "f90"
+    assert release.tag == "f90"
+    assert release.status == ReleaseStatus.BRANCHED
+
+    release = next(r for r in releases if r.name == "F91")
+    assert release.branch == "f91"
+    assert release.tag == "f91"
+    assert release.status == ReleaseStatus.BRANCHED
+
+    assert not any(r.name == "F91F" for r in releases)
+    assert not any(r.name == "F92" for r in releases)
+
+    assert "Unknown state for release F99: weird" in caplog.text
