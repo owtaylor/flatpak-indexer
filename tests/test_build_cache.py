@@ -1,8 +1,8 @@
 import yaml
 
 from flatpak_indexer.session import Session
-from .koji import mock_koji
-from .redis import mock_redis
+from flatpak_indexer.test.koji import mock_koji
+from flatpak_indexer.test.redis import mock_redis
 from .utils import get_config
 
 

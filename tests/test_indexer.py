@@ -9,11 +9,11 @@ from flatpak_indexer.cleaner import Cleaner
 from flatpak_indexer.datasource import load_updaters
 from flatpak_indexer.indexer import Indexer
 from flatpak_indexer.models import RegistryModel
-from .bodhi import mock_bodhi
+from flatpak_indexer.test.bodhi import mock_bodhi
+from flatpak_indexer.test.koji import mock_koji
+from flatpak_indexer.test.redis import mock_redis
 from .fedora_messaging import mock_fedora_messaging
-from .koji import mock_koji
 from .pyxis import mock_pyxis
-from .redis import mock_redis
 from .test_delta_generator import FakeDiffer
 from .utils import get_config, mock_brew, mock_odcs
 

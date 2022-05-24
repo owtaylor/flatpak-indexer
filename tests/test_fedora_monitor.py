@@ -8,8 +8,8 @@ import redis
 
 from flatpak_indexer.fedora_monitor import FedoraMonitor
 from flatpak_indexer.redis_utils import RedisConfig
+from flatpak_indexer.test.redis import mock_redis
 from .fedora_messaging import mock_fedora_messaging
-from .redis import mock_redis
 
 
 CONFIG = """

@@ -6,8 +6,8 @@ import yaml
 
 from flatpak_indexer.cleaner import Cleaner
 from flatpak_indexer.models import TardiffResultModel
+from flatpak_indexer.test.redis import mock_redis
 from flatpak_indexer.utils import path_for_digest
-from .redis import mock_redis
 from .utils import get_config
 
 

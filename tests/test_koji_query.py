@@ -19,8 +19,8 @@ from flatpak_indexer.koji_utils import KojiConfig
 from flatpak_indexer.models import FlatpakBuildModel
 from flatpak_indexer.redis_utils import RedisConfig
 from flatpak_indexer.session import Session
-from .koji import make_koji_session, mock_koji
-from .redis import make_redis_client, mock_redis
+from flatpak_indexer.test.koji import make_koji_session, mock_koji
+from flatpak_indexer.test.redis import make_redis_client, mock_redis
 
 
 class TestConfig(KojiConfig, RedisConfig):

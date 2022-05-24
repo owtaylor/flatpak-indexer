@@ -6,7 +6,8 @@ from urllib.parse import parse_qs, urlparse
 
 import responses
 
-from .utils import _AISLERIOT2_LABELS, _AISLERIOT_LABELS, WithArgDecorator
+from flatpak_indexer.test.decorators import WithArgDecorator
+from .utils import _AISLERIOT2_LABELS, _AISLERIOT_LABELS
 
 
 def _pyxis_labels(labels):

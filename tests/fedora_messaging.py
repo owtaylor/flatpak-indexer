@@ -9,7 +9,7 @@ import pika.adapters.blocking_connection
 import pika.exceptions
 import pika.spec
 
-from .utils import WithArgDecorator
+from flatpak_indexer.test.decorators import WithArgDecorator
 
 
 def make_bodhi_message(alias):

@@ -11,7 +11,7 @@ from urllib.parse import parse_qs, urlparse
 import requests
 import responses
 
-from .utils import WithArgDecorator
+from flatpak_indexer.test.decorators import WithArgDecorator
 
 
 MEDIA_TYPE_OCI = 'application/vnd.oci.image.manifest.v1+json'

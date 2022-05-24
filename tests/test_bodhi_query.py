@@ -6,16 +6,18 @@ from textwrap import dedent
 import pytest
 
 from flatpak_indexer.bodhi_query import (
-    list_updates, refresh_all_updates, refresh_update_status, refresh_updates, reset_update_cache
+    list_updates, query_releases,
+    refresh_all_updates, refresh_update_status, refresh_updates, reset_update_cache
 )
 from flatpak_indexer.http_utils import HttpConfig
 from flatpak_indexer.koji_utils import KojiConfig
 from flatpak_indexer.models import BodhiUpdateModel
 from flatpak_indexer.redis_utils import RedisConfig
+from flatpak_indexer.release_info import ReleaseStatus
 from flatpak_indexer.session import Session
-from .bodhi import mock_bodhi
-from .koji import mock_koji
-from .redis import mock_redis
+from flatpak_indexer.test.bodhi import mock_bodhi
+from flatpak_indexer.test.koji import mock_koji
+from flatpak_indexer.test.redis import mock_redis
 
 
 class TestConfig(HttpConfig, KojiConfig, RedisConfig):

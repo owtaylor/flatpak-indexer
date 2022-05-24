@@ -7,8 +7,8 @@ import pytest
 import yaml
 
 from flatpak_indexer.cli import cli
+from flatpak_indexer.test.redis import mock_redis
 from .pyxis import mock_pyxis
-from .redis import mock_redis
 from .utils import mock_brew, mock_odcs, write_config
 
 CONFIG = yaml.safe_load("""

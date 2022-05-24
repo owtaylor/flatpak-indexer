@@ -7,8 +7,8 @@ import yaml
 
 from flatpak_indexer.datasource.pyxis import PyxisUpdater
 from flatpak_indexer.models import RegistryModel
+from flatpak_indexer.test.redis import mock_redis
 from .pyxis import mock_pyxis
-from .redis import mock_redis
 from .utils import get_config, mock_brew, mock_odcs, setup_client_cert
 
 

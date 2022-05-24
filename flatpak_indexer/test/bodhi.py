@@ -1,7 +1,6 @@
 from contextlib import contextmanager
 import gzip
 import json
-import os
 import re
 from typing import List
 from unittest.mock import patch
@@ -10,9 +9,10 @@ from urllib.parse import parse_qs, urlparse
 from iso8601 import iso8601
 import responses
 
-from flatpak_indexer.bodhi_query import parse_date_value
-from flatpak_indexer.release_info import Release, ReleaseStatus
-from .utils import WithArgDecorator
+from . import get_test_data_path
+from .decorators import WithArgDecorator
+from ..bodhi_query import parse_date_value
+from ..release_info import Release, ReleaseStatus
 
 
 _updates: List[dict] = []
@@ -20,15 +20,15 @@ _updates: List[dict] = []
 
 def load_updates():
     if len(_updates) == 0:
-        build_dir = os.path.join(os.path.dirname(__file__), '../test-data/builds')
-        build_nvrs = {f[0:-8] for f in os.listdir(build_dir)}
+        build_dir = get_test_data_path() / "builds"
+        build_nvrs = {f.name[0:-8] for f in build_dir.iterdir()}
 
-        data_dir = os.path.join(os.path.dirname(__file__), '../test-data/updates')
-        for child in os.listdir(data_dir):
-            if not child.endswith('.json.gz'):
+        data_dir = get_test_data_path() / "updates"
+        for child in data_dir.iterdir():
+            if not child.name.endswith('.json.gz'):
                 continue
 
-            with gzip.open(os.path.join(data_dir, child), 'rt') as f:
+            with gzip.open(child, 'rt') as f:
                 data = json.load(f)
 
                 # Strip out any builds not in the test data

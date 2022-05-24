@@ -2,27 +2,24 @@ from copy import deepcopy
 from functools import wraps
 import gzip
 import json
-import os
 from typing import Dict, List
 from unittest.mock import create_autospec, DEFAULT, Mock, patch
 
 from koji import ClientSession
+
+from . import get_test_data_path
 
 
 _builds: List[dict] = []
 _tags: Dict[str, dict] = {}
 
 
-def data_dir(subdir):
-    return os.path.join(os.path.dirname(__file__), '../test-data', subdir)
-
-
 def _load_builds():
     if len(_builds) == 0:
-        for child in os.scandir(data_dir('builds')):
+        for child in (get_test_data_path() / "builds").iterdir():
             if not child.name.endswith('.json.gz'):
                 continue
-            with gzip.open(child.path, 'rt') as f:
+            with gzip.open(child, 'rt') as f:
                 _builds.append(json.load(f))
 
     return _builds
@@ -30,11 +27,11 @@ def _load_builds():
 
 def _load_tags():
     if len(_tags) == 0:
-        for child in os.scandir(data_dir('tags')):
+        for child in (get_test_data_path() / "tags").iterdir():
             if not child.name.endswith('.json.gz'):
                 continue
             tag = child.name[:-8]
-            with gzip.open(child.path, 'rt') as f:
+            with gzip.open(child, 'rt') as f:
                 _tags[tag] = json.load(f)
 
     return _tags

@@ -8,7 +8,7 @@ import yaml
 
 from flatpak_indexer.differ import Differ
 from flatpak_indexer.models import TardiffImageModel, TardiffResultModel, TardiffSpecModel
-from .redis import mock_redis
+from flatpak_indexer.test.redis import mock_redis
 from .registry import mock_registry
 from .utils import get_config, timeout_first_popen_wait
 

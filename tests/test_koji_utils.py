@@ -1,5 +1,5 @@
 from flatpak_indexer.koji_utils import get_koji_session, KojiConfig
-from .koji import mock_koji
+from flatpak_indexer.test.koji import mock_koji
 
 
 CONFIG = """
