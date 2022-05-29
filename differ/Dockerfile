@@ -1,4 +1,4 @@
-FROM ubi8/go-toolset
+FROM registry.access.redhat.com/ubi8/go-toolset
 
 USER root
 RUN yum -y install time && yum clean all

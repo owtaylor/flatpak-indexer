@@ -17,7 +17,7 @@ set -x
 
 podman build $origin/differ -t flatpak-indexer-tar-diff
 
-s2i build --copy --as-dockerfile=$work/Dockerfile $origin ubi8/python-38 flatpak-indexer
+s2i build --copy --as-dockerfile=$work/Dockerfile $origin registry.access.redhat.com/ubi8/python-38 flatpak-indexer
 
 tmp_container=$(podman create flatpak-indexer-tar-diff)
 mkdir -p -m 0755 $work/upload/src/bin
