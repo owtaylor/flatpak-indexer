@@ -21,11 +21,9 @@ setup(name='flatpak-indexer',
           'flatpak_indexer': [
               'certs/*.cert',
               'certs/*.crt',
-              'certs/.dummy'
+              'certs/.dummy',
+              'messaging-certs/*.pem',
           ],
-          'flatpak_indexer.datasource.fedora': [
-              'messaging-certs/*.pem'
-          ]
       },
       data_files=data_files,
       install_requires=[
