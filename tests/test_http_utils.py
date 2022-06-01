@@ -57,4 +57,5 @@ def test_get_requests_session(tmp_path):
         with raises(Exception, match="Max retries exceeded with url"):
             session.get('https://other.example.com/')
 
-        p.assert_called_once_with(ANY, 'https://other.example.com/', True, None)
+        ca_bundle = os.environ.get("REQUESTS_CA_BUNDLE")  # None or path to system ca bundle
+        p.assert_called_once_with(ANY, 'https://other.example.com/', True, ca_bundle)
