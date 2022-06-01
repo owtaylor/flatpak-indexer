@@ -58,4 +58,6 @@ def test_get_requests_session(tmp_path):
             session.get('https://other.example.com/')
 
         ca_bundle = os.environ.get("REQUESTS_CA_BUNDLE")  # None or path to system ca bundle
-        p.assert_called_once_with(ANY, 'https://other.example.com/', True, ca_bundle)
+        p.assert_called_once_with(
+            ANY, 'https://other.example.com/', ca_bundle if ca_bundle else True, None
+        )
