@@ -62,7 +62,6 @@ class FedoraUpdater(Updater):
     def __init__(self, config: Config):
         self.conf = config
 
-        self.session = Session(config)
         self.change_monitor = None
         self.queue_name = None
 
@@ -71,23 +70,25 @@ class FedoraUpdater(Updater):
         self.change_monitor.start()
 
     def update(self, registry_data):
+        session = Session(self.conf)
+
         assert self.change_monitor, "start() must be called before update()"
 
         changed, serial = self.change_monitor.get_bodhi_changed()
         if changed is None:
             # If we reconnected to a different queue, we don't have any
             # information about the status of cached updates, and need to start over
-            reset_update_cache(self.session)
+            reset_update_cache(session)
         else:
             for bodhi_update_id in changed:
-                refresh_update_status(self.session, bodhi_update_id)
+                refresh_update_status(session, bodhi_update_id)
 
         # Now we've updated, we can remove old entries from the log
         self.change_monitor.clear_bodhi_changed(serial)
 
-        refresh_all_updates(self.session, content_type='flatpak')
-        updates = list_updates(self.session, content_type='flatpak')
-        builds = {nvr: self.session.build_cache.get_image_build(nvr)
+        refresh_all_updates(session, content_type='flatpak')
+        updates = list_updates(session, content_type='flatpak')
+        builds = {nvr: session.build_cache.get_image_build(nvr)
                   for update in updates for nvr in update.builds}
 
         repos: Dict[str, RepoInfo] = {}

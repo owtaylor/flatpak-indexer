@@ -197,12 +197,13 @@ class IndexWriter:
 class Indexer:
     def __init__(self, config: Config, cleaner: Optional[Cleaner] = None):
         self.conf = config
-        self.session = Session(config)
         if cleaner is None:
             cleaner = Cleaner(self.conf)
         self.cleaner = cleaner
 
     def index(self, registry_data: Dict[str, RegistryModel]):
+        session = Session(self.conf)
+
         icon_store = None
         if self.conf.icons_dir and self.conf.icons_uri:
             icon_store = IconStore(self.conf.icons_dir, self.conf.icons_uri, self.cleaner)
@@ -235,7 +236,7 @@ class Indexer:
 
             index = IndexWriter(index_config,
                                 registry_config,
-                                self.session,
+                                session,
                                 icon_store)
 
             for repository in registry_info.repositories.values():
