@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import DefaultDict, Optional, Set
+from typing import DefaultDict, Dict, List, NamedTuple, Optional, Set
 
 import redis
 
@@ -8,25 +8,45 @@ from ...bodhi_query import (list_updates, refresh_all_updates,
                             refresh_update_status, reset_update_cache)
 from ...config import Config
 from ...fedora_monitor import FedoraMonitor
-from ...models import RegistryModel, TagHistoryItemModel, TagHistoryModel
+from ...models import (
+    BodhiUpdateModel, ImageBuildModel, ImageModel, RegistryModel,
+    TagHistoryItemModel, TagHistoryModel
+)
 from ...session import Session
 from ...utils import unparse_pull_spec
 
 
+class UpdateBuild(NamedTuple):
+    update: BodhiUpdateModel
+    build: ImageBuildModel
+
+
+class StableUpdateBuild(UpdateBuild):
+    @property
+    def date_stable(self):
+        assert self.update.date_stable
+        return self.update.date_stable
+
+
+class TestingUpdateBuild(UpdateBuild):
+    @property
+    def date_testing(self):
+        assert self.update.date_testing
+        return self.update.date_testing
+
+
 class RepoInfo:
     def __init__(self):
-        self.testing_updates = []
-        self.latest_stable = None
-        self.stable_updates = []
-        self.latest_testing = None
+        self.testing_updates: List[TestingUpdateBuild] = []
+        self.stable_updates: List[StableUpdateBuild] = []
 
 
-def _set_build_image_tags(update, tags):
-    for image in update.images:
+def _set_build_image_tags(image_build: ImageBuildModel, tags: List[str]):
+    for image in image_build.images:
         image.tags = tags
 
 
-def _fix_pull_spec(image, registry_url, repo_name):
+def _fix_pull_spec(image: ImageModel, registry_url: str, repo_name: str):
     # Replace the image pull spec which points to the candidate registry
     # to the final location of the image - this will be more robust if builds
     # are deleted from the candidate registry
@@ -70,7 +90,7 @@ class FedoraUpdater(Updater):
         builds = {nvr: self.session.build_cache.get_image_build(nvr)
                   for update in updates for nvr in update.builds}
 
-        repos = {}
+        repos: Dict[str, RepoInfo] = {}
 
         for update in updates:
             for build_nvr in update.builds:
@@ -82,34 +102,34 @@ class FedoraUpdater(Updater):
                 repo = repos[build.repository]
 
                 if update.date_testing:
-                    repo.testing_updates.append((update, build))
+                    repo.testing_updates.append(TestingUpdateBuild(update, build))
                 if update.date_stable:
-                    repo.stable_updates.append((update, build))
+                    repo.stable_updates.append(StableUpdateBuild(update, build))
 
         for repo_name, repo in repos.items():
             # Find the current testing update - the status might be 'stable' if it's been
             # moved to stable afterwards
-            current_testing = max((u for u, b in repo.testing_updates
-                                   if u.status in ('testing', 'stable')),
-                                  key=lambda u: u.date_testing, default=None)
+            current_testing = max((update_build for update_build in repo.testing_updates
+                                   if update_build.update.status in ('testing', 'stable')),
+                                  key=lambda ub: ub.date_testing, default=None)
 
             # Discard any updates that have date_testing after the current update - they
             # must have been unpushed from testing
-            repo.testing_updates = [(u, b) for u, b in repo.testing_updates
+            repo.testing_updates = [update_build for update_build in repo.testing_updates
                                     if (current_testing and
-                                        current_testing.date_testing >= u.date_testing)]
+                                        current_testing.date_testing >= update_build.date_testing)]
 
             # Sort the newest first
-            repo.testing_updates.sort(key=lambda r: r[0].date_testing, reverse=True)
+            repo.testing_updates.sort(key=lambda ub: ub.date_testing, reverse=True)
 
             # Now the same for stable
-            current_stable = max((u for u, b in repo.stable_updates
-                                  if u.status == 'stable'),
-                                 key=lambda u: u.date_stable, default=None)
-            repo.stable_updates = [(u, b) for u, b in repo.stable_updates
+            current_stable = max((update_build for update_build in repo.stable_updates
+                                  if update_build.update.status == 'stable'),
+                                 key=lambda ub: ub.date_stable, default=None)
+            repo.stable_updates = [update_build for update_build in repo.stable_updates
                                    if (current_stable and
-                                       current_stable.date_stable >= u.date_stable)]
-            repo.stable_updates.sort(key=lambda r: r[0].date_stable, reverse=True)
+                                       current_stable.date_stable >= update_build.date_stable)]
+            repo.stable_updates.sort(key=lambda ub: ub.date_stable, reverse=True)
 
         registry_statuses: DefaultDict[str, Set[str]] = defaultdict(set)
         for index_config in self.conf.indexes:
@@ -130,11 +150,11 @@ class FedoraUpdater(Updater):
 
             for repo_name, repo in repos.items():
                 if repo.testing_updates:
-                    _, latest_testing_build = repo.testing_updates[0]
+                    latest_testing_build = repo.testing_updates[0].build
                 else:
                     latest_testing_build = None
                 if repo.stable_updates:
-                    _, latest_stable_build = repo.stable_updates[0]
+                    latest_stable_build = repo.stable_updates[0].build
                 else:
                     latest_stable_build = None
 
