@@ -2,6 +2,11 @@
 
 set +e -x
 
+# These are set to build-time specific location when building the Red Hat-internal
+# image; unset them to avoid breaking things at runtime.
+unset REQUESTS_CA_BUNDLE
+unset GIT_SSL_CAINFO
+
 if [ "$#" -eq 0 ] ; then
     TESTS=( tests )
 else

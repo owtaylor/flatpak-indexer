@@ -37,7 +37,7 @@ def get_btype(build):
     elif typeinfo and typeinfo.get('module'):
         return 'module'
     else:
-        return'rpm'
+        return 'rpm'
 
 
 class Downloader:
