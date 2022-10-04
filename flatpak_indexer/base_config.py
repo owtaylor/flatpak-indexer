@@ -135,6 +135,26 @@ class Lookup:
 
         return [substitute_env_vars(v) for v in val]
 
+    def get_regex_list(
+        self, key: str, default: Union[List[str], Defaults] = Defaults.REQUIRED
+    ) -> List[re.Pattern]:
+        val = self._get(key, default)
+        if not isinstance(val, list) or not all(isinstance(v, str) for v in val):
+            raise ConfigError("{} must be a list of regular expressions".format(
+                self._get_path(key))
+            )
+
+        result = []
+        for v in val:
+            try:
+                result.append(re.compile(v))
+            except re.error as e:
+                raise ConfigError("{}: '{}' is not a valid regular expression: {}".format(
+                    self._get_path(key), v, e.msg
+                ))
+
+        return result
+
     def get_str_dict(
         self, key: str, default: Union[Dict[str, str], Defaults] = Defaults.REQUIRED
     ) -> Dict[str, str]:
@@ -201,6 +221,8 @@ class BaseConfig:
                     val = lookup.get_int(name, **kwargs)
                 elif resolved == list and args[0] == str:
                     val = lookup.get_str_list(name, **kwargs)
+                elif resolved == list and args[0] == re.Pattern:
+                    val = lookup.get_regex_list(name, **kwargs)
                 elif resolved == dict and args[0] == str and args[1] == str:
                     val = lookup.get_str_dict(name, **kwargs)
                 elif resolved == timedelta:

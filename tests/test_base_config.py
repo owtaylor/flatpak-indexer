@@ -1,6 +1,7 @@
 import copy
 from datetime import timedelta
 import os
+import re
 from textwrap import dedent
 from typing import Dict, List, Optional
 
@@ -284,6 +285,42 @@ def test_timedelta_optional():
     timedelta_field = Config(lookup).timedelta_field
     assert timedelta_field is not None
     assert timedelta_field.total_seconds() == 42
+
+
+def test_regex_list():
+    class Config(BaseConfig):
+        regex_list_field: List[re.Pattern]
+
+    lookup = Lookup({
+        "regex_list_field": [r"a*", r"b*"]
+    })
+    assert [v.pattern for v in Config(lookup).regex_list_field] == [r"a*", r"b*"]
+
+
+def test_regex_list_invalid():
+    class Config(BaseConfig):
+        regex_list_field: List[re.Pattern]
+
+    lookup = Lookup({
+        "regex_list_field": 42
+    })
+    with raises(
+            ConfigError,
+            match=r"regex_list_field must be a list of regular expressions"):
+        Config(lookup)
+
+
+def test_regex_list_compile_error():
+    class Config(BaseConfig):
+        regex_list_field: List[re.Pattern]
+
+    lookup = Lookup({
+        "regex_list_field": ["*"]
+    })
+    with raises(
+            ConfigError,
+            match=r"regex_list_field: '\*' is not a valid regular expression: nothing to repeat"):
+        Config(lookup)
 
 
 def test_iterate_objects_none():
