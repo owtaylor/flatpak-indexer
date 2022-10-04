@@ -55,12 +55,14 @@ class IconStore(object):
 class IndexWriter:
     def __init__(
         self, conf: IndexConfig, registry_config: RegistryConfig,
+        source_registry: RegistryModel,
         session: Session, icon_store: Optional[IconStore]
     ):
         self.registry_config = registry_config
         self.config = conf
         self.session = session
         self.icon_store = icon_store
+        self.source_registry = source_registry
         self.registry = RegistryModel()
 
     def extract_icon(self, labels: Dict[str, str], key: str):
@@ -86,7 +88,7 @@ class IndexWriter:
             image.annotations[k] = image.labels[k]
             del image.labels[k]
 
-    def add_image(self, name: str, image: ImageModel, delta_manifest_url: Optional[str]):
+    def add_image(self, name: str, image: ImageModel):
         image = copy.copy(image)
 
         # Clean up some information we don't want in the final output
@@ -101,9 +103,6 @@ class IndexWriter:
             # holding the int32 1.
             image.labels['org.flatpak.commit-metadata.xa.token-type'] = 'AQAAAABp'
 
-        if delta_manifest_url:
-            image.labels['io.github.containers.DeltaUrl'] = delta_manifest_url
-
         self.extract_icon(image.labels, 'org.freedesktop.appstream.icon-64')
         self.extract_icon(image.labels, 'org.freedesktop.appstream.icon-128')
 
@@ -111,6 +110,15 @@ class IndexWriter:
             self.move_flatpak_labels(image)
 
         self.registry.add_image(name, image)
+
+    def find_images(self):
+        for repository in self.source_registry.repositories.values():
+            for image in repository.images.values():
+                if (self.config.tag in image.tags and
+                    (self.config.architecture is None or
+                        image.architecture == self.config.architecture)):
+
+                    self.add_image(repository.name, image)
 
     def iter_images(self):
         for repository in self.registry.repositories.values():
@@ -130,6 +138,22 @@ class IndexWriter:
             if nvr and nvr not in seen:
                 seen.add(nvr)
                 yield self.session.build_cache.get_image_build(nvr)
+
+    def setup_delta_generator(self, delta_generator: DeltaGenerator):
+        for repository in self.registry.repositories.values():
+            source_repository = self.source_registry.repositories[repository.name]
+            tag_history = source_repository.tag_histories.get(self.config.tag)
+            if tag_history:
+                delta_generator.add_tag_history(
+                    source_repository, tag_history, self.config
+                )
+
+    def add_delta_urls(self, delta_generator: DeltaGenerator):
+        for image in self.iter_images():
+            delta_manifest_url = \
+                delta_generator.get_delta_manifest_url(image.digest)
+            if delta_manifest_url:
+                image.labels['io.github.containers.DeltaUrl'] = delta_manifest_url
 
     def write_contents(self):
         contents_dir = self.config.contents
@@ -208,49 +232,36 @@ class Indexer:
         if self.conf.icons_dir and self.conf.icons_uri:
             icon_store = IconStore(self.conf.icons_dir, self.conf.icons_uri, self.cleaner)
 
-        delta_generator = None
-        if any(index_config.delta_keep.total_seconds() > 0 for index_config in self.conf.indexes):
-            delta_generator = DeltaGenerator(self.conf, cleaner=self.cleaner)
-
-            for index_config in self.conf.indexes:
-                registry_info = registry_data.get(index_config.registry)
-                if registry_info is None:
-                    continue
-
-                registry_config = self.conf.registries[index_config.registry]
-                for repository in registry_info.repositories.values():
-                    tag_history = repository.tag_histories.get(index_config.tag)
-                    if tag_history:
-                        delta_generator.add_tag_history(repository, tag_history, index_config)
-
-            delta_generator.generate()
-
+        index_writers: Dict[str, IndexWriter] = {}
         for index_config in self.conf.indexes:
             registry_name = index_config.registry
             registry_config = self.conf.registries[registry_name]
 
-            registry_info = registry_data.get(registry_name)
-            if registry_info is None:
+            source_registry = registry_data.get(registry_name)
+            if source_registry is None:
                 logger.debug("No queried information found for %s", registry_name)
                 continue
 
-            index = IndexWriter(index_config,
-                                registry_config,
-                                session,
-                                icon_store)
+            index_writer = IndexWriter(index_config,
+                                       registry_config,
+                                       source_registry,
+                                       session,
+                                       icon_store)
+            index_writers[index_config.name] = index_writer
 
-            for repository in registry_info.repositories.values():
-                for image in repository.images.values():
-                    if (index_config.tag in image.tags and
-                        (index.config.architecture is None or
-                         image.architecture == index.config.architecture)):
+            index_writer.find_images()
 
-                        if delta_generator:
-                            delta_manifest_url = \
-                                delta_generator.get_delta_manifest_url(image.digest)
-                        else:
-                            delta_manifest_url = None
+        delta_generator = None
+        if any(index_config.delta_keep.total_seconds() > 0 for index_config in self.conf.indexes):
+            delta_generator = DeltaGenerator(self.conf, cleaner=self.cleaner)
 
-                        index.add_image(repository.name, image, delta_manifest_url)
+            for index_writer in index_writers.values():
+                index_writer.setup_delta_generator(delta_generator)
 
-            index.write()
+            delta_generator.generate()
+
+            for index_writer in index_writers.values():
+                index_writer.add_delta_urls(delta_generator)
+
+        for index_writer in index_writers.values():
+            index_writer.write()
