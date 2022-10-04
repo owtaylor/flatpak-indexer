@@ -54,19 +54,21 @@ _TEST_ICON_DATA = \
     PcWAtfXzBiyvnzRAoX7GAJH6sAE69TEDpOoDBqjVjxogWD9kgGa93wDZeqcByvUeA8TrHw3Qr+8b
     sEV9x7D90uN/tPh70+X3X82aXIZ8Z5vMAAAAAElFTkSuQmCC""".replace('\n', '')
 
-
 _AISLERIOT_LABELS = {
     "org.flatpak.ref": "app/org.gnome.Aisleriot/x86_64/stable",
     "org.freedesktop.appstream.icon-64": "data:image/png;base64," + _TEST_ICON_DATA,
     "org.freedesktop.appstream.icon-128": "https://www.example.com/icons/aisleriot.png",
 }
 
+_AISLERIOT_EL9_LABELS = {
+    "org.flatpak.ref": "app/org.gnome.Aisleriot/x86_64/stable",
+    "org.freedesktop.appstream.icon-64": "data:image/png;base64," + _TEST_ICON_DATA,
+}
 
 _AISLERIOT2_LABELS = {
     "org.flatpak.ref": "app/org.gnome.Aisleriot2/x86_64/stable",
     "org.freedesktop.appstream.icon-64": "data:image/png;base64," + _TEST_ICON_DATA,
 }
-
 
 _KOJI_BUILDS: List[Dict[str, Any]] = [
     {
@@ -273,6 +275,66 @@ _KOJI_BUILDS: List[Dict[str, Any]] = [
                     }
                 },
                 'id': 16321,
+            }
+        ]
+    },
+    {
+        'build_id': 1063045,
+        'completion_ts': 1598465000.0,
+        'extra': {
+            'image': {
+                'flatpak': True,
+                'index': {
+                    'digests': {'application/vnd.docker.distribution.manifest.list.v2+json':
+                                'sha256:' +
+                                'AISLERIOT_EL9_DIGEST'},
+
+                    'floating_tags': ['latest', 'el8'],
+                    'pull': [
+                        'registry-proxy.engineering.redhat.com/rh-osbs/aisleriot3@' +
+                        'sha256:AISLERIOT_EL9_DIGEST',
+                        'registry-proxy.engineering.redhat.com/rh-osbs/aisleriot3:' +
+                        'el9-8020020200121102609.1'],
+                    'tags': ['el8-8020020200121102609.1'],
+                },
+                'modules': ['aisleriot-el8-8020020200121102609'],
+            }
+        },
+        'name': 'aisleriot-container',
+        'nvr': 'aisleriot-container-el9-9010020220121102609.1',
+        'owner_name': 'jdoe',
+        'package_id': 23,
+        'source': 'git://pkgs.devel.redhat.com/containers/aisleriot#AISLERIOT_EL9_GIT_DIGEST',
+        '_TYPE': 'image',
+        '_TAGS': [],
+        '_ARCHIVES': [
+            {
+                'extra': {
+                    'docker': {
+                        'config': {
+                            'architecture': 'amd64',
+                            'config': {
+                                'Labels': _AISLERIOT_EL9_LABELS,
+                            },
+                            'os': 'linux',
+                            'rootfs': {
+                                'diff_ids': ['sha256:5a1ad']
+                            },
+                        },
+                        'digests': {
+                            'application/vnd.docker.distribution.manifest.v2+json':
+                            'sha256:' +
+                                'ba5eba11c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb',
+                        },
+                        'repositories': [
+                            'registry-proxy.engineering.redhat/rh-osbs/aisleriot3:build-3456-x86_64'
+                        ]
+                    },
+                    'image': {
+                        'arch': 'x86_64',
+                    }
+                },
+                'id': 18321,
             }
         ]
     },

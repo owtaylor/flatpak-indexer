@@ -50,6 +50,17 @@ indexes:
         output: ${OUTPUT_DIR}/test/flatpak-amd64.json
         tag: latest
         extract_icons: true
+        # Prefer el8 repositories to el9 repositories
+        repository_priority: ['el8/.*', 'el9/.*']
+    amd64-reversed:
+        delta_keep: 7d
+        architecture: amd64
+        registry: registry.example.com
+        output: ${OUTPUT_DIR}/test/flatpak-amd64-reversed.json
+        tag: latest
+        extract_icons: true
+        # Prefer el9 repositories to el8 repositories (more natural)
+        repository_priority: ['el9/.*', 'el8/.*']
     amd64-annotations:
         delta_keep: 7d
         architecture: amd64
@@ -92,7 +103,7 @@ def test_indexer(tmp_path):
 
     assert amd64_data['Registry'] == 'https://registry.example.com/'
     assert len(amd64_data['Results']) == 2
-    aisleriot_repository = [r for r in amd64_data['Results'] if r['Name'] == 'aisleriot'][0]
+    aisleriot_repository = [r for r in amd64_data['Results'] if r['Name'] == 'el8/aisleriot'][0]
     assert len(aisleriot_repository['Images']) == 1
     aisleriot_image = aisleriot_repository['Images'][0]
     assert aisleriot_image['Digest'] == \
@@ -114,13 +125,26 @@ def test_indexer(tmp_path):
 
     assert not (tmp_path / "icons" / "ba" / "bbled.png").exists()
 
+    # Check that when we reverse the repository priority we get different images
+
+    with open(tmp_path / "test/flatpak-amd64-reversed.json") as f:
+        reversed_data = json.load(f)
+
+    assert len(reversed_data['Results']) == 2
+    print(reversed_data)
+    aisleriot_repository = [r for r in reversed_data['Results'] if r['Name'] == 'el9/aisleriot'][0]
+    assert len(aisleriot_repository['Images']) == 1
+    aisleriot_image = aisleriot_repository['Images'][0]
+    assert aisleriot_image['Digest'] == \
+        'sha256:ba5eba11c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
+
     # Now check that the index with flatpak_annotations set has the Flatpak
     # metadata in the annotations, not in the labels.
 
     with open(tmp_path / "test/flatpak-amd64-annotations.json") as f:
         amd64_data = json.load(f)
 
-    aisleriot_repository = [r for r in amd64_data['Results'] if r['Name'] == 'aisleriot'][0]
+    aisleriot_repository = [r for r in amd64_data['Results'] if r['Name'] == 'el8/aisleriot'][0]
     aisleriot_image = aisleriot_repository['Images'][0]
     assert aisleriot_image['Annotations']['org.flatpak.ref'] == \
         'app/org.gnome.Aisleriot/x86_64/stable'

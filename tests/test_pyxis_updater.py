@@ -75,8 +75,8 @@ def test_pyxis_updater(tmp_path, server_cert, client_cert):
     registry_data = run_update(updater)
     data = registry_data['registry.example.com']
 
-    assert len(data.repositories) == 2
-    aisleriot_repository = data.repositories['aisleriot']
+    assert len(data.repositories) == 3
+    aisleriot_repository = data.repositories['el8/aisleriot']
     assert len(aisleriot_repository.images) == 1
     aisleriot_image = next(iter(aisleriot_repository.images.values()))
     assert aisleriot_image.digest == \

@@ -1,5 +1,6 @@
 from datetime import timedelta
 import os
+import re
 from typing import Dict, List, Optional, Tuple
 
 from flatpak_indexer.koji_utils import KojiConfig
@@ -27,6 +28,7 @@ class IndexConfig(BaseConfig):
     registry: str
     tag: str
     koji_tags: List[str] = []
+    repository_priority: List[re.Pattern] = []
     bodhi_status: Optional[str] = None
     architecture: Optional[str] = None
     delta_keep: timedelta = configfield(skip=True)
@@ -42,6 +44,13 @@ class IndexConfig(BaseConfig):
             delta_keep_days = lookup.get_int('delta_keep_days', 0)
             delta_keep = timedelta(days=delta_keep_days)
         self.delta_keep = delta_keep
+
+    def repository_priority_key(self, repository_name: str):
+        for i, pattern in enumerate(self.repository_priority):
+            if pattern.fullmatch(repository_name):
+                return (i, repository_name)
+
+        return (len(self.repository_priority), repository_name)
 
 
 class DaemonConfig(BaseConfig):

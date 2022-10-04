@@ -32,6 +32,7 @@ indexes:
         architecture: amd64
         registry: registry.example.com
         output: /flatpaks/flatpak-amd64.json
+        repository_priority: ["rhel9/.*", "rhel10/.*"]
         tag: latest
         extract_icons: true
     brew-rc:
@@ -57,6 +58,10 @@ indexes:
 def test_config_basic(tmp_path):
     conf = get_config(tmp_path, BASIC_CONFIG)
     assert conf.pyxis_url == "https://pyxis.example.com/v1/"
+
+    index_conf = next(i for i in conf.indexes if i.name == "amd64")
+    assert index_conf.repository_priority_key("rhel9/inkscape") == (0, "rhel9/inkscape")
+    assert index_conf.repository_priority_key("foobar") == (2, "foobar")
 
 
 def test_client_cert(tmp_path):

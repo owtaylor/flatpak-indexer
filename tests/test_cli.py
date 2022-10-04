@@ -20,7 +20,7 @@ icons_dir: ${OUTPUT_DIR}/icons/
 icons_uri: https://flatpaks.example.com/icons
 registries:
     registry.example.com:
-        repositories: ['aisleriot']
+        repositories: ['el8/aisleriot']
         public_url: https://registry.example.com/
         datasource: pyxis
 indexes:

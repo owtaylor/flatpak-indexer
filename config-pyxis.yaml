@@ -56,6 +56,11 @@ indexes:
                 registry: registry.access.redhat.com
                 tag: latest
                 extract_icons: True
+                # When repositories have images with the same Flatpak ref,
+                # how to prioritize them. Regular expressions much match
+                # the full repository name. Same match prioritizes based
+                # on string comparison. No match prioritizes afterwards.
+                repository_priority: ['rhel11/.*', 'rhel10/.*', 'rhel9/.*']
                 delta_keep: 90d
         amd64:
                 output: ${OUTPUT_DIR:out}/pyxis/flatpak-latest-amd64.json
@@ -63,6 +68,7 @@ indexes:
                 architecture: amd64
                 tag: latest
                 extract_icons: True
+                repository_priority: ['rhel11/.*', 'rhel10/.*', 'rhel9/.*']
                 delta_keep: 90d
         # These indexes index all Flatpaks found in the rhel-8.3.0-candidate tag
         # or (since the tag is suffixed by +) tags it inherits from.

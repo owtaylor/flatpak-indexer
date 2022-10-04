@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse
 import responses
 
 from flatpak_indexer.test.decorators import WithArgDecorator
-from .utils import _AISLERIOT2_LABELS, _AISLERIOT_LABELS
+from .utils import _AISLERIOT2_LABELS, _AISLERIOT_EL9_LABELS, _AISLERIOT_LABELS
 
 
 def _pyxis_labels(labels):
@@ -33,7 +33,12 @@ _REPOSITORIES = [
     },
     {
         'registry': 'registry.example.com',
-        'repository': 'aisleriot',
+        'repository': 'el8/aisleriot',
+        'build_categories': ['Flatpak'],
+    },
+    {
+        'registry': 'registry.example.com',
+        'repository': 'el9/aisleriot',
         'build_categories': ['Flatpak'],
     },
     {
@@ -45,7 +50,7 @@ _REPOSITORIES = [
         'registry': 'registry.example.com',
         'repository': 'aisleriot3',
         'build_categories': ['Flatpak'],
-    }
+    },
 ]
 
 
@@ -96,7 +101,32 @@ _REPO_IMAGES: List[Dict[str, Any]] = [
         'repositories': [
             {
                 'registry': 'registry.example.com',
-                'repository': 'aisleriot',
+                'repository': 'el8/aisleriot',
+                'tags': [
+                    {
+                        'name': 'latest',
+                        'added_date': '2019-04-25T18:50:02.708000+00:00',
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        'architecture': 'amd64',
+        'brew': {
+            'build': 'aisleriot-container-el9-9010020220121102609.1',
+        },
+        'docker_image_id':
+            'sha256:1234da0ec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb',
+        'parsed_data': {
+            'architecture': 'amd64',
+            'os': 'linux',
+            'labels': _pyxis_labels(_AISLERIOT_EL9_LABELS),
+        },
+        'repositories': [
+            {
+                'registry': 'registry.example.com',
+                'repository': 'el9/aisleriot',
                 'tags': [
                     {
                         'name': 'latest',
@@ -168,7 +198,18 @@ _TAG_HISTORIES = [
             },
         ],
         "registry": "registry.example.com",
-        "repository": "aisleriot",
+        "repository": "el8/aisleriot",
+        "tag": "latest",
+    },
+    {
+        "history": [
+            {
+                "brew_build": "aisleriot-container-el9-9010020220121102609.1",
+                "start_date": "2020-07-23T19:30:04+00:00"
+            },
+        ],
+        "registry": "registry.example.com",
+        "repository": "el9/aisleriot",
         "tag": "latest",
     },
     {
@@ -210,14 +251,14 @@ def _paged_result(params, all_results):
 
 _GET_IMAGES_RE = re.compile(
     r'^https://pyxis.example.com/' +
-    r'v1/repositories/registry/([A-Za-z0-9.]+)/repository/([A-Za-z0-9.]+)/images')
+    r'v1/repositories/registry/([A-Za-z0-9.]+)/repository/([A-Za-z0-9./]+)/images')
 _GET_IMAGES_NVR_RE = re.compile(
     r'^https://pyxis.example.com/v1/images/nvr/([A-Za-z0-9_.-]+)')
 _GET_REPOSITORIES_RE = re.compile(
     r'^https://pyxis.example.com/v1/repositories(\?|$)')
 _GET_TAG_HISTORY_RE = re.compile(
     r'^https://pyxis.example.com/' +
-    r'v1/tag-history/registry/([A-Za-z0-9.]+)/repository/([A-Za-z0-9.]+)/tag/([A-Za-z0-9.]+)')
+    r'v1/tag-history/registry/([A-Za-z0-9.]+)/repository/([A-Za-z0-9./]+)/tag/([A-Za-z0-9.]+)')
 
 
 class MockPyxis:

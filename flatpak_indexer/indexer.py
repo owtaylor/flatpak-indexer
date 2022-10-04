@@ -5,7 +5,7 @@ import hashlib
 import json
 import logging
 import os
-from typing import DefaultDict, Dict, Optional, Set
+from typing import DefaultDict, Dict, Optional, Set, Tuple
 
 from .cleaner import Cleaner
 from .config import Config, IndexConfig, RegistryConfig
@@ -112,13 +112,22 @@ class IndexWriter:
         self.registry.add_image(name, image)
 
     def find_images(self):
+        images:  Dict[Tuple[str, str], Tuple[str, Tuple[int, str], ImageModel]] = {}
         for repository in self.source_registry.repositories.values():
+            repository_priority_key = self.config.repository_priority_key(repository.name)
             for image in repository.images.values():
                 if (self.config.tag in image.tags and
                     (self.config.architecture is None or
                         image.architecture == self.config.architecture)):
+                    ref_key = (image.architecture, image.labels['org.flatpak.ref'])
+                    if ref_key in images:
+                        old_repository_name, old_repository_priority_key, _ = images[ref_key]
+                        if repository_priority_key >= old_repository_priority_key:
+                            continue
+                    images[ref_key] = (repository.name, repository_priority_key, image)
 
-                    self.add_image(repository.name, image)
+        for ref, (repository_name, _, image) in images.items():
+            self.add_image(repository_name, image)
 
     def iter_images(self):
         for repository in self.registry.repositories.values():
