@@ -60,7 +60,7 @@ def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
     completion_time = datetime.fromtimestamp(build_info['completion_ts'], tz=timezone.utc)
 
     kwargs = dict(name=build_info['name'],
-                  build_id=build_info['build_id'],
+                  build_id=str(build_info['build_id']),
                   nvr=NVR(build_info['nvr']),
                   source=build_info['source'],
                   user_name=build_info['owner_name'],
