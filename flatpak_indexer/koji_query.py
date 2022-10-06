@@ -246,7 +246,7 @@ def refresh_flatpak_builds(session: Session, flatpaks):
         pipe.execute()
 
 
-def list_flatpak_builds(session: Session, flatpak: str) -> List[FlatpakBuildModel]:
+def list_flatpak_builds(session: Session, flatpak: str):
     matches = session.redis_client.zrangebylex(
         KEY_BUILDS_BY_ENTITY_FLATPAK, '[' + flatpak + ':', '(' + flatpak + ';'
     )
@@ -257,7 +257,7 @@ def list_flatpak_builds(session: Session, flatpak: str) -> List[FlatpakBuildMode
             yield KEY_PREFIX_BUILD + name + '-' + vr
 
     result_json = session.redis_client.mget(matches_to_keys())
-    result = []
+    result: List[FlatpakBuildModel] = []
     for i, item_json in enumerate(result_json):
         if item_json:
             flatpak_build = FlatpakBuildModel.from_json_text(item_json, check_current=True)
