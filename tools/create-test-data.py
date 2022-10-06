@@ -14,10 +14,8 @@ import requests
 
 
 # The data we use is meant to be a point-in-time snapshot of Fedora at this
-# date; we sneak some newer things in below to test aspects that weren't
-# in Fedora at that point. At some point, rebasing to a newer point-of-time
-# could make sense.
-DATE = "2019-02-06 00:00:00"
+# date.
+DATE = "2022-10-01 00:00:00"
 TAGS = ""
 
 
@@ -184,7 +182,7 @@ class Downloader:
 
     def download_tag_data(self, indent=0):
         self.tagged_packages = {}
-        for tag in ['f28', 'f29']:
+        for tag in ['f36', 'f35']:
             exists, output_file = self._check_existing(f'tags/{tag}.json.gz')
             if not exists:
                 show(f'Downloading tag history for {tag}', indent=indent)
@@ -241,9 +239,9 @@ class Downloader:
 
         if releases is None:
             if content_type == 'flatpak':
-                releases = ['F29F']
+                releases = ['F36F', 'F35F']
             elif content_type == 'rpm':
-                releases = ['F28', 'F29']
+                releases = ['F36', 'F35']
 
         url = "https://bodhi.fedoraproject.org/updates/"
         params = {
@@ -330,32 +328,18 @@ def main(output, base):
 
     downloader.create_directories()
 
-    downloader.download_updates('flatpak', 'feedreader')
+    downloader.download_updates('flatpak', 'baobab')
     downloader.download_updates('flatpak', 'eog')
+    downloader.download_updates('flatpak', 'feedreader')
     downloader.download_updates('flatpak', 'quadrapassel')
-    downloader.download_build(nvr='eog-master-20180821163756.2')
 
     # These rpm builds are used when testing modification of Bodhi updates
-    for b in (["aisleriot-3.22.5-1.fc28",
-               "aisleriot-3.22.6-1.fc29",
-               "aisleriot-3.22.7-1.fc29",
-               "bijiben-3.28.1-1.fc28",
-               "bijiben-3.28.2-1.fc28",
-               "bijiben-3.30.0-1.fc29",
-               "bijiben-3.30.1-1.fc29",
-               "bijiben-3.30.2-1.fc29"]):
+    for b in (["gnome-weather-41.0-1.fc35",
+               "gnome-weather-42~beta-1.fc36",
+               "gnome-weather-42~rc-1.fc36",
+               "gnome-weather-42.0-1.fc36",
+               "sushi-41.0-1.fc35"]):
         downloader.download_build(nvr=b)
-
-    # There is a F30 update including gnome-clocks and gnome-weather, use this
-    # to test multi-Flatpak updates
-    downloader.download_updates('flatpak', 'gnome-clocks',
-                                releases=['F30F'], date="2019-08-01 00:00:00")
-    downloader.download_updates('flatpak', 'gnome-weather',
-                                releases=['F30F'], date="2019-08-01 00:00:00")
-
-    # A more recent Flatpak with labels
-    downloader.download_updates('flatpak', 'baobab',
-                                releases=['F32F'], date="2020-08-15 00:00:00")
 
     # Module with multiple contexts
     downloader.download_build(nvr='django-1.6-20180828135711.9c690d0e')

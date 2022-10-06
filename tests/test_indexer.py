@@ -248,33 +248,34 @@ def test_indexer_fedora(connection_mock, tmp_path):
         data = json.load(f)
 
     assert data['Registry'] == 'https://registry.fedoraproject.org/'
-    assert len(data['Results']) == 6
+    assert len(data['Results']) == 4
 
     eog_repository = [r for r in data['Results'] if r['Name'] == 'eog'][0]
-    assert len(eog_repository['Images']) == 1
+    assert len(eog_repository['Images']) == 2
+    assert sorted(i['Architecture'] for i in eog_repository['Images']) == ['amd64', 'arm64']
     assert eog_repository['Images'][0]['Tags'] == ['latest', 'testing']
 
     feedreader_repository = [r for r in data['Results'] if r['Name'] == 'feedreader'][0]
-    assert len(feedreader_repository['Images']) == 1
-    assert feedreader_repository['Images'][0]['Tags'] == ['latest']
+    assert len(feedreader_repository['Images']) == 2
+    assert sorted(i['Architecture'] for i in feedreader_repository['Images']) == ['amd64', 'arm64']
+    assert feedreader_repository['Images'][0]['Tags'] == ['latest', 'testing']
 
     baobab_repository = [r for r in data['Results'] if r['Name'] == 'baobab'][0]
-    assert len(baobab_repository['Images']) == 1
+    assert len(baobab_repository['Images']) == 2
 
-    baobab_image = baobab_repository['Images'][0]
-    assert baobab_image['Labels']['org.flatpak.ref'] == 'app/org.gnome.Baobab/x86_64/stable'
+    baobab_image = [i for i in baobab_repository['Images'] if i['Architecture'] == 'amd64'][0]
+    assert baobab_image['Labels']['org.flatpak.ref'] == 'app/org.gnome.baobab/x86_64/stable'
 
-    assert os.listdir(tmp_path / "test/contents/latest/modules") == ["baobab:master.json"]
-    with open(tmp_path / "test/contents/latest/modules/baobab:master.json") as f:
+    with open(tmp_path / "test/contents/latest/modules/baobab:stable.json") as f:
         module_data = json.load(f)
 
     assert module_data == {
         'Images': [{
-            'ImageNvr': 'baobab-master-3220200331145937.2',
-            'ModuleNvr': 'baobab-master-3220200331145937.caf21102',
+            'ImageNvr': 'baobab-stable-3620220517102805.1',
+            'ModuleNvr': 'baobab-stable-3620220517102805.cab77b58',
             'PackageBuilds': [
-                  {'Nvr': 'baobab-3.34.0-2.module_f32+8432+1f88bc5a',
-                   'SourceNvr': 'baobab-3.34.0-2.module_f32+8432+1f88bc5a'}
+                  {'Nvr': 'baobab-42.0-1.module_f36+14451+219d93a5',
+                   'SourceNvr': 'baobab-42.0-1.module_f36+14451+219d93a5'}
               ]
         }]
     }

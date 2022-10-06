@@ -37,41 +37,41 @@ def session():
 @mock_redis
 @mock_bodhi
 def test_bodhi_query_package_updates(session):
-    refresh_updates(session, 'rpm', entities=['bubblewrap'])
+    refresh_updates(session, 'rpm', entities=['libpeas'])
 
-    updates = list_updates(session, 'rpm', 'bubblewrap')
-    assert len(updates) == 3
+    updates = list_updates(session, 'rpm', 'libpeas')
+    assert len(updates) == 4
 
-    update = [x for x in updates if 'bubblewrap-0.3.0-2.fc28' in x.builds][0]
+    update = [x for x in updates if 'libpeas-1.30.0-4.fc35' in x.builds][0]
 
-    assert update.user_name == 'walters'
-    assert update.date_submitted.strftime("%Y-%m-%d %H:%M:%S") == '2018-07-26 18:59:31'
+    assert update.user_name == 'hadess'
+    assert update.date_submitted.strftime("%Y-%m-%d %H:%M:%S") == '2021-06-14 08:37:11'
     assert update.date_testing is not None
-    assert update.date_testing.strftime("%Y-%m-%d %H:%M:%S") == '2018-07-27 18:14:33'
+    assert update.date_testing.strftime("%Y-%m-%d %H:%M:%S") == '2021-06-14 08:37:32'
     assert update.date_stable is not None
-    assert update.date_stable.strftime("%Y-%m-%d %H:%M:%S") == '2018-08-03 20:44:52'
+    assert update.date_stable.strftime("%Y-%m-%d %H:%M:%S") == '2021-06-14 08:38:35'
 
-    assert update.builds == ['bubblewrap-0.3.0-2.fc28']
+    assert update.builds == ['libpeas-1.30.0-4.fc35']
     assert update.status == 'stable'
-    assert update.type == 'enhancement'
+    assert update.type == 'unspecified'
 
 
 @mock_koji
 @mock_redis
 @mock_bodhi
 def test_bodhi_query_package_updates_many(session):
-    # aisleriot picks up multi-package updates
+    # gnome-weather picks up multi-package updates
     # eog picks up Flatpak updates
     #   (since we don't specify content_type=rpm to avoid pessimizing a bodhi query)
-    entities = [str(n) + 'bubblewrap' for n in range(0, 9)] + ['aisleriot', 'bubblewrap', 'eog']
+    entities = [str(n) + 'libpeas' for n in range(0, 9)] + ['pango', 'libpeas', 'eog']
 
     refresh_updates(session, 'rpm', entities, rows_per_page=1)
 
-    updates = list_updates(session, 'rpm', 'bubblewrap')
-    assert len(updates) == 3
+    updates = list_updates(session, 'rpm', 'libpeas')
+    assert len(updates) == 4
 
-    updates = list_updates(session, 'rpm', 'aisleriot')
-    assert len(updates) == 3
+    updates = list_updates(session, 'rpm', 'gnome-weather')
+    assert len(updates) == 4
 
 
 @mock_koji
@@ -79,48 +79,48 @@ def test_bodhi_query_package_updates_many(session):
 @mock_bodhi
 def test_bodhi_query_update_changed(bodhi_mock, session):
     def modify_update(update):
-        if update['updateid'] == 'FEDORA-2018-1a0cf961a1':
+        if update['updateid'] == 'FEDORA-2021-511edcde29':
             update_copy = copy.deepcopy(update)
 
             update_copy['builds'] = [b for b in update_copy['builds']
-                                     if not b['nvr'].startswith('bijiben-')]
+                                     if not b['nvr'].startswith('sushi-')]
             update_copy['date_modified'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
             return update_copy
         else:
             return update
 
-    refresh_updates(session, 'rpm', ['aisleriot', 'bijiben'])
+    refresh_updates(session, 'rpm', ['gnome-weather', 'bijiben'])
 
-    updates = list_updates(session, 'rpm', 'aisleriot')
-    assert len(updates) == 3
-    updates = list_updates(session, 'rpm', 'bijiben')
-    assert len(updates) == 5
+    updates = list_updates(session, 'rpm', 'gnome-weather')
+    assert len(updates) == 4
+    updates = list_updates(session, 'rpm', 'sushi')
+    assert len(updates) == 1
 
     bodhi_mock.modify = modify_update
-    refresh_updates(session, 'rpm', ['aisleriot', 'bijiben'])
+    refresh_updates(session, 'rpm', ['gnome-weather', 'sushi'])
 
-    updates = list_updates(session, 'rpm', 'aisleriot')
-    assert len(updates) == 3
-    updates = list_updates(session, 'rpm', 'bijiben')
+    updates = list_updates(session, 'rpm', 'gnome-weather')
     assert len(updates) == 4
+    updates = list_updates(session, 'rpm', 'sushi')
+    assert len(updates) == 0
 
 
 @mock_koji
 @mock_redis
 @mock_bodhi
 def test_list_updates_by_release(session):
-    refresh_updates(session, 'rpm', entities=['bubblewrap'])
+    refresh_updates(session, 'rpm', entities=['eog'])
 
-    updates = list_updates(session, 'rpm', 'bubblewrap', release_branch='f29')
-    assert len(updates) == 1
+    updates = list_updates(session, 'rpm', 'eog', release_branch='f36')
+    assert len(updates) == 13
 
-    assert updates[0].builds == ['bubblewrap-0.3.1-1.fc29']
+    assert updates[0].builds == ['eog-41~beta-1.fc36']
 
-    updates = list_updates(session, 'rpm', release_branch='f29')
-    assert len(updates) == 1
+    updates = list_updates(session, 'rpm', release_branch='f36')
+    assert len(updates) == 13
 
-    assert updates[0].builds == ['bubblewrap-0.3.1-1.fc29']
+    assert updates[0].builds == ['eog-41~beta-1.fc36']
 
 
 @mock_koji
@@ -132,15 +132,15 @@ def test_bodhi_query_flatpak_updates(session):
     updates = list_updates(session, 'flatpak', 'feedreader')
     assert len(updates) == 3
 
-    update = [x for x in updates if 'feedreader-master-2920190201225359.1' in x.builds][0]
+    update = [x for x in updates if 'feedreader-stable-3520211013075828.3' in x.builds][0]
 
     assert isinstance(update, BodhiUpdateModel)
 
     assert update.user_name == 'pwalter'
-    assert update.date_submitted.strftime("%Y-%m-%d %H:%M:%S") == '2019-02-03 21:08:49'
-    assert update.builds == ['feedreader-master-2920190201225359.1']
-    assert update.status == 'obsolete'
-    assert update.type == 'bugfix'
+    assert update.date_submitted.strftime("%Y-%m-%d %H:%M:%S") == '2021-11-07 22:59:34'
+    assert update.builds == ['feedreader-stable-3520211013075828.3']
+    assert update.status == 'stable'
+    assert update.type == 'unspecified'
 
     refresh_all_updates(session, 'flatpak')
 
@@ -159,21 +159,22 @@ def test_bodhi_query_flatpak_updates_all(session, bodhi_mock, flags):
     refresh_all_updates(session, 'flatpak')
 
     updates = list_updates(session, 'flatpak')
-    assert len(updates) == 10
+    assert len(updates) == 11
 
     build_map = {u.update_id: [b.name for b in u.builds] for u in updates}
 
     assert build_map == {
-        'FEDORA-FLATPAK-2018-2f1988821e': ['eog'],
-        'FEDORA-FLATPAK-2018-aecd5ddc46': ['feedreader'],
-        'FEDORA-FLATPAK-2018-b653073d2f': ['quadrapassel'],
-        'FEDORA-FLATPAK-2019-1c04884fc8': ['gnome-clocks', 'gnome-weather'],
-        'FEDORA-FLATPAK-2019-a922b417ed': ['feedreader'],
-        'FEDORA-FLATPAK-2019-adc833ad33': ['gnome-weather'],
-        'FEDORA-FLATPAK-2019-d84b882193': ['feedreader'],
-        'FEDORA-FLATPAK-2019-f531f062df': ['gnome-clocks'],
-        'FEDORA-FLATPAK-2020-c3101996a6': ['baobab'],
-        'FEDORA-FLATPAK-2020-dfd7272b06': ['baobab'],
+        'FEDORA-FLATPAK-2021-1bda39b4d9': ['feedreader'],
+        'FEDORA-FLATPAK-2021-2db97225fd': ['eog'],
+        'FEDORA-FLATPAK-2021-47ba6c9e6e': ['feedreader'],
+        'FEDORA-FLATPAK-2021-4df18ed3c8': ['baobab'],
+        'FEDORA-FLATPAK-2021-56cf8de552': ['eog'],
+        'FEDORA-FLATPAK-2021-927f4d44b8': ['feedreader'],
+        'FEDORA-FLATPAK-2021-be7df1d070': ['eog'],
+        'FEDORA-FLATPAK-2021-cb6b3c0cad': ['quadrapassel'],
+        'FEDORA-FLATPAK-2022-274a792493': ['baobab', 'eog'],
+        'FEDORA-FLATPAK-2022-6e191c5e67': ['eog'],
+        'FEDORA-FLATPAK-2022-efcca6b48a': ['eog']
     }
 
 
@@ -181,7 +182,7 @@ def test_bodhi_query_flatpak_updates_all(session, bodhi_mock, flags):
 @mock_redis
 @mock_bodhi
 def test_bodhi_refresh_update_status(session):
-    update_id = 'FEDORA-FLATPAK-2018-aecd5ddc46'
+    update_id = 'FEDORA-FLATPAK-2022-274a792493'
 
     refresh_all_updates(session, 'flatpak')
     update_raw = session.redis_client.get('update:' + update_id)
@@ -245,9 +246,9 @@ def test_bodhi_update_cache_per_package(session, caplog):
 def test_query_releases(session):
     releases = query_releases(session)
 
-    release = next(r for r in releases if r.name == "F29")
-    assert release.branch == "f29"
-    assert release.tag == "f29"
+    release = next(r for r in releases if r.name == "F36")
+    assert release.branch == "f36"
+    assert release.tag == "f36"
     assert release.status == ReleaseStatus.GA
 
 

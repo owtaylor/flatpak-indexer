@@ -18,27 +18,27 @@ _updates: List[dict] = []
 
 RELEASES = [
     {
-      "name": "F27",
-      "branch": "f27",
-      "dist_tag": "f27",
+      "name": "F34",
+      "branch": "f34",
+      "dist_tag": "f34",
       "state": "archived",
     },
     {
-      "name": "F28",
-      "branch": "f28",
-      "dist_tag": "f28",
+      "name": "F35",
+      "branch": "f35",
+      "dist_tag": "f35",
       "state": "current",
     },
     {
-      "name": "F29",
-      "branch": "f29",
-      "dist_tag": "f29",
+      "name": "F36",
+      "branch": "f36",
+      "dist_tag": "f36",
       "state": "current",
     },
     {
-      "name": "F30",
+      "name": "F37",
       "branch": "rawhide",
-      "dist_tag": "f30",
+      "dist_tag": "f37",
       "state": "pending",
     },
 ]

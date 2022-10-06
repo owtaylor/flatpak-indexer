@@ -58,7 +58,19 @@ def modify_statuses(update):
 @mock_fedora_messaging
 @mock_koji
 @mock_redis
-def test_fedora_updater(connection_mock, tmp_path):
+def test_fedora_updater(connection_mock, bodhi_mock, tmp_path):
+    def modify_update(update):
+        if update['updateid'] == 'FEDORA-FLATPAK-2021-927f4d44b8':
+            update_copy = copy.deepcopy(update)
+            update_copy['status'] = 'testing'
+            update_copy['date_stable'] = None
+
+            return update_copy
+        else:
+            return update
+
+    bodhi_mock.modify = modify_update
+
     connection_mock.put_update_message('fedora-2018-12456789')
     connection_mock.put_inactivity_timeout()
 
@@ -76,35 +88,23 @@ def test_fedora_updater(connection_mock, tmp_path):
 
     data = registry_data['registry.example.com']
 
-    assert len(data.repositories) == 6
+    assert len(data.repositories) == 4
 
     eog_repository = data.repositories['eog']
-    assert len(eog_repository.images) == 1
+    assert len(eog_repository.images) == 12
     assert eog_repository.\
-        images['sha256:6b440190b0454c95e64e185ceb5778e150909df495bd4fee88ef98fe199c814e'].tags \
+        images['sha256:94263405624c5709f0efeeb4b4e640ae866f08795fa0d7f3d10a616b4fd3a6a1'].tags \
         == ['latest', 'testing']
 
     feedreader_repository = data.repositories['feedreader']
-    assert len(feedreader_repository.images) == 2
+    print([(i.digest, i.tags) for i in feedreader_repository.images.values()])
+    assert len(feedreader_repository.images) == 6
     assert feedreader_repository.\
-        images['sha256:4f728b11e92366ea1643e0516382ffa327e6fe944d11b9b297c312de8859dcc1'].tags \
+        images['sha256:5c4cc0501671de5a46a5f69c56a33b11f6398a0bdaf4a12f92b5680d0f496e10'].tags \
         == ['testing']
     assert feedreader_repository.\
-        images['sha256:d3518175c2c78c27a705b642b05e59d91416227f1dcae2d12347a51753d11152'].tags \
+        images['sha256:658508916a66bae008cff1a49ac1befed64e019f738241fd0bf30f963acafb49'].tags \
         == ['latest']
-
-    gnome_clocks_repository = data.repositories['gnome-clocks']
-    assert len(gnome_clocks_repository.images) == 2
-    assert gnome_clocks_repository.\
-        images['sha256:80bd2c514d1f8930f94c21b80ff70c796032961dd7a9e5dfda4b03f5e95c0cbc'].tags \
-        == ['latest', 'testing']
-
-    gnome_weather_repository = data.repositories['gnome-weather']
-    print(list(gnome_weather_repository.images.keys()))
-    assert len(gnome_weather_repository.images) == 2
-    assert gnome_weather_repository.\
-        images['sha256:eabc978690e7ed1e2a27f713658efc6bcf4ff5d4080d143bcc018e4014718922'].tags \
-        == ['latest', 'testing']
 
 
 def modify_no_stable_no_testing(update):
@@ -169,4 +169,4 @@ def test_fedora_updater_bodhi_changes(connection_mock, tmp_path, passive_behavio
 
     data = registry_data['registry.example.com']
 
-    assert len(data.repositories) == 6
+    assert len(data.repositories) == 4

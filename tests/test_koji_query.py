@@ -51,10 +51,11 @@ def test_query_builds(session, caplog):
 
     builds = list_flatpak_builds(session, 'eog')
     sort_builds(builds)
-    assert len(builds) == 2
-    assert builds[0].nvr == 'eog-master-20180821163756.2'
-    assert builds[0].user_name == 'otaylor'
-    assert builds[0].completion_time.strftime("%Y-%m-%d %H:%M:%S") == '2018-10-08 14:01:05'
+    print(builds)
+    assert len(builds) == 6
+    assert builds[0].nvr == 'eog-stable-3520211004195602.1'
+    assert builds[0].user_name == 'kalev'
+    assert builds[0].completion_time.strftime("%Y-%m-%d %H:%M:%S") == '2021-10-04 23:13:09'
 
     # Add quadrapassel to the set we request
     caplog.clear()
@@ -64,18 +65,18 @@ def test_query_builds(session, caplog):
 
     new_builds = list_flatpak_builds(session, 'eog')
     sort_builds(new_builds)
-    assert len(new_builds) == 2
+    assert len(new_builds) == 6
 
     new_builds = list_flatpak_builds(session, 'quadrapassel')
     assert len(new_builds) == 1
-    assert new_builds[0].nvr == 'quadrapassel-master-20181203181243.2'
+    assert new_builds[0].nvr == 'quadrapassel-stable-3520211005192946.1'
 
 
 @mock_koji
 @mock_redis
 def test_query_builds_refresh(session):
-    EOG_NVR = 'eog-master-20180821163756.2'
-    QUADRAPASSEL_NVR = 'quadrapassel-master-20181203181243.2'
+    EOG_NVR = 'eog-stable-3520211004195602.1'
+    QUADRAPASSEL_NVR = 'quadrapassel-stable-3520211005192946.1'
 
     def filter_build_1(build):
         if build['nvr'] in (EOG_NVR, QUADRAPASSEL_NVR):
@@ -87,7 +88,7 @@ def test_query_builds_refresh(session):
     refresh_flatpak_builds(session, ['eog'])
 
     builds = list_flatpak_builds(session, 'eog')
-    assert len(builds) == 1
+    assert len(builds) == 5
 
     current_ts = time.time()
 
@@ -102,7 +103,7 @@ def test_query_builds_refresh(session):
     refresh_flatpak_builds(session, ['eog'])
 
     builds = list_flatpak_builds(session, 'eog')
-    assert len(builds) == 2
+    assert len(builds) == 6
 
 
 @mock_koji
@@ -119,7 +120,7 @@ def test_query_builds_refetch(session, caplog):
 
     builds = list_flatpak_builds(session, 'eog')
     sort_builds(builds)
-    assert len(builds) == 2
+    assert len(builds) == 6
 
     # Now we simulate having old schemas and missing data
     raw = session.redis_client.get('build:' + builds[0].nvr)
@@ -132,13 +133,14 @@ def test_query_builds_refetch(session, caplog):
 
     caplog.clear()
     new_builds = list_flatpak_builds(session, 'eog')
+
     sort_builds(new_builds)
-    assert len(new_builds) == 2
+    assert len(new_builds) == 6
     assert new_builds[0].nvr == builds[0].nvr
     assert new_builds[1].nvr == builds[1].nvr
 
-    assert "Calling koji.getBuild(eog-master-20180821163756.2)" in caplog.text
-    assert "Calling koji.getBuild(eog-master-20181128204005.1)" in caplog.text
+    assert "Calling koji.getBuild(eog-stable-3520211004195602.1)" in caplog.text
+    assert "Calling koji.getBuild(eog-stable-3520211004195602.2)" in caplog.text
 
 
 @mock_koji
@@ -147,25 +149,25 @@ def test_query_image_build(session, caplog):
     caplog.set_level(logging.INFO)
 
     caplog.clear()
-    build = query_image_build(session, 'baobab-master-3220200331145937.2')
+    build = query_image_build(session, 'baobab-stable-3620220517102805.1')
     assert "Calling koji.getBuild" in caplog.text
 
     assert isinstance(build, FlatpakBuildModel)
 
-    assert build.nvr == 'baobab-master-3220200331145937.2'
+    assert build.nvr == 'baobab-stable-3620220517102805.1'
     assert build.repository == 'baobab'
 
-    assert len(build.images) == 1
-    image = build.images[0]
-    assert image.digest == 'sha256:358650781c10de5983b46303b6accbd411c1177990d1e036ee905f15ed60e65a'
+    assert len(build.images) == 2
+    image = [i for i in build.images if i.architecture == 'amd64'][0]
+    assert image.digest == 'sha256:6cca1bdcabf459f3510ccd6a4d196e5a9bde7e049468d2abdb5a404d67ad028c'
     assert image.media_type == 'application/vnd.oci.image.manifest.v1+json'
-    assert image.labels['org.flatpak.ref'] == 'app/org.gnome.Baobab/x86_64/stable'
+    assert image.labels['org.flatpak.ref'] == 'app/org.gnome.baobab/x86_64/stable'
     assert image.diff_ids == [
-        'sha256:d9b3dc4fc51451185b7754d66155513e89d24374a26a3b270f9b99649eb33d22'
+        'sha256:c9e7b6727e409ad4648854bf4922b1760a3cc8de32b17b28a802b6bea9c2d2da'
     ]
 
     caplog.clear()
-    build2 = query_image_build(session, 'baobab-master-3220200331145937.2')
+    build2 = query_image_build(session, 'baobab-stable-3620220517102805.1')
     assert "Calling koji.getBuild" not in caplog.text
 
     assert isinstance(build2, FlatpakBuildModel)
@@ -182,7 +184,7 @@ def test_query_image_build_no_images(session):
         return archives
 
     session.koji_session = make_koji_session(filter_archives=filter_archives)
-    build = query_image_build(session, 'baobab-master-3220200331145937.2')
+    build = query_image_build(session, 'baobab-stable-3620220517102805.1')
     assert build.images == []
 
 
@@ -199,7 +201,7 @@ def test_query_image_build_missing_digest(session):
     session.koji_session = make_koji_session(filter_archives=filter_archives)
 
     with raises(RuntimeError, match=r"Can't find OCI or docker digest in image"):
-        query_image_build(session, 'baobab-master-3220200331145937.2')
+        query_image_build(session, 'baobab-stable-3620220517102805.1')
 
 
 @mock_koji
@@ -209,26 +211,26 @@ def test_query_module_build(session, caplog):
 
     # Try with a context
     caplog.clear()
-    build = query_module_build(session, 'eog-master-20180821163756.775baa8e')
-    assert build.nvr == 'eog-master-20180821163756.775baa8e'
+    build = query_module_build(session, 'eog-stable-3620220905044417.ff2200aa')
+    assert build.nvr == 'eog-stable-3620220905044417.ff2200aa'
     assert "Calling koji.getBuild" in caplog.text
 
     caplog.clear()
-    build = query_module_build(session, 'eog-master-20180821163756.775baa8e')
-    assert build.nvr == 'eog-master-20180821163756.775baa8e'
+    build = query_module_build(session, 'eog-stable-3620220905044417.ff2200aa')
+    assert build.nvr == 'eog-stable-3620220905044417.ff2200aa'
     assert "Calling koji.getBuild" not in caplog.text
 
     # And without a context (again from scratch)
     session.redis_client = make_redis_client()
 
     caplog.clear()
-    build = query_module_build(session, 'eog-master-20180821163756')
+    build = query_module_build(session, 'eog-stable-3620220905044417')
     assert "Calling koji.getPackageID" in caplog.text
     assert "Calling koji.listBuilds" in caplog.text
 
     caplog.clear()
-    build = query_module_build(session, 'eog-master-20180821163756')
-    assert build.nvr == 'eog-master-20180821163756.775baa8e'
+    build = query_module_build(session, 'eog-stable-3620220905044417')
+    assert build.nvr == 'eog-stable-3620220905044417.ff2200aa'
     assert "Calling koji.getPackageID" not in caplog.text
     assert "Calling koji.listBuilds" not in caplog.text
 
@@ -265,13 +267,12 @@ def test_query_build_missing(session):
 @mock_koji
 @mock_redis
 def test_query_tag_builds(session):
-    refresh_tag_builds(session, 'f28')
-    build_names = sorted(query_tag_builds(session, 'f28', 'quadrapassel'))
+    refresh_tag_builds(session, 'f36')
+    build_names = sorted(query_tag_builds(session, 'f36', 'quadrapassel'))
 
     assert build_names == [
-        'quadrapassel-3.22.0-2.fc26',
-        'quadrapassel-3.22.0-5.fc28',
-        'quadrapassel-3.22.0-6.fc28',
+        'quadrapassel-40.2-2.fc35',
+        'quadrapassel-40.2-3.fc36',
     ]
 
 
@@ -280,26 +281,27 @@ def test_query_tag_builds(session):
 def test_query_tag_builds_incremental(session):
     # Start off with a koji session that will return tag history
     # mid-way through the f28 development cycle
-    session.koji_session = make_koji_session(tag_query_timestamp=1521520000)
+    session.koji_session = make_koji_session(tag_query_timestamp=1643846400)
 
-    refresh_tag_builds(session, 'f28')
+    refresh_tag_builds(session, 'f36')
 
-    build_names = sorted(query_tag_builds(session, 'f28', 'gnome-desktop3'))
+    build_names = sorted(query_tag_builds(session, 'f36', 'gnome-desktop3'))
     assert build_names == [
-        'gnome-desktop3-3.26.1-1.fc28',
-        'gnome-desktop3-3.26.2-1.fc28',
-        'gnome-desktop3-3.27.90-1.fc28',
+        'gnome-desktop3-41.3-1.fc36',
+        'gnome-desktop3-42~alpha.1-1.fc36',
+        'gnome-desktop3-42~alpha.1-2.fc36',
+        'gnome-desktop3-42~alpha.1-3.fc36',
     ]
 
     # Now switch to a koji session without that limitation,
     # check that when we refresh, we add and remove builds properly
     session.koji_session = make_koji_session()
 
-    refresh_tag_builds(session, 'f28')
+    refresh_tag_builds(session, 'f36')
 
-    build_names = sorted(query_tag_builds(session, 'f28', 'gnome-desktop3'))
+    build_names = sorted(query_tag_builds(session, 'f36', 'gnome-desktop3'))
     assert build_names == [
-        'gnome-desktop3-3.27.90-1.fc28',
-        'gnome-desktop3-3.28.0-1.fc28',
-        'gnome-desktop3-3.28.1-1.fc28',
+        'gnome-desktop3-42~alpha.1-3.fc36',
+        'gnome-desktop3-42~beta-3.fc36',
+        'gnome-desktop3-42.0-1.fc36',
     ]

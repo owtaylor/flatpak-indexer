@@ -18,17 +18,17 @@ def test_build_cache(tmp_path):
     config = get_config(tmp_path, CONFIG)
     build_cache = Session(config).build_cache
 
-    image_a = build_cache.get_image_build("baobab-master-3220200331145937.2")
-    image_b = build_cache.get_image_build("baobab-master-3220200331145937.2")
+    image_a = build_cache.get_image_build("baobab-stable-3520211002221204.1")
+    image_b = build_cache.get_image_build("baobab-stable-3520211002221204.1")
 
     assert image_b is image_a
 
-    module_a = build_cache.get_module_build('baobab-master-3220200331145937')
-    module_b = build_cache.get_module_build('baobab-master-3220200331145937')
+    module_a = build_cache.get_module_build('baobab-stable-3620220517102805')
+    module_b = build_cache.get_module_build('baobab-stable-3620220517102805')
 
     assert module_b is module_a
 
-    package_b = build_cache.get_package_build('baobab-3.34.0-2.module_f32+8432+1f88bc5a')
-    package_a = build_cache.get_package_build('baobab-3.34.0-2.module_f32+8432+1f88bc5a')
+    package_b = build_cache.get_package_build('baobab-42.0-1.module_f36+14451+219d93a5')
+    package_a = build_cache.get_package_build('baobab-42.0-1.module_f36+14451+219d93a5')
 
     assert package_b is package_a
