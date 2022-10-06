@@ -175,6 +175,22 @@ def test_query_image_build(session, caplog):
 
 @mock_koji
 @mock_redis
+def test_query_image_build_package_builds(session, caplog):
+    build = query_image_build(session, 'eog-stable-3620220905044417.1')
+    assert isinstance(build, FlatpakBuildModel)
+    assert [pb.nvr.name for pb in build.package_builds] == [
+        'eog',
+        'exempi',
+        'gnome-desktop3',
+        'libpeas',
+        'libpeas-gtk',
+        'libportal',
+        'libportal-gtk3',
+    ]
+
+
+@mock_koji
+@mock_redis
 def test_query_image_build_no_images(session):
     def filter_archives(build, archives):
         archives = copy.deepcopy(archives)
@@ -233,6 +249,37 @@ def test_query_module_build(session, caplog):
     assert build.nvr == 'eog-stable-3620220905044417.ff2200aa'
     assert "Calling koji.getPackageID" not in caplog.text
     assert "Calling koji.listBuilds" not in caplog.text
+
+
+@mock_koji
+@mock_redis
+def test_query_module_build_package_builds(session, caplog):
+    build = query_module_build(session, 'eog-stable-3620220905044417.ff2200aa')
+    assert [pb.nvr.name for pb in build.package_builds] == [
+        'eog',
+        'eog-debuginfo',
+        'eog-debugsource',
+        'eog-devel',
+        'eog-tests',
+        'exempi',
+        'exempi-debuginfo',
+        'exempi-debugsource',
+        'exempi-devel',
+        'libportal',
+        'libportal-debuginfo',
+        'libportal-debugsource',
+        'libportal-devel',
+        'libportal-devel-doc',
+        'libportal-gtk3',
+        'libportal-gtk3-debuginfo',
+        'libportal-gtk3-devel',
+        'libportal-gtk4',
+        'libportal-gtk4-debuginfo',
+        'libportal-gtk4-devel',
+        'libportal-qt5',
+        'libportal-qt5-debuginfo',
+        'libportal-qt5-devel',
+    ]
 
 
 @mock_koji

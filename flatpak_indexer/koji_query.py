@@ -94,15 +94,14 @@ def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
                     logger.info("Calling koji.listRPMs(%s)", archive['id'])
                     components = session.koji_session.listRPMs(imageID=archive['id'])
 
-                    seen = set()
+                    package_builds = {}
                     for c in components:
-                        if c['build_id'] in seen:
-                            continue
-                        seen.add(c['build_id'])
-
-                        package_build = _query_package_build_by_id(
-                            session, c['build_id']
-                        )
+                        package_build = package_builds.get(c['build_id'])
+                        if package_build is None:
+                            package_build = _query_package_build_by_id(
+                                session, c['build_id']
+                            )
+                            package_builds[c['build_id']] = package_build
                         build.package_builds.append(
                             BinaryPackage(nvr=NVR(c['nvr']), source_nvr=package_build.nvr)
                         )
@@ -163,13 +162,16 @@ def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
         logger.info("Calling koji.listRPMs(%s)", archives[0]['id'])
         components = session.koji_session.listRPMs(imageID=archives[0]['id'])
 
-        seen = set()
+        package_builds = {}
         for c in components:
-            if c['build_id'] in seen:
-                continue
-            seen.add(c['build_id'])
-            package_build = _query_package_build_by_id(session, c['build_id'])
-            build.package_builds.append(BinaryPackage(nvr=c['nvr'], source_nvr=package_build.nvr))
+            package_build = package_builds.get(c['build_id'])
+            if package_build is None:
+                package_build = _query_package_build_by_id(session, c['build_id'])
+                package_builds[c['build_id']] = package_build
+
+            build.package_builds.append(BinaryPackage(
+                nvr=NVR(c['nvr']), source_nvr=package_build.nvr)
+            )
 
         build.package_builds.sort(key=lambda pb: pb.nvr)
 
