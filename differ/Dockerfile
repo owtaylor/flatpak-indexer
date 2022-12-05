@@ -7,4 +7,4 @@ RUN chown -R 1001:0 /tmp/src
 
 USER 1001
 
-RUN cd /tmp/src && go build -o /opt/app-root/tar-diff ./cmd/tar-diff
+RUN cd /tmp/src && go build -x -o /opt/app-root/tar-diff ./cmd/tar-diff
