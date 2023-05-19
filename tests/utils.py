@@ -105,6 +105,7 @@ _KOJI_BUILDS: List[Dict[str, Any]] = [
         '_TAGS': ['release-candidate'],
         '_ARCHIVES': [
             {
+                'btype': 'image',
                 'extra': {
                     'docker': {
                         'config': {
@@ -131,7 +132,12 @@ _KOJI_BUILDS: List[Dict[str, Any]] = [
                     }
                 },
                 'id': 15321,
-            }
+            },
+            {
+                'btype': 'icm',
+                'extra': {'typeinfo': {'icm': {}}},
+                'id': 8014375,
+            },
         ]
     },
     {
@@ -165,6 +171,7 @@ _KOJI_BUILDS: List[Dict[str, Any]] = [
         '_TAGS': ['release-candidate-2'],
         '_ARCHIVES': [
             {
+                'btype': 'image',
                 'extra': {
                     'docker': {
                         'config': {
@@ -249,6 +256,7 @@ _KOJI_BUILDS: List[Dict[str, Any]] = [
         '_TAGS': [],
         '_ARCHIVES': [
             {
+                'btype': 'image',
                 'extra': {
                     'docker': {
                         'config': {
@@ -309,6 +317,7 @@ _KOJI_BUILDS: List[Dict[str, Any]] = [
         '_TAGS': [],
         '_ARCHIVES': [
             {
+                'btype': 'image',
                 'extra': {
                     'docker': {
                         'config': {
@@ -366,6 +375,7 @@ _KOJI_BUILDS: List[Dict[str, Any]] = [
         '_TAGS': [],
         '_ARCHIVES': [
             {
+                'btype': 'image',
                 'extra': {
                     'docker': {
                         'config': {
@@ -393,6 +403,7 @@ _KOJI_BUILDS: List[Dict[str, Any]] = [
                 'id': 17321,
             },
             {
+                'btype': 'image',
                 'extra': {
                     'docker': {
                         'config': {
