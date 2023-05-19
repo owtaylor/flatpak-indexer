@@ -88,7 +88,7 @@ def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
 
         for archive in archives:
             if isinstance(build, FlatpakBuildModel):
-                if archive['extra']['image']['arch'] == 'x86_64':
+                if archive['btype'] == 'image' and archive['extra']['image']['arch'] == 'x86_64':
                     # Archives should differ only in architecture,
                     # use the x86 build to get the package list
                     logger.info("Calling koji.listRPMs(%s)", archive['id'])
