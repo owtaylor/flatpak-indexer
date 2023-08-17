@@ -193,9 +193,9 @@ def test_run_with_stats():
     res, stats = run_with_stats(['/bin/true'])
     assert res == 0
     assert stats.max_mem_kib > 0
-    assert type(stats.elapsed_time_s) == float
-    assert type(stats.system_time_s) == float
-    assert type(stats.user_time_s) == float
+    assert type(stats.elapsed_time_s) is float
+    assert type(stats.system_time_s) is float
+    assert type(stats.user_time_s) is float
 
     res, stats = run_with_stats(['/bin/false'])
     assert res != 0
