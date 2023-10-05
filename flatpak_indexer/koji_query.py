@@ -138,12 +138,11 @@ def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
         if isinstance(build, FlatpakBuildModel):
             compose_ids = build_info['extra']['image'].get('odcs', {}).get('compose_ids')
             if compose_ids is not None:
-                build.module_builds = []
                 for nsvc in composes_to_modules(session, compose_ids):
                     n, s, v, c = nsvc.split(":")
                     build.module_builds.append(NVR(f"{n}-{s}-{v}.{c}"))
             else:
-                for m in build_info['extra']['image']['modules']:
+                for m in build_info['extra']['image'].get('modules', []):
                     module_build = query_module_build(session, m)
                     build.module_builds.append(module_build.nvr)
 
