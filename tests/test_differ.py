@@ -76,9 +76,9 @@ def check_success(key, old_layer, new_layer):
     assert result.message == ""
     assert result.max_mem_kib is not None
     assert result.max_mem_kib > 0
-    assert type(result.elapsed_time_s) == float
-    assert type(result.user_time_s) == float
-    assert type(result.system_time_s) == float
+    assert type(result.elapsed_time_s) is float
+    assert type(result.user_time_s) is float
+    assert type(result.system_time_s) is float
 
 
 def check_failure(key, status, message):
