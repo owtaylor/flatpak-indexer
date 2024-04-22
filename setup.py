@@ -36,7 +36,9 @@ setup(name='flatpak-indexer',
           'version_utils >= 0.3.2',
           # Dev requirements - listed in main requirements to make the image
           # image self-contained for testing.
-          'fakeredis',
+          # 2.22.0 contains an accidental incompatibility with python < 3.11,
+          # fixed in git.
+          'fakeredis != 2.22.0',
           'flake8',
           'flake8-import-order',
           'iso8601',
