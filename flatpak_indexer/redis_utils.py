@@ -44,30 +44,33 @@ def do_pubsub_work(redis_client, topic, callback, initial_reconnect_timeout=None
     if reconnect_timeout is None:
         reconnect_timeout = INITIAL_RECONNECT_TIMEOUT
 
-    while True:
-        try:
-            if pubsub is None:
-                pubsub = redis_client.pubsub()
-                pubsub.subscribe(topic)
+    try:
+        while True:
+            try:
+                if pubsub is None:
+                    pubsub = redis_client.pubsub()
+                    pubsub.subscribe(topic)
 
-                logger.info("Subscribed to %s", topic)
+                    logger.info("Subscribed to %s", topic)
 
-            if not callback(pubsub):
-                break
+                if not callback(pubsub):
+                    break
 
-            reconnect_timeout = INITIAL_RECONNECT_TIMEOUT
-        except redis.ConnectionError:
-            if pubsub and pubsub.connection:
-                logger.info("Disconnected from Redis, sleeping for %g seconds",
-                            reconnect_timeout)
-            else:
-                logger.info("Failed to connect to Redis, sleeping for %g seconds",
-                            reconnect_timeout)
+                reconnect_timeout = INITIAL_RECONNECT_TIMEOUT
+            except redis.ConnectionError:
+                if pubsub and pubsub.connection:
+                    logger.info("Disconnected from Redis, sleeping for %g seconds",
+                                reconnect_timeout)
+                else:
+                    logger.info("Failed to connect to Redis, sleeping for %g seconds",
+                                reconnect_timeout)
 
-            if pubsub:
-                if pubsub.connection:
-                    pubsub.connection.disconnect()
-                pubsub = None
+                if pubsub:
+                    pubsub.close()
+                    pubsub = None
 
-            time.sleep(reconnect_timeout)
-            reconnect_timeout = min(MAX_RECONNECT_TIMEOUT, 2 * reconnect_timeout)
+                time.sleep(reconnect_timeout)
+                reconnect_timeout = min(MAX_RECONNECT_TIMEOUT, 2 * reconnect_timeout)
+    finally:
+        if pubsub:
+            pubsub.close()

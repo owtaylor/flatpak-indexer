@@ -196,12 +196,7 @@ class FakeDiffer:
             pipe.publish("tardiff:complete", b'')
             pipe.execute()
 
-    def _run(self):
-        redis_client = redis.Redis.from_url(self.config.redis_url)
-        pubsub = redis_client.pubsub()
-        pubsub.subscribe("fake-differ-exit")
-        pubsub.subscribe('tardiff:queued')
-
+    def _run(self, redis_client, pubsub):
         for message in pubsub.listen():
             self.logger.info("Got message: %s", message)
             if message['type'] == 'message':
@@ -218,11 +213,21 @@ class FakeDiffer:
                         logging.info("Completed task %s: %s", task, result.to_json_text())
 
     def run(self):
+        pubsub = None
+
         try:
-            self._run()
+            redis_client = redis.Redis.from_url(self.config.redis_url)
+            pubsub = redis_client.pubsub()
+            pubsub.subscribe("fake-differ-exit")
+            pubsub.subscribe('tardiff:queued')
+
+            self._run(redis_client, pubsub)
         except Exception:
             self.logger.exception("Failed to process tasks")
             raise
+        finally:
+            if pubsub:
+                pubsub.close()
 
 
 @mock_redis
