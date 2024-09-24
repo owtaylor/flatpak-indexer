@@ -112,10 +112,8 @@ class KojiUpdater(Updater):
 
     def update(self, registry_data):
         registries = {}
-        for index_config in self.conf.indexes:
+        for index_config in self.conf.get_indexes_for_datasource('koji'):
             registry_name = index_config.registry
-            if self.conf.registries[registry_name].datasource != 'koji':
-                continue
 
             if registry_name not in registries:
                 registries[registry_name] = Registry(registry_name,

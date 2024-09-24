@@ -178,3 +178,8 @@ class Config(KojiConfig, OdcsConfig, RedisConfig):
                                       "koji_tags must be consistent for indexes with the same tag")
             else:
                 tag_koji_tags[index_config.tag] = (index_config.name, index_config.koji_tags)
+
+    def get_indexes_for_datasource(self, datasource: str):
+        return [
+            i for i in self.indexes if self.registries[i.registry].datasource == datasource
+        ]

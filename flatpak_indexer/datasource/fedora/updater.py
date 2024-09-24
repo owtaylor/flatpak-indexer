@@ -133,10 +133,8 @@ class FedoraUpdater(Updater):
             repo.stable_updates.sort(key=lambda ub: ub.date_stable, reverse=True)
 
         registry_statuses: DefaultDict[str, Set[str]] = defaultdict(set)
-        for index_config in self.conf.indexes:
+        for index_config in self.conf.get_indexes_for_datasource('fedora'):
             registry_name = index_config.registry
-            if self.conf.registries[registry_name].datasource != 'fedora':
-                continue
 
             assert index_config.bodhi_status  # config.py enforces this for fedora datasource
 
