@@ -31,6 +31,10 @@ def load_updaters(config) -> List[Updater]:
         from .fedora import FedoraUpdater
         updaters.append(FedoraUpdater(config))
 
+    if 'koji' in datasources:
+        from .koji import KojiUpdater
+        updaters.append(KojiUpdater(config))
+
     if 'pyxis' in datasources:
         from .pyxis import PyxisUpdater
         updaters.append(PyxisUpdater(config))

@@ -174,7 +174,7 @@ registries:
     brew:
         public_url: https://internal.example.com/
         force_flatpak_token: true
-        datasource: pyxis
+        datasource: koji
 indexes:
     brew-rc:
         registry: brew

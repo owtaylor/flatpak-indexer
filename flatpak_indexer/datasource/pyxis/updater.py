@@ -1,14 +1,11 @@
 from collections import defaultdict
-from datetime import datetime, timezone
 import logging
-from typing import Dict, List
 from urllib.parse import urlencode
 
 import requests
 
 from .. import Updater
-from ...models import (FlatpakBuildModel, RegistryModel,
-                       TagHistoryItemModel, TagHistoryModel)
+from ...models import (RegistryModel, TagHistoryItemModel, TagHistoryModel)
 from ...session import Session
 from ...utils import parse_date
 
@@ -24,7 +21,6 @@ class Registry:
         self.config = global_config.registries[name]
         self.page_size = page_size
         self.tag_indexes = []
-        self.koji_indexes = []
         self.registry = RegistryModel()
         self.image_to_build = dict()
 
@@ -32,10 +28,7 @@ class Registry:
         self.session = Session(global_config)
 
     def add_index(self, index_config):
-        if index_config.koji_tags:
-            self.koji_indexes.append(index_config)
-        else:
-            self.tag_indexes.append(index_config)
+        self.tag_indexes.append(index_config)
 
     def _get_pyxis_url(self, url):
         kwargs = {
@@ -101,20 +94,6 @@ class Registry:
             if item['registry'] == self.name:
                 yield item['repository']
 
-    def _iterate_flatpak_builds(self, koji_tag):
-        if koji_tag.endswith('+'):
-            koji_tag = koji_tag[0:-1]
-            inherit = True
-        else:
-            inherit = False
-
-        tagged_builds = self.session.koji_session.listTagged(koji_tag, type='image',
-                                                             inherit=inherit, latest=True)
-        for tagged_build in tagged_builds:
-            build = self.session.build_cache.get_image_build(tagged_build['nvr'])
-            if isinstance(build, FlatpakBuildModel):
-                yield build
-
     def _add_build_history(self, repository_name, tag, architectures, build_items):
         tag_history = TagHistoryModel(name=tag)
 
@@ -159,40 +138,6 @@ class Registry:
                                    for (nvr, start_date) in history_items]
 
                     self._add_build_history(repository, tag, architectures, build_items)
-
-        desired_architectures_koji = defaultdict(set)
-        tag_koji_tags = {}
-        for index_config in self.koji_indexes:
-            # config.py enforces that the tag => koji_tags mapping is consistent for
-            # multiple indexes with the same 'tag'
-            tag_koji_tags[index_config.tag] = index_config.koji_tags
-            desired_architectures_koji[index_config.tag].add(index_config.architecture)
-
-        # Cache the builds for each tag
-        koji_tag_builds: Dict[str, List[FlatpakBuildModel]] = {}
-
-        koji_tag_start_date = datetime.fromtimestamp(0, timezone.utc)
-
-        for tag, koji_tags in tag_koji_tags.items():
-            # if multiple koji_tags are configured for the index, we merge them keeping
-            # only the latest build for each name
-            builds_by_name: Dict[str, FlatpakBuildModel] = {}
-            for koji_tag in koji_tags:
-                if koji_tag not in koji_tag_builds:
-                    koji_tag_builds[koji_tag] = list(self._iterate_flatpak_builds(koji_tag))
-
-                for build in koji_tag_builds[koji_tag]:
-                    name = build.nvr.name
-                    if (name not in builds_by_name or
-                            builds_by_name[name].nvr < build.nvr):
-                        builds_by_name[name] = build
-
-            architectures = desired_architectures_koji[tag]
-
-            for build in builds_by_name.values():
-                build_items = [(build, koji_tag_start_date)]
-                self._add_build_history(build.repository, tag,
-                                        architectures, build_items)
 
 
 class PyxisUpdater(Updater):

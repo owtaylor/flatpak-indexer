@@ -28,6 +28,10 @@ class FedoraRegistryConfig(RegistryConfig):
     pass
 
 
+class KojiRegistryConfig(RegistryConfig):
+    pass
+
+
 class IndexConfig(BaseConfig):
     name: str
     output: str
@@ -113,10 +117,12 @@ class Config(KojiConfig, OdcsConfig, RedisConfig):
 
             if datasource == "pyxis":
                 registry_config = PyxisRegistryConfig(name, sublookup)
+            elif datasource == "koji":
+                registry_config = KojiRegistryConfig(name, sublookup)
             elif datasource == "fedora":
                 registry_config = FedoraRegistryConfig(name, sublookup)
             else:
-                raise ConfigError("registry/{}: datasource must be 'pyxis' or 'fedora'"
+                raise ConfigError("registry/{}: datasource must be 'pyxis', 'koji', or 'fedora'"
                                   .format(name))
 
             self.registries[name] = registry_config
