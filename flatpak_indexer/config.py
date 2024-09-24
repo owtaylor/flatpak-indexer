@@ -13,12 +13,19 @@ class RegistryConfig(BaseConfig):
     name: str
     datasource: str
     public_url: str
-    repositories: List[str] = []
     force_flatpak_token: bool = False
 
     def __init__(self, name: str, lookup: Lookup):
         self.name = name
         super().__init__(lookup)
+
+
+class PyxisRegistryConfig(RegistryConfig):
+    repositories: List[str] = []
+
+
+class FedoraRegistryConfig(RegistryConfig):
+    pass
 
 
 class IndexConfig(BaseConfig):
@@ -102,12 +109,17 @@ class Config(KojiConfig, OdcsConfig, RedisConfig):
             raise ConfigError("deltas_dir is configured, but not deltas_uri")
 
         for name, sublookup in lookup.iterate_objects('registries'):
-            registry_config = RegistryConfig(name, sublookup)
-            self.registries[name] = registry_config
+            datasource = sublookup.get_str('datasource')
 
-            if registry_config.datasource not in ('pyxis', 'fedora'):
+            if datasource == "pyxis":
+                registry_config = PyxisRegistryConfig(name, sublookup)
+            elif datasource == "fedora":
+                registry_config = FedoraRegistryConfig(name, sublookup)
+            else:
                 raise ConfigError("registry/{}: datasource must be 'pyxis' or 'fedora'"
-                                  .format(registry_config.name))
+                                  .format(name))
+
+            self.registries[name] = registry_config
 
             if registry_config.datasource == 'pyxis':
                 if self.pyxis_url is None:
