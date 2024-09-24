@@ -82,12 +82,12 @@ class DeltaGenerator:
         specs = {}
         for to_digest, from_digests in self.deltas.items():
             to_image, to_image_model = self.image_info[to_digest]
-            assert len(to_image.diff_ids) == 1
+            assert len(to_image.diff_ids) > 0
             to_diff_id = to_image.diff_ids[0]
 
             for from_digest in from_digests:
                 from_image, from_image_model = self.image_info[from_digest]
-                assert len(from_image.diff_ids) == 1
+                assert len(from_image.diff_ids) > 0
                 from_diff_id = from_image.diff_ids[0]
 
                 key = f"{from_diff_id}:{to_diff_id}"
@@ -244,7 +244,7 @@ class DeltaGenerator:
     def _write_manifests(self, results):
         for to_digest, from_digests in self.deltas.items():
             to_image, _ = self.image_info[to_digest]
-            assert len(to_image.diff_ids) == 1
+            assert len(to_image.diff_ids) > 0
             to_diff_id = to_image.diff_ids[0]
 
             delta_layers = []
