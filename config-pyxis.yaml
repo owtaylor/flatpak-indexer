@@ -1,9 +1,8 @@
-#pyxis_url: https://catalog.redhat.com/api/containers/v1
-pyxis_url: https://pyxis.engineering.redhat.com/v1
+pyxis_url: https://catalog.redhat.com/api/containers/graphql
 # these define a client certificate/key pair to authenticate to pyxis; this
 # shows environment variable substitution with a fallback
-pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
-pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
+# pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
+# pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
 # allow specifying trust root for hosts - if not found, system trust is used;
 # URL to a local Redis index for caching and queuing
 redis_url: ${REDIS_URL:redis://localhost:6379}
@@ -16,8 +15,8 @@ odcs_uri: https://odcs.engineering.redhat.com/
 # Allowing overriding the system trust DB for https connections to certain hosts;
 # if relative, the path is looked up in included certs
 local_certs:
-  pyxis.engineering.redhat.com: RH-IT-Root-CA.crt
   registry-proxy.engineering.redhat.com: RH-IT-Root-CA.crt
+  odcs.engineering.redhat.com: RH-IT-Root-CA.crt
 deltas_dir: ${OUTPUT_DIR:out}/deltas/
 deltas_uri: https://flatpaks.local.fishsoup.net:8443/deltas/
 # When extract_icons is set for an index, icons are saved to icons_dir and labels are
@@ -33,7 +32,7 @@ registries:
         # key must match registry ID in Pyxis
         registry.access.redhat.com:
                 # Written into the index
-                public_url: https://registry.access.redhat.com/
+                public_url: https://registry.redhat.io/
                 # Get container data from the Pyxis API
                 datasource: pyxis
                 # repositories: ['repo1', 'repo2'] overrides querying Pyxis for the list

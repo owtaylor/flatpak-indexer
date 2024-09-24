@@ -102,7 +102,7 @@ _KOJI_BUILDS: List[Dict[str, Any]] = [
         'package_id': 22,
         'source': 'git://pkgs.devel.redhat.com/containers/aisleriot#AISLERIOT_GIT_DIGEST',
         '_TYPE': 'image',
-        '_TAGS': ['release-candidate'],
+        '_TAGS': ['release-candidate', 'release-candidate-4'],
         '_ARCHIVES': [
             {
                 'btype': 'image',
@@ -459,6 +459,7 @@ _KOJI_TAGS: Dict[str, List[str]] = {
     'release-candidate': [],
     'release-candidate-2': [],
     'release-candidate-3': ['release-candidate', 'release-candidate-2'],
+    'release-candidate-4': [],
 }
 
 

@@ -12,7 +12,7 @@ from .pyxis import mock_pyxis
 from .utils import mock_brew, mock_odcs, write_config
 
 CONFIG = yaml.safe_load("""
-pyxis_url: https://pyxis.example.com/v1
+pyxis_url: https://pyxis.example.com/graphql
 redis_url: redis://localhost
 koji_config: brew
 odcs_uri: https://odcs.example.com/
@@ -120,7 +120,7 @@ def test_index(tmp_path, caplog, verbose):
 
 
 DIFFER_CONFIG = yaml.safe_load("""
-pyxis_url: https://pyxis.example.com/v1
+pyxis_url: https://pyxis.example.com/graphql
 redis_url: redis://localhost
 koji_config: brew
 deltas_dir: ${OUTPUT_DIR}/deltas/

@@ -1,8 +1,8 @@
-from copy import deepcopy
 from typing import Dict
+from unittest.mock import patch
 
 import pytest
-from requests.exceptions import HTTPError
+import requests
 import yaml
 
 from flatpak_indexer.datasource.pyxis import PyxisUpdater
@@ -25,7 +25,7 @@ def run_update(updater):
 
 
 CONFIG = yaml.safe_load("""
-pyxis_url: https://pyxis.example.com/v1
+pyxis_url: https://pyxis.example.com/graphql
 redis_url: redis://localhost
 koji_config: brew
 odcs_uri: https://odcs.example.com/
@@ -46,6 +46,11 @@ indexes:
         registry: registry.example.com
         output: out/test/flatpak.json
         tag: latest
+    # Test of indexes that overlap with different tags
+    rhel8:
+        registry: registry.example.com
+        output: out/test/flatpak-rhel8.json
+        tag: rhel8
     # Not a Pyxis-backed index
     fedora-latest:
         registry: fedora
@@ -89,18 +94,55 @@ def test_pyxis_updater(tmp_path, server_cert, client_cert):
 
 @mock_brew
 @mock_odcs
-@mock_pyxis(fail_tag_history=True)
+@mock_pyxis
 @mock_redis
-def test_pyxis_updater_tag_history_exception(tmp_path):
+@patch(
+    "flatpak_indexer.datasource.pyxis.updater.REPOSITORY_QUERY",
+    "Not a query"
+)
+def test_pyxis_updater_bad_query(tmp_path, caplog):
     config = get_config(tmp_path, CONFIG)
+
     updater = PyxisUpdater(config, page_size=1)
 
-    with pytest.raises(HTTPError, match=r"403 Client Error"):
+    with pytest.raises(requests.exceptions.HTTPError, match=r'400 Client Error'):
         run_update(updater)
+
+    assert "Error querying pyxis: [{'message': \"Syntax Error:" in caplog.text
+
+
+@mock_brew
+@mock_odcs
+@mock_pyxis(bad_digests=True)
+@mock_redis
+def test_pyxis_updater_bad_digests(tmp_path, caplog):
+    config = get_config(tmp_path, CONFIG)
+
+    updater = PyxisUpdater(config, page_size=1)
+
+    run_update(updater)
+    assert ("No image for aisleriot-container-el8-8020020200121102609.1 "
+            "with digest sha256:deadbeef"
+            in caplog.text)
+
+
+@mock_brew
+@mock_odcs
+@mock_pyxis(newer_untagged_image=True)
+@mock_redis
+def test_pyxis_updater_newer_untagged_image(tmp_path, caplog):
+    config = get_config(tmp_path, CONFIG)
+
+    updater = PyxisUpdater(config, page_size=1)
+
+    run_update(updater)
+    assert ("registry.example.com/el8/aisleriot: "
+            "latest is not applied to the latest build, can't determine history"
+            in caplog.text)
 
 
 REPOSITORY_OVERRIDE_CONFIG = yaml.safe_load("""
-pyxis_url: https://pyxis.example.com/v1
+pyxis_url: https://pyxis.example.com/graphql
 redis_url: redis://localhost
 koji_config: brew
 registries:
@@ -131,57 +173,3 @@ def test_pyxis_updater_repository_override(tmp_path):
     assert len(amd64_data.repositories) == 1
     testrepo_repository = amd64_data.repositories['testrepo']
     assert testrepo_repository.name == 'testrepo'
-
-
-KOJI_CONFIG = yaml.safe_load("""
-pyxis_url: https://pyxis.example.com/v1
-redis_url: redis://localhost
-koji_config: brew
-odcs_uri: https://odcs.example.com/
-registries:
-    brew:
-        public_url: https://internal.example.com/
-        datasource: pyxis
-indexes:
-    brew-rc:
-        registry: brew
-        architecture: amd64
-        output: out/test/brew.json
-        tag: release-candidate
-        koji_tags: [release-candidate, release-candidate-2]
-    brew-rc-2:
-        registry: brew
-        architecture: amd64
-        output: out/test/brew-2.json
-        tag: release-candidate-2
-        koji_tags: [release-candidate-2]
-""")
-
-
-@pytest.mark.parametrize("inherit", (False, True))
-@mock_brew
-@mock_odcs
-@mock_pyxis
-@mock_redis
-def test_pyxis_updater_koji(tmp_path, inherit):
-    cfg = deepcopy(KOJI_CONFIG)
-    if inherit:
-        cfg['indexes']['brew-rc']['koji_tags'] = ['release-candidate-3+']
-
-    config = get_config(tmp_path, cfg)
-
-    updater = PyxisUpdater(config)
-
-    registry_data = run_update(updater)
-    data = registry_data['brew']
-
-    assert len(data.repositories) == 1
-    aisleriot_repository = data.repositories['rh-osbs/aisleriot']
-    assert aisleriot_repository.name == 'rh-osbs/aisleriot'
-    assert len(aisleriot_repository.images) == 1
-    aisleriot_image = next(iter(aisleriot_repository.images.values()))
-    assert aisleriot_image.digest == \
-        'sha256:fade1e55c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
-    assert aisleriot_image.tags == [
-        'el8', 'el8-8020020200121102609.2', 'release-candidate', 'release-candidate-2'
-    ]

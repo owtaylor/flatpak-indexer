@@ -29,7 +29,7 @@ def run_update(config):
 
 
 CONFIG = yaml.safe_load("""
-pyxis_url: https://pyxis.example.com/v1
+pyxis_url: https://pyxis.example.com/graphql
 koji_config: brew
 odcs_uri: https://odcs.example.com/
 deltas_dir: ${OUTPUT_DIR}/deltas
@@ -166,7 +166,7 @@ def test_indexer_missing_data_source(tmp_path):
 
 
 KOJI_CONFIG = yaml.safe_load("""
-pyxis_url: https://pyxis.example.com/v1
+pyxis_url: https://pyxis.example.com/graphql
 koji_config: brew
 odcs_uri: https://odcs.example.com/
 redis_url: redis://localhost
