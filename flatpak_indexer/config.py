@@ -47,6 +47,9 @@ class PyxisRegistryConfig(RegistryConfig):
         if (not self.repository_parse) != (not self.repository_replace):
             raise ConfigError("repository_parse and repository_replace must be set together")
 
+        if not self.public_url.startswith("https://"):
+            raise ConfigError(f"registries/{name}: public_url must be a https:// URL")
+
     def adjust_repository(self, repository_name: str):
         if self.repository_parse and self.repository_replace:
             return re.sub('^' + self.repository_parse + '$',

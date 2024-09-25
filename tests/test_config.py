@@ -157,6 +157,15 @@ def test_repository_parse_replace_mismatched(tmp_path):
         get_config(tmp_path, config_data)
 
 
+def test_public_url_not_https(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    config_data['registries']['production']['public_url'] = 'ftp://registry.example.com'
+    with raises(ConfigError,
+                match=(r"registries/production: "
+                       r"public_url must be a https:// URL")):
+        get_config(tmp_path, config_data)
+
+
 def test_registry_missing(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
     del config_data['registries']['production']
