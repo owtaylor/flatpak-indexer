@@ -156,7 +156,7 @@ class DeltaGenerator:
             for key, spec in to_fetch.items():
                 logger.info("Requesting generation of a delta for %s/%s/%s => %s/%s/%s",
                             spec.from_image.repository, spec.from_image.ref, spec.from_diff_id,
-                            spec.to_image.repository, spec.to_image.ref, spec.from_diff_id)
+                            spec.to_image.repository, spec.to_image.ref, spec.to_diff_id)
                 self.redis_client.setex(f"tardiff:spec:{key}",
                                         timedelta(days=1),
                                         spec.to_json_text())
