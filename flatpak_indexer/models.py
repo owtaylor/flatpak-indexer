@@ -33,15 +33,31 @@ class ImageModel(BaseModel):
     # from the public location of the image.
     pull_spec: Optional[str]
 
+    # This allows marking an Image that we can't look it up in Koji by nvr.
+    # Making nvr a stored property would be simpler and cleaner, but
+    # causes a migration problem with previously cached Images and also
+    # would require some more formal hide-from-output mechanism - the hack
+    # in indexer doesn't work because indexer is using image.nvr.
+    @property
+    def no_koji(self):
+        return getattr(self, "_no_koji", False)
+
+    @no_koji.setter
+    def no_koji(self, no_koji: bool):
+        self._no_koji = no_koji
+
     @property
     def nvr(self):
-        name = self.labels.get("com.redhat.component")
-        if name:
-            version = self.labels["version"]
-            release = self.labels["release"]
-            return NVR(f"{name}-{version}-{release}")
-        else:
+        if self.no_koji:
             return None
+        else:
+            name = self.labels.get("com.redhat.component")
+            if name:
+                version = self.labels["version"]
+                release = self.labels["release"]
+                return NVR(f"{name}-{version}-{release}")
+            else:
+                return None
 
 
 class ListModel(BaseModel):

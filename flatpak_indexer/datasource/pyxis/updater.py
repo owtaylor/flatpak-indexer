@@ -209,7 +209,7 @@ class Registry:
             history_item.digest
         )
 
-        return ImageModel(
+        image = ImageModel(
             digest=history_item.digest,
             media_type=manifest["mediaType"],
             os=config["os"],
@@ -220,6 +220,11 @@ class Registry:
             pull_spec=pull_spec,
             diff_ids=config["rootfs"]["diff_ids"]
         )
+
+        # Mark that there's no brew build to look up
+        image.no_koji = True
+
+        return image
 
     def _add_build_history(
             self, repository_name: str, tag: str, architectures, history_items: List[HistoryItem]

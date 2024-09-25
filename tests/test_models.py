@@ -100,6 +100,13 @@ def test_image_nvr():
     assert image.nvr is None
 
 
+def test_image_nvr_no_koji():
+    image = ImageModel.from_json(IMAGE1)
+
+    image.no_koji = True
+    assert image.nvr is None
+
+
 def test_image_build_repository():
     image = ImageBuildModel.from_json(IMAGE_BUILD)
     assert image.repository == 'baobab'
