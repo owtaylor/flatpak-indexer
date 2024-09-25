@@ -1,8 +1,9 @@
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 import json
 import logging
 import time
-from typing import cast, Dict, List, Optional, Set, Tuple
+from typing import cast, DefaultDict, Dict, List, Optional, Set, Tuple
 
 import redis
 
@@ -44,18 +45,27 @@ class DeltaGenerator:
         self, repository: RepositoryModel, tag_history: TagHistoryModel, index_config: IndexConfig
     ):
         keep = index_config.delta_keep
-        arch_map = {}
 
+        arch_map: DefaultDict[str, List[TagHistoryItemModel]] = defaultdict(list)
         for item in tag_history.items:
-            latest_date = tag_history.items[0].date
-            if item.date == latest_date:
-                arch_map[item.architecture] = [item]
-            elif item.architecture in arch_map:
-                next_item = arch_map[item.architecture][-1]
+            arch_map[item.architecture].append(item)
+
+        for arch_list in arch_map.values():
+            first_item = arch_list[0]
+            first_image = repository.images[first_item.digest]
+            if tag_history.name not in first_image.tags:
+                # The latest tagged build doesn't include this architecture, so
+                # we don't need a delta. People with an older image installed
+                # are out of luck
+                continue
+
+            for next_item, item in zip(arch_list[0:-1], arch_list[1:]):
+                # The exact meaning of the keep time is that if the
+                # image was *replaced* at least "keep time" ago, then
+                # we no longer generate deltas from it.
                 if self.now - next_item.date <= keep:
                     arch_map[item.architecture].append(item)
-                    self._add_delta(repository,
-                                    item, arch_map[item.architecture][0])
+                    self._add_delta(repository, item, first_item)
 
     def generate(self):
         specs = self._get_specs()

@@ -70,12 +70,51 @@ IMAGE3 = {
     'PullSpec': 'registry.fedoraproject.org/baobab@sha256:a3b3c3d3e3f3'
 }
 
+IMAGE4 = {
+    'Digest': 'sha256:a4b4c4d4e4f4',
+    'MediaType': 'application/vnd.oci.image.manifest.v1+json',
+    'OS': 'linux',
+    'Architecture': 'ppc64le',
+    'Tags': [],
+    'DiffIds': [
+        'sha256:image4_layer0',
+    ],
+    'PullSpec': 'registry.fedoraproject.org/baobab@sha256:a4b4c4d4e4f4'
+}
+
+IMAGE5 = {
+    'Digest': 'sha256:a5b5c5d5e5f5',
+    'MediaType': 'application/vnd.oci.image.manifest.v1+json',
+    'OS': 'linux',
+    'Architecture': 'ppc64le',
+    'Tags': ['latest'],
+    'DiffIds': [
+        'sha256:image5_layer0',
+    ],
+    'PullSpec': 'registry.fedoraproject.org/baobab@sha256:a5b5c5d5e5f5'
+}
+
+IMAGE6 = {
+    'Digest': 'sha256:a6b6c6d6e6f4',
+    'MediaType': 'application/vnd.oci.image.manifest.v1+json',
+    'OS': 'linux',
+    'Architecture': 's390x',
+    'Tags': [],
+    'DiffIds': [
+        'sha256:image6_layer0',
+    ],
+    'PullSpec': 'registry.fedoraproject.org/baobab@sha256:a3b3c3d3e3f3'
+}
+
 REPOSITORY = {
     'Name': 'baobab',
     'Images': [
         IMAGE1,
         IMAGE2,
-        IMAGE3
+        IMAGE3,
+        IMAGE4,
+        IMAGE5,
+        IMAGE6
     ],
     'TagHistories': [
         {
@@ -87,9 +126,24 @@ REPOSITORY = {
                     'Digest': IMAGE3['Digest'],
                 },
                 {
+                    'Architecture': 'ppc64le',
+                    'Date': '2020-08-21T01:02:03.00000+00:00',
+                    'Digest': IMAGE5['Digest'],
+                },
+                {
                     'Architecture': 'amd64',
                     'Date': '2020-08-14T01:02:03.00000+00:00',
                     'Digest': IMAGE2['Digest'],
+                },
+                {
+                    'Architecture': 'ppc64le',
+                    'Date': '2020-08-14T01:02:03.00000+00:00',
+                    'Digest': IMAGE4['Digest'],
+                },
+                {
+                    'Architecture': 's390x',
+                    'Date': '2020-08-14T01:02:03.00000+00:00',
+                    'Digest': IMAGE6['Digest'],
                 },
                 {
                     'Architecture': 'amd64',
@@ -286,6 +340,8 @@ def test_delta_generator(tmp_path, iterations, task_destiny, layer_counts):
                                      str(tmp_path / "deltas"))
 
     assert os.path.exists(digest_path)
+
+    assert os.path.exists(tmp_path / "deltas" / "a5" / "b5c5d5e5f5.json")
 
 
 @mock_redis
