@@ -22,6 +22,13 @@ registries:
         datasource: pyxis
         pyxis_url: https://pyxis.example.com/v1
         pyxis_registry: registry.example.com
+    production2:
+        public_url: https://registry.example.com/
+        datasource: pyxis
+        pyxis_url: https://pyxis.example.com/v1
+        pyxis_registry: registry.example.com
+        repository_parse: (?P<namespace>[^/]+)/(?P<name>.*)
+        repository_replace: pending/\\g<namespace>----\\g<name>
     brew:
         public_url: https://private.example.com/
         datasource: koji
@@ -65,6 +72,18 @@ def test_config_basic(tmp_path):
     index_conf = next(i for i in conf.indexes if i.name == "amd64")
     assert index_conf.repository_priority_key("rhel9/inkscape") == (0, "rhel9/inkscape")
     assert index_conf.repository_priority_key("foobar") == (2, "foobar")
+
+    registry_conf = conf.registries["production"]
+    assert isinstance(registry_conf, PyxisRegistryConfig)
+    assert registry_conf.adjust_repository("product/repo") == "product/repo"
+
+    registry_conf2 = conf.registries["production2"]
+    assert isinstance(registry_conf2, PyxisRegistryConfig)
+    assert registry_conf2.adjust_repository("product/repo") == "pending/product----repo"
+
+    fedora_indexes = conf.get_indexes_for_datasource("fedora")
+    assert len(fedora_indexes) == 1
+    assert fedora_indexes[0].name == "fedora-testing"
 
 
 def create_client_key_config(tmp_path, create_cert=True, create_key=True):
@@ -126,6 +145,15 @@ def test_datasource_invalid(tmp_path):
     with raises(ConfigError,
                 match=("registry/production: "
                        "datasource must be 'pyxis', 'koji', or 'fedora'")):
+        get_config(tmp_path, config_data)
+
+
+def test_repository_parse_replace_mismatched(tmp_path):
+    config_data = deepcopy(BASIC_CONFIG)
+    del config_data['registries']['production2']['repository_replace']
+    with raises(ConfigError,
+                match=(r"registries/production2: "
+                       r"repository_parse and repository_replace must be set together")):
         get_config(tmp_path, config_data)
 
 

@@ -27,6 +27,8 @@ class PyxisRegistryConfig(RegistryConfig):
     pyxis_registry: str
 
     repositories: List[str] = []
+    repository_parse: Optional[str] = None
+    repository_replace: Optional[str] = None
 
     def __init__(self, name: str, lookup: Lookup):
         super().__init__(name, lookup)
@@ -41,6 +43,17 @@ class PyxisRegistryConfig(RegistryConfig):
             if not os.path.exists(self.pyxis_client_key):
                 raise ConfigError(
                     "pyxis_client_key: {} does not exist".format(self.pyxis_client_key))
+
+        if (not self.repository_parse) != (not self.repository_replace):
+            raise ConfigError("repository_parse and repository_replace must be set together")
+
+    def adjust_repository(self, repository_name: str):
+        if self.repository_parse and self.repository_replace:
+            return re.sub('^' + self.repository_parse + '$',
+                          self.repository_replace,
+                          repository_name)
+        else:
+            return repository_name
 
 
 class FedoraRegistryConfig(RegistryConfig):

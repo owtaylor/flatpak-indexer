@@ -187,6 +187,8 @@ class Registry:
         tag_history = TagHistoryModel(name=tag)
 
         first = True
+        repository_name = self.config.adjust_repository(repository_name)
+
         for history_item in history_items:
             if not (None in architectures or history_item.architecture in architectures):
                 continue
