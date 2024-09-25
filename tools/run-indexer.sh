@@ -5,7 +5,7 @@ set -ex
 topdir=$(cd $(dirname $0)/.. && pwd)
 
 usage() {
-    echo "Usage: run-indexer.sh [--indexer|--differ] [--fedora|--pyxis]"
+    echo "Usage: run-indexer.sh [--indexer|--differ] [--fedora|--redhat]"
 }
 
 command=
@@ -22,8 +22,8 @@ while [ "$#" '>' 0 ] ; do
         --fedora)
             datasource=fedora
             ;;
-        --pyxis)
-            datasource=pyxis
+        --redhat)
+            datasource=redhat
             ;;
         *)
             usage && exit 1
@@ -42,7 +42,7 @@ options="--name=flatpak-indexer-$command --rm
 -v $topdir/work:/var/lib/flatpak-indexer:z
 -v $topdir/config-$datasource.yaml:/etc/flatpak-indexer/config.yaml:z"
 
-if [ $datasource = pyxis ] ; then
+if [ $datasource = redhat ] ; then
     if ! [ -e $topdir/flatpak_indexer/certs/RH-IT-Root-CA.crt -a \
               -e $HOME/.config/flatpak-indexer/client.crt ] ; then
         echo "Please follow setup instructions in README.md" 1>&2

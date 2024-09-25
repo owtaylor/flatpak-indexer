@@ -32,7 +32,7 @@ Configuration
 
 The indexer service is configured via a YAML file (typically provided as a kubernetes
 config map). You can find examples in [config-fedora.yaml](config-local.yaml) and
-[config-pyxis.yaml](config-pyxis.yaml).
+[config-redhat.yaml](config-redhat.yaml).
 
 Content index
 -------------
@@ -111,10 +111,10 @@ pytest tests -k test_config_basic
 ./tools/run-redis.sh
 
 # Run a differ in another terminal
-flatpak-indexer -v -c config-[pyxis|fedora].yaml differ
+flatpak-indexer -v -c config-[redhat|fedora].yaml differ
 
 # And try indexing in a third terminal
-flatpak-indexer -v -c config-[pyxis|fedora].yaml index
+flatpak-indexer -v -c config-[redhat|fedora].yaml index
 ```
 
 Development standards
