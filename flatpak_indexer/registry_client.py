@@ -238,6 +238,7 @@ class RegistryClient(object):
            ca_cert (str): A path to a bundle of trusted ca certificates
            session (str): A requests.Session object to use, or None
         """
+        registry_url = registry_url.removesuffix("/")
         self.session = RegistrySession(registry_url,
                                        creds=creds, cert_dir=cert_dir, ca_cert=ca_cert,
                                        session=session)
