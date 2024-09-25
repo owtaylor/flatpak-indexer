@@ -2,14 +2,15 @@ from datetime import datetime, timedelta, timezone
 import json
 import logging
 import time
-from typing import cast, Dict, List, Tuple
+from typing import cast, Dict, List, Optional, Set, Tuple
 
 import redis
 
 from .cleaner import Cleaner
-from .config import IndexConfig
+from .config import Config, IndexConfig
 from .models import (
-    RepositoryModel, TagHistoryModel, TardiffImageModel, TardiffResultModel, TardiffSpecModel
+    ImageModel, RepositoryModel, TagHistoryItemModel, TagHistoryModel,
+    TardiffImageModel, TardiffResultModel, TardiffSpecModel
 )
 from .redis_utils import do_pubsub_work, get_redis_client
 from .utils import atomic_writer, parse_pull_spec, path_for_digest, uri_for_digest
@@ -21,7 +22,10 @@ logger = logging.getLogger(__name__)
 class DeltaGenerator:
     delta_manifest_urls: Dict[str, str]
 
-    def __init__(self, config, progress_timeout_seconds=60, cleaner=None):
+    def __init__(
+        self, config: Config,
+        progress_timeout_seconds: float = 60, cleaner: Optional[Cleaner] = None
+    ):
         self.config = config
         self.redis_client = get_redis_client(config)
         self.progress_timeout_seconds = progress_timeout_seconds
@@ -29,9 +33,12 @@ class DeltaGenerator:
             cleaner = Cleaner(self.config)
         self.cleaner = cleaner
         self.now = datetime.utcnow().replace(tzinfo=timezone.utc)
-        self.deltas = {}
-        self.image_info = {}
-        self.delta_manifest_urls = {}
+        # to_digest => set(from digests)
+        self.deltas: Dict[str, Set[str]] = {}
+        # image digest => (ImageModel, TardiffImageModel)
+        self.image_info: Dict[str, Tuple[ImageModel, TardiffImageModel]] = {}
+        # image digest => delta url
+        self.delta_manifest_urls: Dict[str, str] = {}
 
     def add_tag_history(
         self, repository: RepositoryModel, tag_history: TagHistoryModel, index_config: IndexConfig
@@ -59,7 +66,10 @@ class DeltaGenerator:
     def get_delta_manifest_url(self, digest: str):
         return self.delta_manifest_urls.get(digest)
 
-    def _add_delta(self, repository, from_item, to_item):
+    def _add_delta(
+        self, repository: RepositoryModel,
+        from_item: TagHistoryItemModel, to_item: TagHistoryItemModel
+    ):
         if to_item.digest not in self.deltas:
             self.deltas[to_item.digest] = set()
 
@@ -68,18 +78,18 @@ class DeltaGenerator:
         self._add_image(repository, from_item)
         self._add_image(repository, to_item)
 
-    def _add_image(self, repository, history_item):
+    def _add_image(self, repository: RepositoryModel, history_item: TagHistoryItemModel):
         image = repository.images[history_item.digest]
 
-        registry, repository, ref = parse_pull_spec(image.pull_spec)
+        registry, repository_name, ref = parse_pull_spec(image.pull_spec)
 
         image_model = TardiffImageModel(registry=registry,
-                                        repository=repository,
+                                        repository=repository_name,
                                         ref=ref)
         self.image_info[history_item.digest] = (image, image_model)
 
     def _get_specs(self):
-        specs = {}
+        specs: Dict[str, TardiffSpecModel] = {}
         for to_digest, from_digests in self.deltas.items():
             to_image, to_image_model = self.image_info[to_digest]
             assert len(to_image.diff_ids) > 0
@@ -98,7 +108,7 @@ class DeltaGenerator:
 
         return specs
 
-    def _wait_for_tardiffs(self, specs):
+    def _wait_for_tardiffs(self, specs: Dict[str, TardiffSpecModel]):
         success = {}
         to_fetch = {}
         failure = {}
@@ -259,6 +269,7 @@ class DeltaGenerator:
                     self.cleaner.reference(path_for_digest(self.config.deltas_dir,
                                                            result.digest, '.tardiff'))
 
+                    assert self.config.deltas_uri is not None
                     delta_layers.append({
                         "mediaType": "application/vnd.redhat.tar-diff",
                         "size": result.size,
@@ -294,5 +305,6 @@ class DeltaGenerator:
                               sort_keys=True, indent=4, ensure_ascii=False)
 
                 self.cleaner.reference(filename)
+                assert self.config.deltas_uri is not None
                 self.delta_manifest_urls[to_image.digest] = uri_for_digest(self.config.deltas_uri,
                                                                            to_image.digest, '.json')
