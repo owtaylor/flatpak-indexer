@@ -15,7 +15,6 @@ from .utils import get_config
 
 
 CONFIG = yaml.safe_load("""
-pyxis_url: https://pyxis.example.com/v1
 redis_url: redis://localhost
 koji_config: brew
 registries:
@@ -25,6 +24,7 @@ registries:
     notregistry.example.com:
         public_url: https://notregistry.example.com/
         datasource: pyxis
+        pyxis_url: https://pyxis.example.com/v1
 indexes:
     testing:
         registry: registry.example.com

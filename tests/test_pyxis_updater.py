@@ -5,6 +5,7 @@ import pytest
 import requests
 import yaml
 
+from flatpak_indexer.config import PyxisRegistryConfig
 from flatpak_indexer.datasource.pyxis import PyxisUpdater
 from flatpak_indexer.models import RegistryModel
 from flatpak_indexer.test.redis import mock_redis
@@ -25,7 +26,6 @@ def run_update(updater):
 
 
 CONFIG = yaml.safe_load("""
-pyxis_url: https://pyxis.example.com/graphql
 redis_url: redis://localhost
 koji_config: brew
 odcs_uri: https://odcs.example.com/
@@ -33,6 +33,7 @@ registries:
     registry.example.com:
         public_url: https://registry.example.com/
         datasource: pyxis
+        pyxis_url: https://pyxis.example.com/graphql
     fedora:
         public_url: https://registry.fedoraproject.org
         datasource: fedora
@@ -73,7 +74,10 @@ def test_pyxis_updater(tmp_path, server_cert, client_cert):
     if server_cert:
         config.local_certs['pyxis.example.com'] = 'test.crt'
     if client_cert:
-        config.pyxis_client_cert, config.pyxis_client_key = setup_client_cert(tmp_path)
+        registry_config = config.registries['registry.example.com']
+        assert isinstance(registry_config, PyxisRegistryConfig)
+        registry_config.pyxis_client_cert, registry_config.pyxis_client_key = \
+            setup_client_cert(tmp_path)
 
     updater = PyxisUpdater(config, page_size=1)
 
@@ -142,7 +146,6 @@ def test_pyxis_updater_newer_untagged_image(tmp_path, caplog):
 
 
 REPOSITORY_OVERRIDE_CONFIG = yaml.safe_load("""
-pyxis_url: https://pyxis.example.com/graphql
 redis_url: redis://localhost
 koji_config: brew
 registries:
@@ -150,6 +153,7 @@ registries:
         public_url: https://registry.example.com/
         repositories: ['testrepo']
         datasource: pyxis
+        pyxis_url: https://pyxis.example.com/graphql
 indexes:
     amd64:
         architecture: amd64

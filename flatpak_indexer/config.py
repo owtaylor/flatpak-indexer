@@ -21,7 +21,25 @@ class RegistryConfig(BaseConfig):
 
 
 class PyxisRegistryConfig(RegistryConfig):
+    pyxis_url: str = configfield(force_trailing_slash=True)
+    pyxis_client_cert: Optional[str] = None
+    pyxis_client_key: Optional[str] = None
+
     repositories: List[str] = []
+
+    def __init__(self, name: str, lookup: Lookup):
+        super().__init__(name, lookup)
+
+        if (not self.pyxis_client_cert) != (not self.pyxis_client_key):
+            raise ConfigError("pyxis_client_cert and pyxis_client_key must be set together")
+
+        if self.pyxis_client_cert and self.pyxis_client_key:
+            if not os.path.exists(self.pyxis_client_cert):
+                raise ConfigError(
+                    "pyxis_client_cert: {} does not exist".format(self.pyxis_client_cert))
+            if not os.path.exists(self.pyxis_client_key):
+                raise ConfigError(
+                    "pyxis_client_key: {} does not exist".format(self.pyxis_client_key))
 
 
 class FedoraRegistryConfig(RegistryConfig):
@@ -75,10 +93,6 @@ class Config(KojiConfig, OdcsConfig, RedisConfig):
     indexes: List[IndexConfig] = configfield(skip=True)
     registries: Dict[str, RegistryConfig] = configfield(skip=True)
 
-    pyxis_client_cert: Optional[str] = None
-    pyxis_client_key: Optional[str] = None
-    pyxis_url: Optional[str] = configfield(default=None, force_trailing_slash=True)
-
     icons_dir: Optional[str] = None
     icons_uri: Optional[str] = configfield(default=None, force_trailing_slash=True)
 
@@ -94,17 +108,6 @@ class Config(KojiConfig, OdcsConfig, RedisConfig):
 
         self.indexes = []
         self.registries = {}
-
-        if (not self.pyxis_client_cert) != (not self.pyxis_client_key):
-            raise ConfigError("pyxis_client_cert and pyxis_client_key must be set together")
-
-        if self.pyxis_client_cert and self.pyxis_client_key:
-            if not os.path.exists(self.pyxis_client_cert):
-                raise ConfigError(
-                    "pyxis_client_cert: {} does not exist".format(self.pyxis_client_cert))
-            if not os.path.exists(self.pyxis_client_key):
-                raise ConfigError(
-                    "pyxis_client_key: {} does not exist".format(self.pyxis_client_key))
 
         if self.icons_dir is not None and self.icons_uri is None:
             raise ConfigError("icons_dir is configured, but not icons_uri")
@@ -126,12 +129,6 @@ class Config(KojiConfig, OdcsConfig, RedisConfig):
                                   .format(name))
 
             self.registries[name] = registry_config
-
-            if registry_config.datasource == 'pyxis':
-                if self.pyxis_url is None:
-                    raise ConfigError(("registry/{}: " +
-                                       "pyxis_url must be configured for the pyxis datasource")
-                                      .format(registry_config.name))
 
         tag_koji_tags: Dict[str, Tuple[str, List[str]]] = dict()
 

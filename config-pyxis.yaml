@@ -1,9 +1,3 @@
-pyxis_url: https://catalog.redhat.com/api/containers/graphql
-# these define a client certificate/key pair to authenticate to pyxis; this
-# shows environment variable substitution with a fallback
-# pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
-# pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
-# allow specifying trust root for hosts - if not found, system trust is used;
 # URL to a local Redis index for caching and queuing
 redis_url: ${REDIS_URL:redis://localhost:6379}
 # Optional password to connect to Redis
@@ -31,10 +25,16 @@ daemon:
 registries:
         # key must match registry ID in Pyxis
         registry.access.redhat.com:
+                # these define a client certificate/key pair to authenticate to pyxis; this
+                # shows environment variable substitution with a fallback
+                # pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
+                # pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
+
                 # Written into the index
                 public_url: https://registry.redhat.io/
                 # Get container data from the Pyxis API
                 datasource: pyxis
+                pyxis_url: https://catalog.redhat.com/api/containers/graphql
                 # repositories: ['repo1', 'repo2'] overrides querying Pyxis for the list
         # You can also define a pseudo-registry based on koji/brew builds
         brew:

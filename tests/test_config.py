@@ -3,11 +3,10 @@ from copy import deepcopy
 from pytest import raises
 import yaml
 
-from flatpak_indexer.config import ConfigError
+from flatpak_indexer.config import ConfigError, PyxisRegistryConfig
 from .utils import get_config, setup_client_cert
 
 BASIC_CONFIG = yaml.safe_load("""
-pyxis_url: https://pyxis.example.com/v1
 redis_url: redis://localhost
 koji_config: brew
 deltas_dir: /flatpaks/deltas/
@@ -21,9 +20,10 @@ registries:
         repositories: ['repo1', 'repo2']
         public_url: https://registry.example.com/
         datasource: pyxis
+        pyxis_url: https://pyxis.example.com/v1
     brew:
         public_url: https://private.example.com/
-        datasource: pyxis
+        datasource: koji
     fedora:
         public_url: https://registry.fedoraproject.org/
         datasource: fedora
@@ -57,27 +57,36 @@ indexes:
 
 def test_config_basic(tmp_path):
     conf = get_config(tmp_path, BASIC_CONFIG)
-    assert conf.pyxis_url == "https://pyxis.example.com/v1/"
+    registry = conf.registries["registry.example.com"]
+    assert isinstance(registry, PyxisRegistryConfig)
+    assert registry.pyxis_url == "https://pyxis.example.com/v1/"
 
     index_conf = next(i for i in conf.indexes if i.name == "amd64")
     assert index_conf.repository_priority_key("rhel9/inkscape") == (0, "rhel9/inkscape")
     assert index_conf.repository_priority_key("foobar") == (2, "foobar")
 
 
-def test_client_cert(tmp_path):
+def create_client_key_config(tmp_path, create_cert=True, create_key=True):
     config_data = deepcopy(BASIC_CONFIG)
-    config_data['pyxis_client_cert'], config_data['pyxis_client_key'] = \
-        setup_client_cert(tmp_path)
+    registry_config_data = config_data['registries']['registry.example.com']
+    registry_config_data['pyxis_client_cert'], registry_config_data['pyxis_client_key'] = \
+        setup_client_cert(tmp_path, create_cert=create_cert, create_key=create_key)
+
+    return config_data
+
+
+def test_client_cert(tmp_path):
+    config_data = create_client_key_config(tmp_path)
 
     config = get_config(tmp_path, config_data)
-    assert config.pyxis_client_cert == str(tmp_path / "client.crt")
-    assert config.pyxis_client_key == str(tmp_path / "client.key")
+    registry = config.registries["registry.example.com"]
+    assert isinstance(registry, PyxisRegistryConfig)
+    assert registry.pyxis_client_cert == str(tmp_path / "client.crt")
+    assert registry.pyxis_client_key == str(tmp_path / "client.key")
 
 
 def test_client_cert_missing(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['pyxis_client_cert'], config_data['pyxis_client_key'] = \
-        setup_client_cert(tmp_path, create_cert=False)
+    config_data = create_client_key_config(tmp_path, create_cert=False)
 
     with raises(ConfigError,
                 match="client.crt does not exist"):
@@ -85,9 +94,7 @@ def test_client_cert_missing(tmp_path):
 
 
 def test_client_key_missing(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['pyxis_client_cert'], config_data['pyxis_client_key'] = \
-        setup_client_cert(tmp_path, create_key=False)
+    config_data = create_client_key_config(tmp_path, create_key=False)
 
     with raises(ConfigError,
                 match="client.key does not exist"):
@@ -95,11 +102,8 @@ def test_client_key_missing(tmp_path):
 
 
 def test_client_key_mismatch(tmp_path):
-    config_data = deepcopy(BASIC_CONFIG)
-    config_data['pyxis_client_cert'], config_data['pyxis_client_key'] = \
-        setup_client_cert(tmp_path)
-
-    del config_data['pyxis_client_cert']
+    config_data = create_client_key_config(tmp_path)
+    del config_data['registries']['registry.example.com']['pyxis_client_cert']
 
     with raises(ConfigError,
                 match="pyxis_client_cert and pyxis_client_key must be set together"):
@@ -108,9 +112,10 @@ def test_client_key_mismatch(tmp_path):
 
 def test_pyxis_url_missing(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
-    del config_data['pyxis_url']
+    del config_data['registries']['registry.example.com']['pyxis_url']
+
     with raises(ConfigError,
-                match=r'registry/[a-z].*: pyxis_url must be configured for the pyxis datasource'):
+                match=r'A value is required for registries/registry.example.com/pyxis_url'):
         get_config(tmp_path, config_data)
 
 

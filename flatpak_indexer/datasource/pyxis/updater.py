@@ -103,12 +103,11 @@ class Registry:
         kwargs = {
         }
 
-        if self.global_config.pyxis_client_cert:
-            kwargs['cert'] = (self.global_config.pyxis_client_cert,
-                              self.global_config.pyxis_client_key)
+        if self.config.pyxis_client_cert:
+            kwargs['cert'] = (self.config.pyxis_client_cert,
+                              self.config.pyxis_client_key)
 
-        assert self.global_config.pyxis_url is not None
-        response = self.requests_session.post(self.global_config.pyxis_url, json=body, **kwargs)
+        response = self.requests_session.post(self.config.pyxis_url, json=body, **kwargs)
         json = response.json()
 
         if "errors" in json:
