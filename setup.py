@@ -15,6 +15,7 @@ setup(name='flatpak-indexer',
       packages=['flatpak_indexer',
                 'flatpak_indexer.datasource',
                 'flatpak_indexer.datasource.fedora',
+                'flatpak_indexer.datasource.koji',
                 'flatpak_indexer.datasource.pyxis',
                 'flatpak_indexer.test'],
       package_data={
