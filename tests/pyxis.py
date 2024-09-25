@@ -2,7 +2,7 @@ from contextlib import contextmanager
 import copy
 from dataclasses import dataclass
 import json
-from typing import List
+from typing import List, Optional
 
 import graphql
 import responses
@@ -19,7 +19,7 @@ class Repository:
 
 @dataclass
 class Brew:
-    build: str
+    build: Optional[str]
 
 
 @dataclass
@@ -264,7 +264,7 @@ def paginate(results, page, page_size):
 
 
 class MockPyxis:
-    def __init__(self, bad_digests=False, newer_untagged_image=False):
+    def __init__(self, bad_digests=False, newer_untagged_image=False, no_brew_builds=False):
         self.repositories = _REPOSITORIES
         self.repo_images = _REPO_IMAGES
 
@@ -276,6 +276,11 @@ class MockPyxis:
         if newer_untagged_image:
             self.repo_images = copy.copy(self.repo_images)
             self.repo_images.append(_NEWER_UNTAGGED_IMAGE)
+
+        if no_brew_builds:
+            self.repo_images = copy.deepcopy(self.repo_images)
+            for image in self.repo_images:
+                image.brew.build = None
 
     def graphql(self, request):
         parsed = json.loads(request.body)

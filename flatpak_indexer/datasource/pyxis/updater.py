@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from .. import Updater
 from ...config import Config, PyxisRegistryConfig
-from ...models import (RegistryModel, TagHistoryItemModel, TagHistoryModel)
+from ...models import (ImageModel, RegistryModel, TagHistoryItemModel, TagHistoryModel)
 from ...registry_client import RegistryClient
 from ...session import Session
 from ...utils import parse_date
@@ -181,12 +181,51 @@ class Registry:
             if item['registry'] == self.config.pyxis_registry:
                 yield item['repository']
 
+    def _get_image_from_brew(self, history_item: HistoryItem):
+        assert history_item.brew_build is not None
+        build = self.session.build_cache.get_image_build(history_item.brew_build)
+        matched_images = [i for i in build.images
+                          if i.digest == history_item.digest]
+        if len(matched_images) == 0:
+            logger.error("No image for %s with digest %s",
+                         history_item.brew_build, history_item.digest)
+            return None
+
+        image = matched_images[0]
+        image.tags = history_item.tags
+        return image
+
+    def _get_image_from_registry(self, repository_name, history_item: HistoryItem):
+        logger.info("Fetching manifest and config for repository=%s, tags=%s, arch=%s",
+                    repository_name, history_item.tags, history_item.architecture)
+        manifest = self.registry_client.get_manifest(repository_name, history_item.digest)
+        config = self.registry_client.get_config(repository_name, manifest)
+
+        pull_spec = (
+            self.config.public_url.removeprefix('https://').removesuffix("/") +
+            "/" +
+            repository_name +
+            "@" +
+            history_item.digest
+        )
+
+        return ImageModel(
+            digest=history_item.digest,
+            media_type=manifest["mediaType"],
+            os=config["os"],
+            architecture=history_item.architecture,
+            labels=config["config"]["Labels"],
+            annotations={},
+            tags=history_item.tags,
+            pull_spec=pull_spec,
+            diff_ids=config["rootfs"]["diff_ids"]
+        )
+
     def _add_build_history(
             self, repository_name: str, tag: str, architectures, history_items: List[HistoryItem]
     ):
         tag_history = TagHistoryModel(name=tag)
 
-        first = True
         repository_name = self.config.adjust_repository(repository_name)
 
         for history_item in history_items:
@@ -197,26 +236,15 @@ class Registry:
             old_image = repository.images.get(history_item.digest) if repository else None
 
             if not old_image:
-                assert history_item.brew_build is not None
-                build = self.session.build_cache.get_image_build(history_item.brew_build)
-                matched_images = [i for i in build.images
-                                  if i.digest == history_item.digest]
-                if len(matched_images) == 0:
-                    logger.error("No image for %s with digest %s",
-                                 history_item.brew_build, history_item.digest)
+                if history_item.brew_build is not None:
+                    image = self._get_image_from_brew(history_item)
+                else:
+                    image = self._get_image_from_registry(repository_name, history_item)
+
+                if not image:
                     continue
 
-                image = matched_images[0]
-                image.tags = [build.nvr.version, f"{build.nvr.version}-{build.nvr.release}"]
-                if first:
-                    image.tags.append(tag)
-
-                self.registry.add_image(repository_name, matched_images[0])
-            else:
-                if first:
-                    old_image.tags.append(tag)
-
-            first = False
+                self.registry.add_image(repository_name, image)
 
             item = TagHistoryItemModel(architecture=history_item.architecture,
                                        date=history_item.start_date,

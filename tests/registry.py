@@ -100,14 +100,19 @@ class MockRegistry:
         repo = self.get_repo(name)
         digest = make_digest(blob)
         repo['blobs'][digest] = blob
-        return digest
+        return digest, len(blob)
 
     def get_blob(self, name, digest):
         return self.get_repo(name)['blobs'][digest]
 
-    def add_manifest(self, name, ref, manifest):
+    # If fake_digest is set, we pretend the contents have that
+    # digest, even if they don't.
+    def add_manifest(self, name, ref, manifest, fake_digest=None):
         repo = self.get_repo(name)
-        digest = make_digest(manifest)
+        if fake_digest:
+            digest = fake_digest
+        else:
+            digest = make_digest(manifest)
         repo['manifests'][digest] = manifest
         if ref is None:
             pass
@@ -256,7 +261,8 @@ class MockRegistry:
             layer.set_contents(layer_contents)
         layers = [layer]
         for layer in layers:
-            assert self.add_blob(name, layer.contents) == layer.digest
+            digest, _ = self.add_blob(name, layer.contents)
+            assert digest == layer.digest
 
         if diff_ids is None:
             diff_ids = [layer.diff_id for layer in layers]
@@ -270,8 +276,7 @@ class MockRegistry:
             },
         }
         config_bytes = json_bytes(config)
-        config_digest = self.add_blob(name, config_bytes)
-        config_size = len(config_bytes)
+        config_digest, config_size = self.add_blob(name, config_bytes)
 
         manifest = {
             'schemaVersion': 2,
