@@ -148,7 +148,9 @@ class Registry:
                 if (
                     repository["registry"] != self.config.pyxis_registry or
                     repository["repository"] != repository_name
-                ):
+                ):  # pragma: no cover
+                    # Incorrectly marked uncovered for python-3.9 (fine with 3.12)
+                    # https://github.com/nedbat/coveragepy/issues/198
                     continue
 
                 tags = [tag["name"] for tag in repository["tags"]]
