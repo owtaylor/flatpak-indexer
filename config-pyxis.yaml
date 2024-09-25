@@ -23,8 +23,7 @@ daemon:
         # How often to query Pyxis
         update_interval: 30m
 registries:
-        # key must match registry ID in Pyxis
-        registry.access.redhat.com:
+        production:
                 # these define a client certificate/key pair to authenticate to pyxis; this
                 # shows environment variable substitution with a fallback
                 # pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
@@ -35,6 +34,8 @@ registries:
                 # Get container data from the Pyxis API
                 datasource: pyxis
                 pyxis_url: https://catalog.redhat.com/api/containers/graphql
+                # This is the registry ID in Pyxis
+                pyxis_registry: registry.access.redhat.com
                 # repositories: ['repo1', 'repo2'] overrides querying Pyxis for the list
         # You can also define a pseudo-registry based on koji/brew builds
         brew:
@@ -63,7 +64,7 @@ indexes:
                 delta_keep: 90d
         amd64:
                 output: ${OUTPUT_DIR:out}/pyxis/flatpak-latest-amd64.json
-                registry: registry.access.redhat.com
+                registry: production
                 architecture: amd64
                 tag: latest
                 extract_icons: True

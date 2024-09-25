@@ -25,6 +25,7 @@ registries:
         public_url: https://notregistry.example.com/
         datasource: pyxis
         pyxis_url: https://pyxis.example.com/v1
+        pyxis_registry: notregistry.example.com
 indexes:
     testing:
         registry: registry.example.com

@@ -18,14 +18,15 @@ odcs_uri: https://odcs.example.com/
 icons_dir: ${OUTPUT_DIR}/icons/
 icons_uri: https://flatpaks.example.com/icons
 registries:
-    registry.example.com:
+    production:
         repositories: ['el8/aisleriot']
         public_url: https://registry.example.com/
         datasource: pyxis
         pyxis_url: https://pyxis.example.com/graphql
+        pyxis_registry: registry.example.com
 indexes:
     amd64:
-        registry: registry.example.com
+        registry: production
         output: ${OUTPUT_DIR}/flatpak-amd64.json
         architecture: amd64
         tag: latest

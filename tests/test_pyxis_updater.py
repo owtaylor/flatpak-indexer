@@ -30,26 +30,27 @@ redis_url: redis://localhost
 koji_config: brew
 odcs_uri: https://odcs.example.com/
 registries:
-    registry.example.com:
+    production:
         public_url: https://registry.example.com/
         datasource: pyxis
         pyxis_url: https://pyxis.example.com/graphql
+        pyxis_registry: registry.example.com
     fedora:
         public_url: https://registry.fedoraproject.org
         datasource: fedora
 indexes:
     amd64:
         architecture: amd64
-        registry: registry.example.com
+        registry: production
         output: out/test/flatpak-amd64.json
         tag: latest
     all:
-        registry: registry.example.com
+        registry: production
         output: out/test/flatpak.json
         tag: latest
     # Test of indexes that overlap with different tags
     rhel8:
-        registry: registry.example.com
+        registry: production
         output: out/test/flatpak-rhel8.json
         tag: rhel8
     # Not a Pyxis-backed index
@@ -74,7 +75,7 @@ def test_pyxis_updater(tmp_path, server_cert, client_cert):
     if server_cert:
         config.local_certs['pyxis.example.com'] = 'test.crt'
     if client_cert:
-        registry_config = config.registries['registry.example.com']
+        registry_config = config.registries['production']
         assert isinstance(registry_config, PyxisRegistryConfig)
         registry_config.pyxis_client_cert, registry_config.pyxis_client_key = \
             setup_client_cert(tmp_path)
@@ -82,7 +83,7 @@ def test_pyxis_updater(tmp_path, server_cert, client_cert):
     updater = PyxisUpdater(config, page_size=1)
 
     registry_data = run_update(updater)
-    data = registry_data['registry.example.com']
+    data = registry_data['production']
 
     assert len(data.repositories) == 3
     aisleriot_repository = data.repositories['el8/aisleriot']
@@ -140,7 +141,7 @@ def test_pyxis_updater_newer_untagged_image(tmp_path, caplog):
     updater = PyxisUpdater(config, page_size=1)
 
     run_update(updater)
-    assert ("registry.example.com/el8/aisleriot: "
+    assert ("production/el8/aisleriot: "
             "latest is not applied to the latest build, can't determine history"
             in caplog.text)
 
@@ -149,15 +150,16 @@ REPOSITORY_OVERRIDE_CONFIG = yaml.safe_load("""
 redis_url: redis://localhost
 koji_config: brew
 registries:
-    registry.example.com:
+    production:
         public_url: https://registry.example.com/
         repositories: ['testrepo']
         datasource: pyxis
         pyxis_url: https://pyxis.example.com/graphql
+        pyxis_registry: registry.example.com
 indexes:
     amd64:
         architecture: amd64
-        registry: registry.example.com
+        registry: production
         output: out/test/flatpak-amd64.json
         tag: latest
 """)
@@ -172,7 +174,7 @@ def test_pyxis_updater_repository_override(tmp_path):
     updater = PyxisUpdater(config)
 
     registry_data = run_update(updater)
-    amd64_data = registry_data['registry.example.com']
+    amd64_data = registry_data['production']
 
     assert len(amd64_data.repositories) == 1
     testrepo_repository = amd64_data.repositories['testrepo']

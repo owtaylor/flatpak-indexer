@@ -141,12 +141,12 @@ class Registry:
 
         for item in self._do_iterate_pyxis_results(REPOSITORY_IMAGE_QUERY,
                                                    {
-                                                       "registry": self.config.name,
+                                                       "registry": self.config.pyxis_registry,
                                                        "repository": repository_name
                                                    }):
             for repository in item["repositories"]:
                 if (
-                    repository["registry"] != self.config.name or
+                    repository["registry"] != self.config.pyxis_registry or
                     repository["repository"] != repository_name
                 ):
                     continue
@@ -178,7 +178,7 @@ class Registry:
             return
 
         for item in self._do_iterate_pyxis_results(REPOSITORY_QUERY, {}):
-            if item['registry'] == self.config.name:
+            if item['registry'] == self.config.pyxis_registry:
                 yield item['repository']
 
     def _add_build_history(

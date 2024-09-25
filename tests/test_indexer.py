@@ -38,15 +38,16 @@ icons_dir: ${OUTPUT_DIR}/icons/
 icons_uri: https://flatpaks.example.com/icons
 clean_files_after: 0s
 registries:
-    registry.example.com:
+    production:
         public_url: https://registry.example.com/
         datasource: pyxis
         pyxis_url: https://pyxis.example.com/graphql
+        pyxis_registry: registry.example.com
 indexes:
     amd64:
         delta_keep: 7d
         architecture: amd64
-        registry: registry.example.com
+        registry: production
         output: ${OUTPUT_DIR}/test/flatpak-amd64.json
         tag: latest
         extract_icons: true
@@ -55,7 +56,7 @@ indexes:
     amd64-reversed:
         delta_keep: 7d
         architecture: amd64
-        registry: registry.example.com
+        registry: production
         output: ${OUTPUT_DIR}/test/flatpak-amd64-reversed.json
         tag: latest
         extract_icons: true
@@ -64,13 +65,13 @@ indexes:
     amd64-annotations:
         delta_keep: 7d
         architecture: amd64
-        registry: registry.example.com
+        registry: production
         output: ${OUTPUT_DIR}/test/flatpak-amd64-annotations.json
         tag: latest
         extract_icons: true
         flatpak_annotations: true
     all:
-        registry: registry.example.com
+        registry: production
         output: ${OUTPUT_DIR}/test/flatpak.json
         tag: latest
         extract_icons: false

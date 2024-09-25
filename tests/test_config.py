@@ -16,11 +16,12 @@ icons_uri: https://flatpaks.example.com/icons
 daemon:
     update_interval: 30m
 registries:
-    registry.example.com:
+    production:
         repositories: ['repo1', 'repo2']
         public_url: https://registry.example.com/
         datasource: pyxis
         pyxis_url: https://pyxis.example.com/v1
+        pyxis_registry: registry.example.com
     brew:
         public_url: https://private.example.com/
         datasource: koji
@@ -30,7 +31,7 @@ registries:
 indexes:
     amd64:
         architecture: amd64
-        registry: registry.example.com
+        registry: production
         output: /flatpaks/flatpak-amd64.json
         repository_priority: ["rhel9/.*", "rhel10/.*"]
         tag: latest
@@ -57,7 +58,7 @@ indexes:
 
 def test_config_basic(tmp_path):
     conf = get_config(tmp_path, BASIC_CONFIG)
-    registry = conf.registries["registry.example.com"]
+    registry = conf.registries["production"]
     assert isinstance(registry, PyxisRegistryConfig)
     assert registry.pyxis_url == "https://pyxis.example.com/v1/"
 
@@ -68,7 +69,7 @@ def test_config_basic(tmp_path):
 
 def create_client_key_config(tmp_path, create_cert=True, create_key=True):
     config_data = deepcopy(BASIC_CONFIG)
-    registry_config_data = config_data['registries']['registry.example.com']
+    registry_config_data = config_data['registries']['production']
     registry_config_data['pyxis_client_cert'], registry_config_data['pyxis_client_key'] = \
         setup_client_cert(tmp_path, create_cert=create_cert, create_key=create_key)
 
@@ -79,7 +80,7 @@ def test_client_cert(tmp_path):
     config_data = create_client_key_config(tmp_path)
 
     config = get_config(tmp_path, config_data)
-    registry = config.registries["registry.example.com"]
+    registry = config.registries["production"]
     assert isinstance(registry, PyxisRegistryConfig)
     assert registry.pyxis_client_cert == str(tmp_path / "client.crt")
     assert registry.pyxis_client_key == str(tmp_path / "client.key")
@@ -103,7 +104,7 @@ def test_client_key_missing(tmp_path):
 
 def test_client_key_mismatch(tmp_path):
     config_data = create_client_key_config(tmp_path)
-    del config_data['registries']['registry.example.com']['pyxis_client_cert']
+    del config_data['registries']['production']['pyxis_client_cert']
 
     with raises(ConfigError,
                 match="pyxis_client_cert and pyxis_client_key must be set together"):
@@ -112,27 +113,27 @@ def test_client_key_mismatch(tmp_path):
 
 def test_pyxis_url_missing(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
-    del config_data['registries']['registry.example.com']['pyxis_url']
+    del config_data['registries']['production']['pyxis_url']
 
     with raises(ConfigError,
-                match=r'A value is required for registries/registry.example.com/pyxis_url'):
+                match=r'A value is required for registries/production/pyxis_url'):
         get_config(tmp_path, config_data)
 
 
 def test_datasource_invalid(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
-    config_data['registries']['registry.example.com']['datasource'] = 'INVALID'
+    config_data['registries']['production']['datasource'] = 'INVALID'
     with raises(ConfigError,
-                match=("registry/registry.example.com: "
+                match=("registry/production: "
                        "datasource must be 'pyxis', 'koji', or 'fedora'")):
         get_config(tmp_path, config_data)
 
 
 def test_registry_missing(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
-    del config_data['registries']['registry.example.com']
+    del config_data['registries']['production']
     with raises(ConfigError,
-                match="indexes/amd64: No registry config found for registry.example.com"):
+                match="indexes/amd64: No registry config found for production"):
         get_config(tmp_path, config_data)
 
 

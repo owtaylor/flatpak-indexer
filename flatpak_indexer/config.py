@@ -24,6 +24,7 @@ class PyxisRegistryConfig(RegistryConfig):
     pyxis_url: str = configfield(force_trailing_slash=True)
     pyxis_client_cert: Optional[str] = None
     pyxis_client_key: Optional[str] = None
+    pyxis_registry: str
 
     repositories: List[str] = []
 
