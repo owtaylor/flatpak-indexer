@@ -11,6 +11,8 @@ odcs_uri: https://odcs.engineering.redhat.com/
 local_certs:
   registry-proxy.engineering.redhat.com: RH-IT-Root-CA.crt
   odcs.engineering.redhat.com: RH-IT-Root-CA.crt
+  graphql.pyxis.stage.engineering.redhat.com: RH-IT-Root-CA.crt
+  registry-flatpak--int.apps.int.mpp.prod.iad2.dc.paas.redhat.com: RH-IT-Root-CA.crt
 deltas_dir: ${OUTPUT_DIR:out}/deltas/
 deltas_uri: https://flatpaks.local.fishsoup.net:8443/deltas/
 # When extract_icons is set for an index, icons are saved to icons_dir and labels are
@@ -24,11 +26,6 @@ daemon:
         update_interval: 30m
 registries:
         production:
-                # these define a client certificate/key pair to authenticate to pyxis; this
-                # shows environment variable substitution with a fallback
-                # pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
-                # pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
-
                 # Written into the index
                 public_url: https://registry.redhat.io/
                 # Get container data from the Pyxis API
@@ -37,6 +34,23 @@ registries:
                 # This is the registry ID in Pyxis
                 pyxis_registry: registry.access.redhat.com
                 # repositories: ['repo1', 'repo2'] overrides querying Pyxis for the list
+        staging:
+                # these define a client certificate/key pair to authenticate to pyxis; this
+                # shows environment variable substitution with a fallback
+                pyxis_client_cert: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.crt
+                pyxis_client_key: ${PYXIS_CERT_DIR:${HOME}/.config/flatpak-indexer}/client.key
+
+                # Written into the index
+                public_url: https://registry-flatpak--int.apps.int.mpp.prod.iad2.dc.paas.redhat.com/
+                # Get container data from the Pyxis API
+                datasource: pyxis
+                pyxis_url: https://graphql.pyxis.stage.engineering.redhat.com/graphql
+                # This is the registry ID in Pyxis
+                pyxis_registry: registry.access.redhat.com
+                # This pair of keys allows for substituting the repository
+                # name for in pyxis to get the final name
+                repository_parse: (?P<namespace>[^/]+)/(?P<name>.*)
+                repository_replace: redhat-pending/\g<namespace>----\g<name>
         # You can also define a pseudo-registry based on koji/brew builds
         brew:
                 # internal registry where builds are pushed
@@ -53,7 +67,7 @@ indexes:
                 # This creates a directory with JSON files mapping from module
                 # builds to images using these module builds
                 contents: ${OUTPUT_DIR:out}/pyxis/contents/latest
-                registry: registry.access.redhat.com
+                registry: production
                 tag: latest
                 extract_icons: True
                 # When repositories have images with the same Flatpak ref,
@@ -65,6 +79,30 @@ indexes:
         amd64:
                 output: ${OUTPUT_DIR:out}/pyxis/flatpak-latest-amd64.json
                 registry: production
+                architecture: amd64
+                tag: latest
+                extract_icons: True
+                repository_priority: ['rhel11/.*', 'rhel10/.*', 'rhel9/.*']
+                delta_keep: 90d
+        staging-all:
+                # path to the output location - environment variable substitions
+                # are possible for all strings
+                output: ${OUTPUT_DIR:out}/pyxis/flatpak-staging-latest.json
+                # This creates a directory with JSON files mapping from module
+                # builds to images using these module builds
+                contents: ${OUTPUT_DIR:out}/pyxis/contents/latest
+                registry: staging
+                tag: latest
+                extract_icons: True
+                # When repositories have images with the same Flatpak ref,
+                # how to prioritize them. Regular expressions much match
+                # the full repository name. Same match prioritizes based
+                # on string comparison. No match prioritizes afterwards.
+                repository_priority: ['rhel11/.*', 'rhel10/.*', 'rhel9/.*']
+                delta_keep: 90d
+        staging-amd64:
+                output: ${OUTPUT_DIR:out}/pyxis/flatpak-staging-latest-amd64.json
+                registry: staging
                 architecture: amd64
                 tag: latest
                 extract_icons: True
