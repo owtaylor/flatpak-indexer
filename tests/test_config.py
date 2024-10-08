@@ -43,9 +43,10 @@ indexes:
         repository_priority: ["rhel9/.*", "rhel10/.*"]
         tag: latest
         extract_icons: true
-    beta:
+    beta@-ARCH@:
+        architecture_expand: ["", "amd64", "ppc64le"]
         registry: production
-        output: /flatpaks/flatpak-beta.json
+        output: /flatpaks/flatpak-beta@-ARCH@.json
         tag: latest
         repository_include: [".*-beta/.*"]
         repository_exclude: ["rhel7-beta/.*"]
@@ -79,10 +80,20 @@ def test_config_basic(tmp_path):
     assert index_conf.repository_priority_key("rhel9/inkscape") == (0, "rhel9/inkscape")
     assert index_conf.repository_priority_key("foobar") == (2, "foobar")
 
+    # Test inclusion/exclusion
     index_conf = next(i for i in conf.indexes if i.name == "beta")
     assert index_conf.should_include_repository("rhel9/inkscape") is False
     assert index_conf.should_include_repository("rhel10-beta/inkscape") is True
     assert index_conf.should_include_repository("rhel7-beta/inkscape") is False
+
+    # Test architecture expansion
+    index_conf = next(i for i in conf.indexes if i.name == "beta")
+    assert index_conf.architecture is None
+    assert index_conf.output == "/flatpaks/flatpak-beta.json"
+
+    index_conf = next(i for i in conf.indexes if i.name == "beta-ppc64le")
+    assert index_conf.architecture == "ppc64le"
+    assert index_conf.output == "/flatpaks/flatpak-beta-ppc64le.json"
 
     registry_conf = conf.registries["production"]
     assert isinstance(registry_conf, PyxisRegistryConfig)

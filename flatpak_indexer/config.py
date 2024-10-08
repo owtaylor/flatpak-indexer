@@ -1,3 +1,4 @@
+import copy
 from datetime import timedelta
 import os
 import re
@@ -81,6 +82,7 @@ class IndexConfig(BaseConfig):
     repository_exclude: List[re.Pattern] = []
     bodhi_status: Optional[str] = None
     architecture: Optional[str] = None
+    architecture_expand: List[str] = []
     delta_keep: timedelta = configfield(skip=True)
     extract_icons: bool = False
     flatpak_annotations: bool = False
@@ -115,6 +117,25 @@ class IndexConfig(BaseConfig):
                 return (i, repository_name)
 
         return (len(self.repository_priority), repository_name)
+
+    def expand_architectures(self):
+        for arch in self.architecture_expand:
+            arch_config = copy.copy(self)
+
+            if arch == "":
+                arch_config.architecture = None
+                dasharch = ""
+            else:
+                arch_config.architecture = arch
+                dasharch = "-" + arch
+
+            arch_config.name = arch_config.name.replace("@ARCH@", arch)
+            arch_config.name = arch_config.name.replace("@-ARCH@", dasharch)
+
+            arch_config.output = arch_config.output.replace("@ARCH@", arch)
+            arch_config.output = arch_config.output.replace("@-ARCH@", dasharch)
+
+            yield arch_config
 
 
 class DaemonConfig(BaseConfig):
@@ -169,7 +190,6 @@ class Config(KojiConfig, OdcsConfig, RedisConfig):
 
         for name, sublookup in lookup.iterate_objects('indexes'):
             index_config = IndexConfig(name, sublookup)
-            self.indexes.append(index_config)
 
             registry_config2 = self.registries.get(index_config.registry)
             if not registry_config2:
@@ -210,6 +230,12 @@ class Config(KojiConfig, OdcsConfig, RedisConfig):
                                       "koji_tags must be consistent for indexes with the same tag")
             else:
                 tag_koji_tags[index_config.tag] = (index_config.name, index_config.koji_tags)
+
+            if len(index_config.architecture_expand) > 0:
+                for arch_config in index_config.expand_architectures():
+                    self.indexes.append(arch_config)
+            else:
+                self.indexes.append(index_config)
 
     def get_indexes_for_datasource(self, datasource: str):
         return [

@@ -104,28 +104,25 @@ indexes:
                 extract_icons: True
                 repository_include: ['rhel10-beta/.*']
                 delta_keep: 90d
-        staging-all:
+        staging@-ARCH@:
                 # path to the output location - environment variable substitions
                 # are possible for all strings
-                output: ${OUTPUT_DIR:out}/pyxis/flatpak-staging-latest.json
+                output: ${OUTPUT_DIR:out}/pyxis/flatpak-staging-latest@-ARCH@.json
                 # This creates a directory with JSON files mapping from module
                 # builds to images using these module builds
                 contents: ${OUTPUT_DIR:out}/pyxis/contents/latest
                 registry: staging
+                # architecture_expand allows you to define multiple indexes
+                # with a single config entry. "" means all architectures.
+                # @ARCH@ and "@-ARCH" expand in the name and output.
+                # @-ARCH is "-<arch>" but "" rather than "-"
+                architecture_expand: ["", "amd64", "arm64", "ppc64le", "s390x"]
                 tag: latest
                 extract_icons: True
                 # When repositories have images with the same Flatpak ref,
                 # how to prioritize them. Regular expressions much match
                 # the full repository name. Same match prioritizes based
                 # on string comparison. No match prioritizes afterwards.
-                repository_priority: ['rhel11/.*', 'rhel10/.*', 'rhel9/.*']
-                delta_keep: 90d
-        staging-amd64:
-                output: ${OUTPUT_DIR:out}/pyxis/flatpak-staging-latest-amd64.json
-                registry: staging
-                architecture: amd64
-                tag: latest
-                extract_icons: True
                 repository_priority: ['rhel11/.*', 'rhel10/.*', 'rhel9/.*']
                 delta_keep: 90d
         # These indexes index all Flatpaks found in the rhel-8.3.0-candidate tag
