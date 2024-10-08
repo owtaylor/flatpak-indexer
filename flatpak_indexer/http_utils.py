@@ -20,8 +20,9 @@ _RETRY_STATUSES = (
 
 
 class _FindCACertAdapter(HTTPAdapter):
-    def __init__(self, find_ca_cert=None, **kwargs):
+    def __init__(self, find_ca_cert=None, default_timeout=None, **kwargs):
         super().__init__(**kwargs)
+        self.default_timeout = default_timeout
         self.find_ca_cert = find_ca_cert
 
     def cert_verify(self, conn, url, verify, cert):
@@ -32,9 +33,17 @@ class _FindCACertAdapter(HTTPAdapter):
 
         return super().cert_verify(conn, url, verify, cert)
 
+    def send(self, request, **kwargs):
+        arg_timeout = kwargs.get("timeout")
+        if arg_timeout is None:
+            kwargs["timeout"] = self.default_timeout
+
+        return super().send(request, **kwargs)
+
 
 class HttpConfig(BaseConfig):
     local_certs: Dict[str, str] = configfield(skip=True)
+    connect_timeout: int = 30
 
     def __init__(self, lookup: Lookup):
         super().__init__(lookup)
@@ -77,10 +86,14 @@ class HttpConfig(BaseConfig):
         session = Session()
 
         session.mount(
-            'http://', _FindCACertAdapter(max_retries=retry, find_ca_cert=self.find_local_cert)
+            'http://', _FindCACertAdapter(max_retries=retry,
+                                          default_timeout=(self.connect_timeout, None),
+                                          find_ca_cert=self.find_local_cert)
         )
         session.mount(
-            'https://', _FindCACertAdapter(max_retries=retry, find_ca_cert=self.find_local_cert)
+            'https://', _FindCACertAdapter(max_retries=retry,
+                                           default_timeout=(self.connect_timeout, None),
+                                           find_ca_cert=self.find_local_cert)
         )
 
         return session
