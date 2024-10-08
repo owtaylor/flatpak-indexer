@@ -369,7 +369,7 @@ class BaseModel(metaclass=BaseModelMeta):
     def from_json(cls: type[M], data: Any, check_current: Literal[False] = ...) -> M: ...
 
     @classmethod
-    def from_json(cls, data, check_current: bool = False):
+    def from_json(cls: type[M], data, check_current: bool = False) -> Optional[M]:
         if check_current and not cls.check_json_current(data):
             return None
 
