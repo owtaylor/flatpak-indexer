@@ -43,6 +43,12 @@ indexes:
         repository_priority: ["rhel9/.*", "rhel10/.*"]
         tag: latest
         extract_icons: true
+    beta:
+        registry: production
+        output: /flatpaks/flatpak-beta.json
+        tag: latest
+        repository_include: [".*-beta/.*"]
+        repository_exclude: ["rhel7-beta/.*"]
     brew-rc:
         registry: brew
         output: /flatpaks/rc-amd64.json
@@ -72,6 +78,11 @@ def test_config_basic(tmp_path):
     index_conf = next(i for i in conf.indexes if i.name == "amd64")
     assert index_conf.repository_priority_key("rhel9/inkscape") == (0, "rhel9/inkscape")
     assert index_conf.repository_priority_key("foobar") == (2, "foobar")
+
+    index_conf = next(i for i in conf.indexes if i.name == "beta")
+    assert index_conf.should_include_repository("rhel9/inkscape") is False
+    assert index_conf.should_include_repository("rhel10-beta/inkscape") is True
+    assert index_conf.should_include_repository("rhel7-beta/inkscape") is False
 
     registry_conf = conf.registries["production"]
     assert isinstance(registry_conf, PyxisRegistryConfig)

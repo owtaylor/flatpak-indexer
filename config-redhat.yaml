@@ -75,6 +75,8 @@ indexes:
                 # the full repository name. Same match prioritizes based
                 # on string comparison. No match prioritizes afterwards.
                 repository_priority: ['rhel11/.*', 'rhel10/.*', 'rhel9/.*']
+                # Exclude repositories with these names
+                repository_exclude: ['-beta/.*']
                 delta_keep: 90d
         amd64:
                 output: ${OUTPUT_DIR:out}/pyxis/flatpak-latest-amd64.json
@@ -83,6 +85,24 @@ indexes:
                 tag: latest
                 extract_icons: True
                 repository_priority: ['rhel11/.*', 'rhel10/.*', 'rhel9/.*']
+                repository_exclude: ['-beta/.*']
+                delta_keep: 90d
+        rhel10-beta:
+                output: ${OUTPUT_DIR:out}/pyxis/flatpak-rhel10-beta.json
+                registry: production
+                tag: latest
+                extract_icons: True
+                # Include only repositories with these names, unless
+                # excluded by repository_exclude.
+                repository_include: ['rhel10-beta/.*']
+                delta_keep: 90d
+        rhel10-beta-amd64:
+                output: ${OUTPUT_DIR:out}/pyxis/flatpak-rhel10-beta-amd64.json
+                registry: production
+                architecture: amd64
+                tag: latest
+                extract_icons: True
+                repository_include: ['rhel10-beta/.*']
                 delta_keep: 90d
         staging-all:
                 # path to the output location - environment variable substitions

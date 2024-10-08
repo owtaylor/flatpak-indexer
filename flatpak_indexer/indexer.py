@@ -114,6 +114,9 @@ class IndexWriter:
     def find_images(self):
         images:  Dict[Tuple[str, str], Tuple[str, Tuple[int, str], ImageModel]] = {}
         for repository in self.source_registry.repositories.values():
+            if not self.config.should_include_repository(repository.name):
+                continue
+
             repository_priority_key = self.config.repository_priority_key(repository.name)
             for image in repository.images.values():
                 if (self.config.tag in image.tags and

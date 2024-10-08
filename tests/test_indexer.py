@@ -75,6 +75,12 @@ indexes:
         output: ${OUTPUT_DIR}/test/flatpak.json
         tag: latest
         extract_icons: false
+    el9-only:
+        registry: production
+        output: ${OUTPUT_DIR}/test/flatpak-el9.json
+        tag: latest
+        extract_icons: true
+        repository_include: ['el9/.*']
 """)
 
 
@@ -137,6 +143,13 @@ def test_indexer(tmp_path):
     aisleriot_image = aisleriot_repository['Images'][0]
     assert aisleriot_image['Digest'] == \
         'sha256:ba5eba11c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
+
+    # Check that limiting the repository set works
+
+    with open(tmp_path / "test/flatpak-el9.json") as f:
+        el9_data = json.load(f)
+
+        assert all(r['Name'].startswith('el9/') for r in el9_data['Results'])
 
     # Now check that the index with flatpak_annotations set has the Flatpak
     # metadata in the annotations, not in the labels.

@@ -77,6 +77,8 @@ class IndexConfig(BaseConfig):
     tag: str
     koji_tags: List[str] = []
     repository_priority: List[re.Pattern] = []
+    repository_include: List[re.Pattern] = []
+    repository_exclude: List[re.Pattern] = []
     bodhi_status: Optional[str] = None
     architecture: Optional[str] = None
     delta_keep: timedelta = configfield(skip=True)
@@ -92,6 +94,20 @@ class IndexConfig(BaseConfig):
             delta_keep_days = lookup.get_int('delta_keep_days', 0)
             delta_keep = timedelta(days=delta_keep_days)
         self.delta_keep = delta_keep
+
+    def should_include_repository(self, repository_name: str):
+        for pattern in self.repository_exclude:
+            if pattern.fullmatch(repository_name):
+                return False
+
+        if len(self.repository_include) > 0:
+            for pattern in self.repository_include:
+                if pattern.fullmatch(repository_name):
+                    return True
+
+            return False
+
+        return True
 
     def repository_priority_key(self, repository_name: str):
         for i, pattern in enumerate(self.repository_priority):
