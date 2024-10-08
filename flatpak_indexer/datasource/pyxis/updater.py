@@ -139,6 +139,8 @@ class Registry:
     def _get_repository_history(self, repository_name, tag_name):
         history: List[HistoryItem] = []
 
+        logger.info("%s: listing images, registry=%s, repository=%s",
+                    self.config.pyxis_url, self.config.pyxis_registry, repository_name)
         for item in self._do_iterate_pyxis_results(REPOSITORY_IMAGE_QUERY,
                                                    {
                                                        "registry": self.config.pyxis_registry,
@@ -179,6 +181,7 @@ class Registry:
             yield from self.config.repositories
             return
 
+        logger.info("%s: listing repositories", self.config.pyxis_url)
         for item in self._do_iterate_pyxis_results(REPOSITORY_QUERY, {}):
             if item['registry'] == self.config.pyxis_registry:
                 yield item['repository']
