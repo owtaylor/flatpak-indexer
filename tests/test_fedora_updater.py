@@ -98,7 +98,6 @@ def test_fedora_updater(connection_mock, bodhi_mock, tmp_path):
         == ['latest', 'testing']
 
     feedreader_repository = data.repositories['feedreader']
-    print([(i.digest, i.tags) for i in feedreader_repository.images.values()])
     assert len(feedreader_repository.images) == 6
     assert feedreader_repository.\
         images['sha256:5c4cc0501671de5a46a5f69c56a33b11f6398a0bdaf4a12f92b5680d0f496e10'].tags \

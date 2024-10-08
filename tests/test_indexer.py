@@ -132,7 +132,6 @@ def test_indexer(tmp_path):
         reversed_data = json.load(f)
 
     assert len(reversed_data['Results']) == 2
-    print(reversed_data)
     aisleriot_repository = [r for r in reversed_data['Results'] if r['Name'] == 'el9/aisleriot'][0]
     assert len(aisleriot_repository['Images']) == 1
     aisleriot_image = aisleriot_repository['Images'][0]

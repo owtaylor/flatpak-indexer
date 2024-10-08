@@ -51,7 +51,6 @@ def test_query_builds(session, caplog):
 
     builds = list_flatpak_builds(session, 'eog')
     sort_builds(builds)
-    print(builds)
     assert len(builds) == 6
     assert builds[0].nvr == 'eog-stable-3520211004195602.1'
     assert builds[0].user_name == 'kalev'
