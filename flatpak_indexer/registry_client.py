@@ -23,6 +23,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+from base64 import b64decode
+import json
 import logging
 import os
 import tempfile
@@ -151,9 +153,12 @@ class RegistrySession(object):
         return result
 
     def _get_token_auth(self, res, repository):
+        if 'www-authenticate' not in res.headers:
+            return False
+
         parsed = www_authenticate.parse(res.headers['www-authenticate'])
         if 'bearer' not in parsed:
-            return
+            return False
 
         challenge = parsed['bearer']
         realm = challenge.get('realm')
@@ -239,9 +244,36 @@ class RegistryClient(object):
            session (str): A requests.Session object to use, or None
         """
         registry_url = registry_url.removesuffix("/")
+
+        if creds is None:
+            creds = self._find_creds(registry_url)
+
         self.session = RegistrySession(registry_url,
                                        creds=creds, cert_dir=cert_dir, ca_cert=ca_cert,
                                        session=session)
+
+    def _find_creds(self, registry_url):
+        auth_file = os.environ.get("REGISTRY_AUTH_FILE")
+        if auth_file is None:
+            # at least for now, don't try to replicate the default search paths
+            return None
+
+        try:
+            with open(auth_file) as f:
+                auth_contents = json.load(f)
+        except FileNotFoundError:
+            return None
+
+        # https://github.com/containers/image/blob/main/docs/containers-auth.json.5.md
+
+        hostname = urlparse(registry_url).netloc
+
+        # At the moment, only support auth for the entire registry
+        auth_entry = auth_contents.get("auths", {}).get(hostname)
+        if auth_entry is None:
+            return None
+
+        return b64decode(auth_entry["auth"]).decode("UTF-8")
 
     def download_blob(self, repository, digest, size, blob_path,
                       progress_callback=None):

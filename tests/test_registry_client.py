@@ -23,7 +23,9 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+from base64 import b64encode
 from contextlib import contextmanager
+import json
 import os
 from unittest import mock
 
@@ -124,6 +126,55 @@ def test_download_layer_username_password(registry_mock, tmp_path):
                                      creds="someuser:somepassword")
     registry_client.download_layer('repo1', manifest_digest, layer.diff_id,
                                    str(tmp_path / "layer"))
+
+
+@mock_registry(required_creds=('someuser', 'somepassword'))
+def test_auth_file(registry_mock, tmp_path):
+    """
+    Testing authentication with username and password
+    """
+    with open(tmp_path / "auth.json", "w") as f:
+        json.dump({
+            "auths": {
+                "registry.example.com": {
+                    "auth": b64encode(b"someuser:somepassword").decode("UTF-8")
+                }
+            }
+        }, f)
+
+    manifest_digest, layer = registry_mock.add_fake_image('repo1', 'latest')
+
+    with mock.patch.dict(os.environ, {"REGISTRY_AUTH_FILE": str(tmp_path / "auth.json")}):
+        registry_client = RegistryClient('https://registry.example.com')
+        registry_client.download_layer('repo1', manifest_digest, layer.diff_id,
+                                       str(tmp_path / "layer"))
+
+
+@mock_registry(required_creds=('someuser', 'somepassword'))
+def test_auth_file_no_auth(registry_mock, tmp_path):
+    """
+    Testing authentication with username and password
+    """
+    with open(tmp_path / "auth.json", "w") as f:
+        json.dump({
+            "auths": {}
+        }, f)
+
+    manifest_digest, layer = registry_mock.add_fake_image('repo1', 'latest')
+
+    # Auth file not found
+    with mock.patch.dict(os.environ, {"REGISTRY_AUTH_FILE": str(tmp_path / "auth2.json")}):
+        registry_client = RegistryClient('https://registry.example.com')
+        with pytest.raises(requests.exceptions.HTTPError, match=r'401 Client Error'):
+            registry_client.download_layer('repo1', manifest_digest, layer.diff_id,
+                                           str(tmp_path / "layer"))
+
+    # Auth file doesn't have an entry
+    with mock.patch.dict(os.environ, {"REGISTRY_AUTH_FILE": str(tmp_path / "auth.json")}):
+        registry_client = RegistryClient('https://registry.example.com')
+        with pytest.raises(requests.exceptions.HTTPError, match=r'401 Client Error'):
+            registry_client.download_layer('repo1', manifest_digest, layer.diff_id,
+                                           str(tmp_path / "layer"))
 
 
 @contextmanager
