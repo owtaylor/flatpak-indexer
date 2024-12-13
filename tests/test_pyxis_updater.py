@@ -143,10 +143,15 @@ def test_pyxis_updater_from_registry(tmp_path, registry_mock: MockRegistry):
                     }
                 }
 
-                for tag in repository.tags:
-                    digest = registry_mock.add_manifest(repository.repository, tag.name,
-                                                        json.dumps(manifest_data),
-                                                        fake_digest=container_image.image_id)
+                if repository.tags:
+                    for tag in repository.tags or ():
+                        registry_mock.add_manifest(repository.repository, tag.name,
+                                                   json.dumps(manifest_data),
+                                                   fake_digest=container_image.image_id)
+                else:
+                    registry_mock.add_manifest(repository.repository, None,
+                                               json.dumps(manifest_data),
+                                               fake_digest=container_image.image_id)
 
     updater = PyxisUpdater(config, page_size=1)
 

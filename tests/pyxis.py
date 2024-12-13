@@ -139,6 +139,21 @@ _REPO_IMAGES = [
     ContainerImage(
         architecture='amd64',
         brew=Brew(
+            build='aisleriot-container-el9-9010020220121102609.2'
+        ),
+        image_id='sha256:AISLERIOT_EL9_2_MANIFEST_DIGEST',
+        repositories=[
+            ContainerImageRepo(
+                registry='registry.example.com',
+                repository='el9/aisleriot',
+                push_date='2019-04-25T18:50:02.708000+00:00',
+                tags=None
+            )
+        ]
+    ),
+    ContainerImage(
+        architecture='amd64',
+        brew=Brew(
             build='aisleriot2-container-el8-8020020200121102609.1',
         ),
         image_id='sha256:5eaf00d1c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb',

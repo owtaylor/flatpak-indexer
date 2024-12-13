@@ -348,7 +348,67 @@ _KOJI_BUILDS: List[Dict[str, Any]] = [
         ]
     },
     {
-        'build_id': 1063044,
+        'build_id': 1063045,
+        'completion_ts': 1598465000.0,
+        'extra': {
+            'image': {
+                'flatpak': True,
+                'index': {
+                    'digests': {'application/vnd.docker.distribution.manifest.list.v2+json':
+                                'sha256:' +
+                                'AISLERIOT_EL9_DIGEST'},
+
+                    'floating_tags': ['latest', 'el8'],
+                    'pull': [
+                        'registry-proxy.engineering.redhat.com/rh-osbs/aisleriot3@' +
+                        'sha256:AISLERIOT_EL9_DIGEST',
+                        'registry-proxy.engineering.redhat.com/rh-osbs/aisleriot3:' +
+                        'el9-8020020200121102609.2'],
+                    'tags': ['el8-8020020200121102609.2'],
+                },
+                'modules': ['aisleriot-el8-8020020200121102609'],
+            }
+        },
+        'name': 'aisleriot-container',
+        'nvr': 'aisleriot-container-el9-9010020220121102609.2',
+        'owner_name': 'jdoe',
+        'package_id': 23,
+        'source': 'git://pkgs.devel.redhat.com/containers/aisleriot#AISLERIOT_EL9_2_GIT_DIGEST',
+        '_TYPE': 'image',
+        '_TAGS': [],
+        '_ARCHIVES': [
+            {
+                'btype': 'image',
+                'extra': {
+                    'docker': {
+                        'config': {
+                            'architecture': 'amd64',
+                            'config': {
+                                'Labels': _AISLERIOT_EL9_LABELS,
+                            },
+                            'os': 'linux',
+                            'rootfs': {
+                                'diff_ids': ['sha256:5a1ad']
+                            },
+                        },
+                        'digests': {
+                            'application/vnd.docker.distribution.manifest.v2+json':
+                            'sha256:AISLERIOT_EL9_2_MANIFEST_DIGEST',
+                        },
+                        'repositories': [
+                            'registry-proxy.engineering.redhat/rh-osbs/aisleriot3:build-3456-x86_64'
+                        ]
+                    },
+                    'image': {
+                        'arch': 'x86_64',
+                    }
+                },
+                'id': 19321,
+            }
+        ]
+    },
+    {
+        'build_id': 1063046,
         'completion_ts': 1598466000.0,
         'extra': {
             'image': {
