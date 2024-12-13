@@ -155,7 +155,10 @@ class Registry:
                     # https://github.com/nedbat/coveragepy/issues/198
                     continue
 
-                tags = [tag["name"] for tag in repository["tags"]]
+                tag_results = repository.get("tags")
+                if tag_results is None:  # happens if all tags for image have been overwritten
+                    tag_results = ()
+                tags = [tag["name"] for tag in tag_results]
                 brew = item.get("brew")
                 brew_build = brew.get("build") if brew else None
                 history.append(HistoryItem(
