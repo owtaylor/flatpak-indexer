@@ -255,7 +255,7 @@ class MockRegistry:
             "token": f"GOLDEN_LLAMA_{repo}"
         }))
 
-    def add_fake_image(self, name, tag, diff_ids=None, layer_contents=None):
+    def add_fake_image(self, name, tag, diff_ids=None, layer_contents=None, labels=None):
         layer = TestLayer("test", b"42")
         if layer_contents:
             layer.set_contents(layer_contents)
@@ -275,6 +275,12 @@ class MockRegistry:
                 'diff_ids': diff_ids,
             },
         }
+
+        if labels is not None:
+            config["config"] = {
+                "Labels": labels
+            }
+
         config_bytes = json_bytes(config)
         config_digest, config_size = self.add_blob(name, config_bytes)
 

@@ -6,8 +6,9 @@ from typing import List, Optional
 
 from .. import Updater
 from ...config import Config, PyxisRegistryConfig
-from ...models import (ImageModel, RegistryModel, TagHistoryItemModel, TagHistoryModel)
+from ...models import (RegistryModel, TagHistoryItemModel, TagHistoryModel)
 from ...registry_client import RegistryClient
+from ...registry_query import query_registry_image
 from ...session import Session
 from ...utils import parse_date
 
@@ -204,30 +205,20 @@ class Registry:
         return image
 
     def _get_image_from_registry(self, repository_name, history_item: HistoryItem):
-        logger.info("Fetching manifest and config for repository=%s, tags=%s, arch=%s",
-                    repository_name, history_item.tags, history_item.architecture)
-        manifest = self.registry_client.get_manifest(repository_name, history_item.digest)
-        config = self.registry_client.get_config(repository_name, manifest)
+        image = query_registry_image(
+            self.session, self.registry_client, repository_name, history_item.digest,
+            f"repository={repository_name}, tags={history_item.tags}, "
+            f"arch={history_item.architecture}"
+        )
 
-        pull_spec = (
+        image.pull_spec = (
             self.config.public_url.removeprefix('https://').removesuffix("/") +
             "/" +
             repository_name +
             "@" +
             history_item.digest
         )
-
-        image = ImageModel(
-            digest=history_item.digest,
-            media_type=manifest["mediaType"],
-            os=config["os"],
-            architecture=history_item.architecture,
-            labels=config["config"]["Labels"],
-            annotations={},
-            tags=history_item.tags,
-            pull_spec=pull_spec,
-            diff_ids=config["rootfs"]["diff_ids"]
-        )
+        image.tags = history_item.tags
 
         # Mark that there's no brew build to look up
         image.no_koji = True
