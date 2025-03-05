@@ -8,7 +8,7 @@ podman run \
         --rm --user 0:0 \
         -v $topdir/work/redis-data:/data:z \
         flatpak-indexer-redis \
-        chown redis:redis /data
+        chown valkey:valkey /data
 
 exec podman run \
         -e REDIS_PASSWORD=abc123 \
