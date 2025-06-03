@@ -1,7 +1,9 @@
 from contextlib import contextmanager
 import copy
 from dataclasses import dataclass
+from datetime import datetime
 import json
+import re
 from typing import List, Optional
 
 import graphql
@@ -15,6 +17,7 @@ class Repository:
     registry: str
     repository: str
     build_categories: List[str]
+    eol_date: Optional[datetime] = None
 
 
 @dataclass
@@ -32,7 +35,7 @@ class ContainerImageRepo:
     push_date: str
     registry: str
     repository: str
-    tags: List[ContainerImageRepoTag]
+    tags: Optional[List[ContainerImageRepoTag]]
 
 
 @dataclass
@@ -211,6 +214,7 @@ type Repository {
     registry: String
     repository: String
     build_categories: [String]
+    eol_date: String
 }
 
 type Brew {
@@ -256,8 +260,16 @@ input RepositoryFilterBuildCategories {
     in: [String]
 }
 
+input RepositoryFilterEolDate {
+    gt: String
+    eq: String
+}
+
 input RepositoryFilter {
+    and: [RepositoryFilter]
+    or: [RepositoryFilter]
     build_categories: RepositoryFilterBuildCategories
+    eol_date: RepositoryFilterEolDate
 }
 
 type Query {
@@ -311,7 +323,7 @@ class MockPyxis:
                                 "line": loc.line,
                                 "column": loc.column,
                             }
-                            for loc in e.locations
+                            for loc in e.locations or []
                         ]
                     } for e in result.errors
                 ]
@@ -322,13 +334,42 @@ class MockPyxis:
             }))
 
     def find_repositories(self, info, page: int = 0, page_size: int = 50, filter=None):
-        if filter is not None:
-            assert filter == {
-                'build_categories': {
-                    'in': ['Flatpak']
+        EXPECTED_FILTER = {
+            "and": [
+                {
+                    "or": [
+                        {
+                            "eol_date": {
+                                "eq": None
+                            }
+                        },
+                        {
+                            "eol_date": {
+                                "gt": "DATE"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "build_categories": {
+                        "in": [
+                            "Flatpak"
+                        ]
+                    }
                 }
-            }
-            data = [r for r in self.repositories if 'Flatpak' in r.build_categories]
+            ]
+        }
+        expected_filter_regexp = re.escape(json.dumps(EXPECTED_FILTER)).replace("DATE", "([^\"]+)")
+
+        if filter is not None:
+            m = re.match(expected_filter_regexp, json.dumps(filter))
+            assert m
+            eol_date = datetime.fromisoformat(m.group(1))
+            data = [
+                r for r in self.repositories
+                if (r.eol_date is None or r.eol_date > eol_date)
+                and "Flatpak" in r.build_categories
+            ]
         else:
             data = self.repositories
 

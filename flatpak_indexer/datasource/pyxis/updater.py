@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from typing import List, Optional
 
@@ -20,7 +20,15 @@ MEDIA_TYPE_MANIFEST_V2 = 'application/vnd.docker.distribution.manifest.v2+json'
 REPOSITORY_QUERY = """\
 query ($page: Int, $page_size: Int)
 {
-  find_repositories(filter: {build_categories: {in:["Flatpak"]}},
+  find_repositories(filter: {
+                        and: [
+                            { or: [
+                                { eol_date: { eq: null } }
+                                { eol_date: { gt: "@NOW@" } }
+                            ] }
+                            { build_categories: { in: ["Flatpak"] } }
+                        ]
+                    },
                     page: $page, page_size: $page_size) {
     error {
       detail
@@ -186,7 +194,8 @@ class Registry:
             return
 
         logger.info("%s: listing repositories", self.config.pyxis_url)
-        for item in self._do_iterate_pyxis_results(REPOSITORY_QUERY, {}):
+        query = REPOSITORY_QUERY.replace("@NOW@", datetime.now(timezone.utc).isoformat())
+        for item in self._do_iterate_pyxis_results(query, {}):
             if item['registry'] == self.config.pyxis_registry:
                 yield item['repository']
 
