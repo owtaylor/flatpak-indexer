@@ -1,19 +1,19 @@
 #!/bin/sh
 
-cat /etc/redis/redis.conf | \
+cat /etc/valkey/valkey.conf | \
     sed \
 	-e 's@^dir .*@dir /data@' \
 	-e 's@^logfile .*@logfile ""@' \
 	-e 's@^bind @# bind @' \
-        > /etc/redis/redis-docker.conf
+        > /etc/valkey/valkey-docker.conf
 
 if [ "${REDIS_PASSWORD+set}" = "set" ] ; then
-    echo "requirepass ${REDIS_PASSWORD}" >> /etc/redis/redis-docker.conf
+    echo "requirepass ${REDIS_PASSWORD}" >> /etc/valkey/valkey-docker.conf
 fi
 
-if [ "$1" = "redis-server" ] ; then
+if [ "$1" = "valkey-server" ] ; then
     shift
-    set -- redis-server /etc/redis/redis-docker.conf "$@"
+    set -- valkey-server /etc/valkey/valkey-docker.conf "$@"
 fi
 
 exec "$@"

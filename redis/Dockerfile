@@ -1,20 +1,17 @@
 FROM fedora:latest
 
-RUN \
-   groupadd -r -g 1001 redis && \
-   useradd -r -g redis -u 1001 -s /sbin/nologin redis
+RUN dnf -y update && dnf install -y valkey && dnf clean all
 
-RUN dnf -y update && dnf install -y redis && dnf clean all
+RUN chmod 0770 /etc/valkey
+RUN mkdir /run/valkey && chown valkey:valkey /run/valkey
 
-RUN chmod 0770 /etc/redis
-
-RUN mkdir -m 0770 /data && chown redis:0 /data
+RUN mkdir -m 0770 /data && chown valkey:0 /data
 VOLUME /data
 WORKDIR /data
 
 COPY docker-entrypoint.sh /usr/local/bin/
 ENTRYPOINT ["docker-entrypoint.sh"]
 
-USER 1001
+USER valkey
 EXPOSE 6379
-CMD ["redis-server"]
+CMD ["valkey-server"]
