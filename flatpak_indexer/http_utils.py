@@ -44,7 +44,7 @@ class _FindCACertAdapter(HTTPAdapter):
 class HttpConfig(BaseConfig):
     local_certs: Dict[str, str] = configfield(skip=True)
     connect_timeout: int = 30
-    read_timeout: int = 60
+    read_timeout: int = 50
 
     def __init__(self, lookup: Lookup):
         super().__init__(lookup)
