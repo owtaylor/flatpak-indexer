@@ -105,7 +105,9 @@ class Differ:
             try:
                 self._download_layer(spec.to_image, spec.to_diff_id,
                                      to_path, progress_callback=progress)
-            except (requests.exceptions.HTTPError, requests.exceptions.SSLError) as e:
+            except (requests.exceptions.ConnectionError,
+                    requests.exceptions.HTTPError,
+                    requests.exceptions.SSLError) as e:
                 logger.info("Failed to download to layer: %s", str(e))
                 return TardiffResultModel(status="download-error",
                                           digest="",
