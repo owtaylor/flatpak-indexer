@@ -44,6 +44,7 @@ class _FindCACertAdapter(HTTPAdapter):
 class HttpConfig(BaseConfig):
     local_certs: Dict[str, str] = configfield(skip=True)
     connect_timeout: int = 30
+    read_timeout: int = 60
 
     def __init__(self, lookup: Lookup):
         super().__init__(lookup)
@@ -87,12 +88,12 @@ class HttpConfig(BaseConfig):
 
         session.mount(
             'http://', _FindCACertAdapter(max_retries=retry,
-                                          default_timeout=(self.connect_timeout, None),
+                                          default_timeout=(self.connect_timeout, self.read_timeout),
                                           find_ca_cert=self.find_local_cert)
         )
         session.mount(
             'https://', _FindCACertAdapter(max_retries=retry,
-                                           default_timeout=(self.connect_timeout, None),
+                                           default_timeout=(self.connect_timeout, self.read_timeout),
                                            find_ca_cert=self.find_local_cert)
         )
 
