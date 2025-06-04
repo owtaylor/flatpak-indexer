@@ -87,14 +87,16 @@ class HttpConfig(BaseConfig):
         session = Session()
 
         session.mount(
-            'http://', _FindCACertAdapter(max_retries=retry,
-                                          default_timeout=(self.connect_timeout, self.read_timeout),
-                                          find_ca_cert=self.find_local_cert)
+            'http://',
+            _FindCACertAdapter(max_retries=retry,
+                               default_timeout=(self.connect_timeout, self.read_timeout),
+                               find_ca_cert=self.find_local_cert)
         )
         session.mount(
-            'https://', _FindCACertAdapter(max_retries=retry,
-                                           default_timeout=(self.connect_timeout, self.read_timeout),
-                                           find_ca_cert=self.find_local_cert)
+            'https://',
+            _FindCACertAdapter(max_retries=retry,
+                               default_timeout=(self.connect_timeout, self.read_timeout),
+                               find_ca_cert=self.find_local_cert)
         )
 
         return session
