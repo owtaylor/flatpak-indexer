@@ -32,8 +32,18 @@ def parse_date_value(value):
     return datetime.strptime(value, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
 
 
-def _update_update_from_response(pipe, update_json, old_update: BodhiUpdateModel):
+def get_content_type(update_json):
     content_type = update_json['content_type']
+    if content_type:
+        return content_type
+    # An update without any builds will have no content_type; derive a
+    # fallback from the release name
+    release_name = update_json['release']['name']  # pragma: no cover
+    return 'flatpak' if release_name.endswith('F') else 'rpm'  # pragma: no cover
+
+
+def _update_update_from_response(pipe, update_json, old_update: BodhiUpdateModel):
+    content_type = get_content_type(update_json)
 
     if old_update:
         old_entities = {nvr.name for nvr in old_update.builds}
@@ -294,7 +304,7 @@ def refresh_all_updates(session, content_type, rows_per_page=10):
 
 
 def _refresh_update(update_json, pipe):
-    pipe.watch('updates-by-entity:' + update_json['content_type'])
+    pipe.watch('updates-by-entity:' + get_content_type(update_json))
 
     results = [update_json]
     old_updates = _load_old_updates(pipe, results)
