@@ -1,21 +1,22 @@
+from abc import ABC, abstractmethod
 from typing import Dict, List
 
 from ..config import Config
 from ..models import RegistryModel
 
 
-class Updater:
-    def __init__(self, config: Config):
-        raise NotImplementedError()
+class Updater(ABC):
+    @abstractmethod
+    def __init__(self, config: Config): ...
 
-    def start(self):
-        raise NotImplementedError()
+    @abstractmethod
+    def start(self) -> None: ...
 
-    def update(self, registry_data: Dict[str, RegistryModel]):
-        raise NotImplementedError()
+    @abstractmethod
+    def update(self, registry_data: Dict[str, RegistryModel]) -> None: ...
 
-    def stop(self):
-        raise NotImplementedError()
+    @abstractmethod
+    def stop(self) -> None: ...
 
 
 def load_updaters(config) -> List[Updater]:
