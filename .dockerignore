@@ -1,0 +1,9 @@
+Containerfile
+differ
+dist
+out
+tls-secrets
+.venv
+work
+**/__pycache__
+
