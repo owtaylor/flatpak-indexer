@@ -39,7 +39,7 @@ class DeltaGenerator:
         if cleaner is None:
             cleaner = Cleaner(self.config)
         self.cleaner = cleaner
-        self.now = datetime.utcnow().replace(tzinfo=timezone.utc)
+        self.now = datetime.now(tz=timezone.utc)
         # to_digest => set(from digests)
         self.deltas: Dict[str, Set[str]] = {}
         # image digest => (ImageModel, TardiffImageModel)
