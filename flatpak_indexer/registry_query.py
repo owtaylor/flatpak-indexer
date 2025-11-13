@@ -4,17 +4,19 @@ from .models import ImageModel
 from .registry_client import RegistryClient
 from .session import Session
 
-
 # registry-image:<digest> - json representation of the Image
-KEY_PREFIX_REGISTRY_IMAGE = 'registry-image:'
+KEY_PREFIX_REGISTRY_IMAGE = "registry-image:"
 
 logger = logging.getLogger(__name__)
 
 
 def query_registry_image(
-            session: Session, registry_client: RegistryClient, repository_name: str,
-            digest: str, log_as: str
-        ) -> ImageModel:
+    session: Session,
+    registry_client: RegistryClient,
+    repository_name: str,
+    digest: str,
+    log_as: str,
+) -> ImageModel:
     """
     Query an image from a registry with caching in redis
 
@@ -47,7 +49,7 @@ def query_registry_image(
         labels=config["config"]["Labels"],
         annotations={},
         tags=[],
-        diff_ids=config["rootfs"]["diff_ids"]
+        diff_ids=config["rootfs"]["diff_ids"],
     )
 
     session.redis_client.set(KEY_PREFIX_REGISTRY_IMAGE + digest, image.to_json_text())

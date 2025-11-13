@@ -1,13 +1,12 @@
 from datetime import timedelta
 from enum import Enum
+from typing import Any, Dict, List, Optional, Union
 import os
 import re
-from typing import Any, Dict, List, Optional, Union
 
 import yaml
 
 from .utils import resolve_type, substitute_env_vars
-
 
 """
 This implements a simple semi-declarative configuration system based on type
@@ -67,7 +66,7 @@ class Lookup:
 
     def _get_path(self, key: str):
         if self.path is not None:
-            return self.path + '/' + key
+            return self.path + "/" + key
         else:
             return key
 
@@ -81,22 +80,24 @@ class Lookup:
             return
 
         for name, attrs in objects.items():
-            yield name, Lookup(attrs, parent_key + '/' + name)
+            yield name, Lookup(attrs, parent_key + "/" + name)
 
     def _get(self, key: str, default: Any):
         if default is Defaults.REQUIRED:
             try:
                 return self.attrs[key]
             except KeyError:
-                raise ConfigError("A value is required for {}".format(self._get_path(key))) \
-                    from None
+                raise ConfigError(
+                    "A value is required for {}".format(self._get_path(key))
+                ) from None
         else:
             return self.attrs.get(key, default)
 
     def get_str(
-        self, key: str,
+        self,
+        key: str,
         default: Union[str, None, Defaults] = Defaults.REQUIRED,
-        force_trailing_slash: bool = False
+        force_trailing_slash: bool = False,
     ) -> Optional[str]:
         val = self._get(key, default)
         if val is None:
@@ -107,8 +108,8 @@ class Lookup:
 
         val = substitute_env_vars(val)
 
-        if force_trailing_slash and not val.endswith('/'):
-            val += '/'
+        if force_trailing_slash and not val.endswith("/"):
+            val += "/"
 
         return val
 
@@ -140,8 +141,8 @@ class Lookup:
     ) -> List[re.Pattern]:
         val = self._get(key, default)
         if not isinstance(val, list) or not all(isinstance(v, str) for v in val):
-            raise ConfigError("{} must be a list of regular expressions".format(
-                self._get_path(key))
+            raise ConfigError(
+                "{} must be a list of regular expressions".format(self._get_path(key))
             )
 
         result = []
@@ -149,9 +150,11 @@ class Lookup:
             try:
                 result.append(re.compile(v))
             except re.error as e:
-                raise ConfigError("{}: '{}' is not a valid regular expression: {}".format(
-                    self._get_path(key), v, e.msg
-                ))
+                raise ConfigError(
+                    "{}: '{}' is not a valid regular expression: {}".format(
+                        self._get_path(key), v, e.msg
+                    )
+                )
 
         return result
 
@@ -165,9 +168,10 @@ class Lookup:
         return {substitute_env_vars(k): substitute_env_vars(v) for k, v in val.items()}
 
     def get_timedelta(
-        self, key: str,
+        self,
+        key: str,
         default: Union[timedelta, None, Defaults] = Defaults.REQUIRED,
-        force_suffix: bool = True
+        force_suffix: bool = True,
     ) -> Optional[timedelta]:
         val = self._get(key, default=default)
         if val is None:
@@ -180,7 +184,7 @@ class Lookup:
             return timedelta(seconds=val)
 
         if isinstance(val, str):
-            m = re.match(r'^(\d+)([dhms])$', val)
+            m = re.match(r"^(\d+)([dhms])$", val)
             if m:
                 if m.group(2) == "d":
                     return timedelta(days=int(m.group(1)))
@@ -191,8 +195,9 @@ class Lookup:
                 else:
                     return timedelta(seconds=int(m.group(1)))
 
-        raise ConfigError("{} should be a time interval of the form <digits>[dhms]"
-                          .format(self._get_path(key)))
+        raise ConfigError(
+            "{} should be a time interval of the form <digits>[dhms]".format(self._get_path(key))
+        )
 
 
 class BaseConfig:
@@ -200,7 +205,7 @@ class BaseConfig:
         if not issubclass(cls, BaseConfig):
             return
 
-        annotations = getattr(cls, '__annotations__', None)
+        annotations = getattr(cls, "__annotations__", None)
         if annotations:
             for name, v in annotations.items():
                 resolved, args, optional = resolve_type(v)
@@ -213,19 +218,19 @@ class BaseConfig:
                 else:
                     kwargs = {"default": classval}
 
-                if resolved == str:
+                if resolved is str:
                     val: Any = lookup.get_str(name, **kwargs)
-                elif resolved == bool:
+                elif resolved is bool:
                     val = lookup.get_bool(name, **kwargs)
-                elif resolved == int:
+                elif resolved is int:
                     val = lookup.get_int(name, **kwargs)
-                elif resolved == list and args[0] == str:
+                elif resolved is list and args[0] is str:
                     val = lookup.get_str_list(name, **kwargs)
-                elif resolved == list and args[0] == re.Pattern:
+                elif resolved is list and args[0] is re.Pattern:
                     val = lookup.get_regex_list(name, **kwargs)
-                elif resolved == dict and args[0] == str and args[1] == str:
+                elif resolved is dict and args[0] is str and args[1] is str:
                     val = lookup.get_str_dict(name, **kwargs)
-                elif resolved == timedelta:
+                elif resolved is timedelta:
                     val = lookup.get_timedelta(name, **kwargs)
                 elif issubclass(resolved, BaseConfig):
                     val = resolved(lookup.sublookup(name))
@@ -240,7 +245,7 @@ class BaseConfig:
 
     @classmethod
     def from_path(cls, path: str):
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             yml = yaml.safe_load(f)
 
         if yml is None:

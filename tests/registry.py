@@ -1,27 +1,26 @@
 from base64 import b64encode
 from contextlib import contextmanager
+from io import BytesIO
+from urllib.parse import parse_qs, urlparse
 import gzip
 import hashlib
-from io import BytesIO
 import json
 import re
 import tarfile
-from urllib.parse import parse_qs, urlparse
 
 import requests
 import responses
 
 from flatpak_indexer.test.decorators import WithArgDecorator
 
-
-MEDIA_TYPE_OCI = 'application/vnd.oci.image.manifest.v1+json'
+MEDIA_TYPE_OCI = "application/vnd.oci.image.manifest.v1+json"
 
 
 def registry_hostname(registry):
     """
     Strip a reference to a registry to just the hostname:port
     """
-    if registry.startswith('http:') or registry.startswith('https:'):
+    if registry.startswith("http:") or registry.startswith("https:"):
         return urlparse(registry).netloc
     else:
         return registry
@@ -31,7 +30,7 @@ def to_bytes(value):
     if isinstance(value, bytes):
         return value
     else:
-        return value.encode('utf-8')
+        return value.encode("utf-8")
 
 
 def json_bytes(value):
@@ -40,10 +39,10 @@ def json_bytes(value):
 
 def make_digest(blob):
     # Abbreviate the hexdigest for readability of debugging output if things fail
-    return 'sha256:' + hashlib.sha256(to_bytes(blob)).hexdigest()[0:10]
+    return "sha256:" + hashlib.sha256(to_bytes(blob)).hexdigest()[0:10]
 
 
-class TestLayer():
+class TestLayer:
     def __init__(self, filename, file_contents):
         tar_out = BytesIO()
         with tarfile.open(mode="w", fileobj=tar_out) as tf:
@@ -76,34 +75,35 @@ class MockRegistry:
     This class mocks a subset of the v2 Docker Registry protocol. It also has methods to inject
     and test content in the registry.
     """
-    def __init__(self, registry='registry.example.com', required_creds=None, flags=''):
+
+    def __init__(self, registry="registry.example.com", required_creds=None, flags=""):
         self.hostname = registry_hostname(registry)
         self.repos = {}
         self.required_creds = required_creds
         self.flags = flags
-        self._add_pattern(responses.GET, r'/v2/(.*)/manifests/([^/]+)',
-                          self._get_manifest)
-        self._add_pattern(responses.GET, r'/v2/(.*)/blobs/([^/]+)',
-                          self._get_blob)
-        self._add_pattern(responses.GET, r'/token?.*',
-                          self._get_token)
+        self._add_pattern(responses.GET, r"/v2/(.*)/manifests/([^/]+)", self._get_manifest)
+        self._add_pattern(responses.GET, r"/v2/(.*)/blobs/([^/]+)", self._get_blob)
+        self._add_pattern(responses.GET, r"/token?.*", self._get_token)
 
     def get_repo(self, name):
-        return self.repos.setdefault(name, {
-            'blobs': {},
-            'manifests': {},
-            'tags': {},
-            'uploads': {},
-        })
+        return self.repos.setdefault(
+            name,
+            {
+                "blobs": {},
+                "manifests": {},
+                "tags": {},
+                "uploads": {},
+            },
+        )
 
     def add_blob(self, name, blob):
         repo = self.get_repo(name)
         digest = make_digest(blob)
-        repo['blobs'][digest] = blob
+        repo["blobs"][digest] = blob
         return digest, len(blob)
 
     def get_blob(self, name, digest):
-        return self.get_repo(name)['blobs'][digest]
+        return self.get_repo(name)["blobs"][digest]
 
     # If fake_digest is set, we pretend the contents have that
     # digest, even if they don't.
@@ -113,65 +113,67 @@ class MockRegistry:
             digest = fake_digest
         else:
             digest = make_digest(manifest)
-        repo['manifests'][digest] = manifest
+        repo["manifests"][digest] = manifest
         if ref is None:
             pass
-        elif ref.startswith('sha256:'):
+        elif ref.startswith("sha256:"):
             assert ref == digest
         else:
-            repo['tags'][ref] = digest
+            repo["tags"][ref] = digest
         return digest
 
     def get_manifest(self, name, ref):
         repo = self.get_repo(name)
-        if not ref.startswith('sha256:'):
-            ref = repo['tags'][ref]
-        return repo['manifests'][ref]
+        if not ref.startswith("sha256:"):
+            ref = repo["tags"][ref]
+        return repo["manifests"][ref]
 
     def _check_creds(self, req):
-        if self.required_creds and ('bearer_auth' not in self.flags or
-                                    req.url.startswith('https://registry.example.com/token')):
+        if self.required_creds and (
+            "bearer_auth" not in self.flags
+            or req.url.startswith("https://registry.example.com/token")
+        ):
             username, password = self.required_creds
 
-            authorization = req.headers.get('Authorization')
+            authorization = req.headers.get("Authorization")
             ok = False
             if authorization:
                 pieces = authorization.strip().split()
-                if (pieces[0] == 'Basic' and
-                        to_bytes(pieces[1]) == b64encode(to_bytes(username + ':' + password))):
+                if pieces[0] == "Basic" and to_bytes(pieces[1]) == b64encode(
+                    to_bytes(username + ":" + password)
+                ):
                     ok = True
 
             if not ok:
-                return (requests.codes.UNAUTHORIZED, {}, '')
+                return (requests.codes.UNAUTHORIZED, {}, "")
 
     def _check_bearer_auth(self, req, repo):
-        if 'bearer_auth' in self.flags:
-            authorization = req.headers.get('Authorization')
-            if authorization != f'Bearer GOLDEN_LLAMA_{repo}':
-                if 'bearer_auth_unknown_type' in self.flags:
-                    return (requests.codes.UNAUTHORIZED,
-                            {
-                                'WWW-Authenticate': 'FeeFiFoFum'
-                            },
-                            '')
-                elif 'bearer_auth_no_realm' in self.flags:
-                    return (requests.codes.UNAUTHORIZED,
-                            {
-                                'WWW-Authenticate': 'Bearer service="registry.example.com"'
-                            },
-                            '')
+        if "bearer_auth" in self.flags:
+            authorization = req.headers.get("Authorization")
+            if authorization != f"Bearer GOLDEN_LLAMA_{repo}":
+                if "bearer_auth_unknown_type" in self.flags:
+                    return (requests.codes.UNAUTHORIZED, {"WWW-Authenticate": "FeeFiFoFum"}, "")
+                elif "bearer_auth_no_realm" in self.flags:
+                    return (
+                        requests.codes.UNAUTHORIZED,
+                        {"WWW-Authenticate": 'Bearer service="registry.example.com"'},
+                        "",
+                    )
                 else:
-                    return (requests.codes.UNAUTHORIZED,
-                            {
-                                'WWW-Authenticate':
-                                ('Bearer realm="https://registry.example.com/token",' +
-                                 'service="registry.example.com"')
-                            },
-                            '')
+                    return (
+                        requests.codes.UNAUTHORIZED,
+                        {
+                            "WWW-Authenticate": (
+                                'Bearer realm="https://registry.example.com/token",'
+                                + 'service="registry.example.com"'
+                            )
+                        },
+                        "",
+                    )
 
     def _add_pattern(self, method, pattern, callback):
-        url = 'https://' + self.hostname
-        pat = re.compile('^' + url + pattern + '$')
+        url = "https://" + self.hostname
+        pat = re.compile("^" + url + pattern + "$")
 
         def do_it(req):
             auth_response = self._check_creds(req)
@@ -182,7 +184,7 @@ class MockRegistry:
             assert m
             status, headers, body = callback(req, *(m.groups()))
             if method == responses.HEAD:
-                return status, headers, ''
+                return status, headers, ""
             else:
                 return status, headers, body
 
@@ -194,33 +196,33 @@ class MockRegistry:
             return auth_response
 
         repo = self.get_repo(name)
-        if not ref.startswith('sha256:'):
+        if not ref.startswith("sha256:"):
             try:
-                ref = repo['tags'][ref]
+                ref = repo["tags"][ref]
             except KeyError:
-                return (requests.codes.NOT_FOUND, {}, json_bytes({'error': 'NOT_FOUND'}))
+                return (requests.codes.NOT_FOUND, {}, json_bytes({"error": "NOT_FOUND"}))
 
         try:
-            blob = repo['manifests'][ref]
+            blob = repo["manifests"][ref]
         except KeyError:
-            return (requests.codes.NOT_FOUND, {}, json_bytes({'error': 'NOT_FOUND'}))
+            return (requests.codes.NOT_FOUND, {}, json_bytes({"error": "NOT_FOUND"}))
 
         decoded = json.loads(blob)
-        content_type = decoded.get('mediaType')
+        content_type = decoded.get("mediaType")
         if content_type is None:  # OCI
             content_type = MEDIA_TYPE_OCI
 
-        accepts = re.split(r'\s*,\s*', req.headers['Accept'])
+        accepts = re.split(r"\s*,\s*", req.headers["Accept"])
         assert content_type in accepts
 
-        if 'bad_content_type' in self.flags:
+        if "bad_content_type" in self.flags:
             if content_type == MEDIA_TYPE_OCI:
-                content_type = 'application/json'
+                content_type = "application/json"
 
         headers = {
-            'Docker-Content-Digest': ref,
-            'Content-Type': content_type,
-            'Content-Length': str(len(blob)),
+            "Docker-Content-Digest": ref,
+            "Content-Type": content_type,
+            "Content-Length": str(len(blob)),
         }
         return (200, headers, blob)
 
@@ -230,30 +232,28 @@ class MockRegistry:
             return auth_response
 
         repo = self.get_repo(name)
-        assert digest.startswith('sha256:')
+        assert digest.startswith("sha256:")
 
         try:
-            blob = repo['blobs'][digest]
+            blob = repo["blobs"][digest]
         except KeyError:
-            return (requests.codes.NOT_FOUND, {}, json_bytes({'error': 'NOT_FOUND'}))
+            return (requests.codes.NOT_FOUND, {}, json_bytes({"error": "NOT_FOUND"}))
 
         headers = {
-            'Docker-Content-Digest': digest,
-            'Content-Type': 'application/json',
-            'Content-Length': str(len(blob)),
+            "Docker-Content-Digest": digest,
+            "Content-Type": "application/json",
+            "Content-Length": str(len(blob)),
         }
         return (200, headers, blob)
 
     def _get_token(self, req):
         params = parse_qs(urlparse(req.url).query)
-        assert params['service'][0] == 'registry.example.com'
-        m = re.match(r'repository:(.*):pull$', params['scope'][0])
+        assert params["service"][0] == "registry.example.com"
+        m = re.match(r"repository:(.*):pull$", params["scope"][0])
         assert m
         repo = m.group(1)
 
-        return (200, {}, json.dumps({
-            "token": f"GOLDEN_LLAMA_{repo}"
-        }))
+        return (200, {}, json.dumps({"token": f"GOLDEN_LLAMA_{repo}"}))
 
     def add_fake_image(self, name, tag, diff_ids=None, layer_contents=None, labels=None):
         layer = TestLayer("test", b"42")
@@ -268,35 +268,36 @@ class MockRegistry:
             diff_ids = [layer.diff_id for layer in layers]
 
         config = {
-            'architecture': 'amd64',
-            'os': 'linux',
-            'rootfs': {
-                'type': 'layers',
-                'diff_ids': diff_ids,
+            "architecture": "amd64",
+            "os": "linux",
+            "rootfs": {
+                "type": "layers",
+                "diff_ids": diff_ids,
             },
         }
 
         if labels is not None:
-            config["config"] = {
-                "Labels": labels
-            }
+            config["config"] = {"Labels": labels}
 
         config_bytes = json_bytes(config)
         config_digest, config_size = self.add_blob(name, config_bytes)
 
         manifest = {
-            'schemaVersion': 2,
-            'mediaType': MEDIA_TYPE_OCI,
-            'config': {
-                'mediaType': 'application/vnd.oci.image.config.v1+json',
-                'digest': config_digest,
-                'size': config_size,
+            "schemaVersion": 2,
+            "mediaType": MEDIA_TYPE_OCI,
+            "config": {
+                "mediaType": "application/vnd.oci.image.config.v1+json",
+                "digest": config_digest,
+                "size": config_size,
             },
-            'layers': [{
-                'mediaType': 'application/vnd.oci.image.layer.v1.tar.gz',
-                'digest': layer.digest,
-                'size': layer.size,
-            } for layer in layers]
+            "layers": [
+                {
+                    "mediaType": "application/vnd.oci.image.layer.v1.tar.gz",
+                    "digest": layer.digest,
+                    "size": layer.size,
+                }
+                for layer in layers
+            ],
         }
 
         manifest_bytes = json_bytes(manifest)
@@ -311,4 +312,4 @@ def _setup_registry(**kwargs):
         yield MockRegistry(**kwargs)
 
 
-mock_registry = WithArgDecorator('registry_mock', _setup_registry)
+mock_registry = WithArgDecorator("registry_mock", _setup_registry)

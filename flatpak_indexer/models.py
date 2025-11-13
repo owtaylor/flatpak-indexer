@@ -95,7 +95,7 @@ class KojiBuildModel(BaseModel):
     def check_json_current(cls, data):
         # For both ImageBuildModule and ModuleBuildModule
         # PackageBuilds changed from <nvr> to { Nvr: <nvr>, SourceNvr: <nvr> }
-        package_builds = data.get('PackageBuilds')
+        package_builds = data.get("PackageBuilds")
         if package_builds:
             if not isinstance(package_builds[0], dict):
                 return False
@@ -108,7 +108,7 @@ class ImageBuildModel(KojiBuildModel):
 
     @classmethod
     def class_from_json(cls, data: Dict[str, Any]):
-        if 'ModuleBuilds' in data:
+        if "ModuleBuilds" in data:
             return FlatpakBuildModel
         else:
             return ImageBuildModel
@@ -191,6 +191,7 @@ class ModuleStreamContentsModel(BaseModel):
 
     def add_package_build(self, image_nvr: str, module_nvr: str, binary_package: BinaryPackage):
         if image_nvr not in self.images:
-            self.images[image_nvr] = ModuleImageContentsModel(image_nvr=image_nvr,
-                                                              module_nvr=module_nvr)
+            self.images[image_nvr] = ModuleImageContentsModel(
+                image_nvr=image_nvr, module_nvr=module_nvr
+            )
         self.images[image_nvr].package_builds.append(binary_package)

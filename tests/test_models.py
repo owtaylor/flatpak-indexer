@@ -1,11 +1,6 @@
 from copy import deepcopy
 
-from flatpak_indexer.models import (
-    FlatpakBuildModel,
-    ImageBuildModel,
-    ImageModel,
-    RegistryModel
-)
+from flatpak_indexer.models import FlatpakBuildModel, ImageBuildModel, ImageModel, RegistryModel
 
 IMAGE1 = {
     "Annotations": {"key1": "value1"},
@@ -14,12 +9,12 @@ IMAGE1 = {
     "Labels": {
         "com.redhat.component": "baobob",
         "version": "master",
-        "release": "3220200331145937.2"
+        "release": "3220200331145937.2",
     },
     "MediaType": "application/vnd.docker.distribution.manifest.v2+json",
     "OS": "linux",
     "Tags": ["tag1"],
-    'PullSpec': 'candidate-registry.fedoraproject.org/baobab@sha256:12345'
+    "PullSpec": "candidate-registry.fedoraproject.org/baobab@sha256:12345",
 }
 
 IMAGE2 = {
@@ -29,7 +24,7 @@ IMAGE2 = {
     "Labels": {"key2": "value2"},
     "MediaType": "application/vnd.docker.distribution.manifest.v2+json",
     "OS": "linux",
-    "Tags": ["tag2"]
+    "Tags": ["tag2"],
 }
 
 LIST1 = {
@@ -47,31 +42,29 @@ REGISTRY = {
                 IMAGE1,
                 IMAGE2,
             ],
-            "Lists": [
-                LIST1
-            ],
+            "Lists": [LIST1],
         }
     ]
 }
 
 IMAGE_BUILD = {
-    'BuildId': 12345,
-    'Nvr': 'testrepo-1.2.3-1',
-    'Source': 'git://src.fedoraproject.org/flatpaks/baobab#BAOBAB_GIT_DIGEST',
-    'CompletionTime': '2020-07-31T16:26:22+00:00',
-    'UserName': 'jdoe',
-    'Images': [IMAGE1]
+    "BuildId": 12345,
+    "Nvr": "testrepo-1.2.3-1",
+    "Source": "git://src.fedoraproject.org/flatpaks/baobab#BAOBAB_GIT_DIGEST",
+    "CompletionTime": "2020-07-31T16:26:22+00:00",
+    "UserName": "jdoe",
+    "Images": [IMAGE1],
 }
 
 FLATPAK_BUILD = {
-    'BuildId': 12345,
-    'Nvr': 'testrepo-1.2.3-1',
-    'Source': 'git://src.fedoraproject.org/flatpaks/baobab#BAOBAB_GIT_DIGEST',
-    'CompletionTime': '2020-07-31T16:26:22+00:00',
-    'UserName': 'jdoe',
-    'Images': [IMAGE1],
-    'ModuleBuilds': ['baobab-1.2.3-3020190603102507'],
-    'PackageBuilds': [{'Nvr': 'baobab-1.2.3-1', 'SourceNvr': 'baobab-1.2.3-1'}],
+    "BuildId": 12345,
+    "Nvr": "testrepo-1.2.3-1",
+    "Source": "git://src.fedoraproject.org/flatpaks/baobab#BAOBAB_GIT_DIGEST",
+    "CompletionTime": "2020-07-31T16:26:22+00:00",
+    "UserName": "jdoe",
+    "Images": [IMAGE1],
+    "ModuleBuilds": ["baobab-1.2.3-3020190603102507"],
+    "PackageBuilds": [{"Nvr": "baobab-1.2.3-1", "SourceNvr": "baobab-1.2.3-1"}],
 }
 
 
@@ -86,15 +79,15 @@ def test_registry_model_add_image():
     model = RegistryModel.from_json(REGISTRY)
 
     image = ImageModel.from_json(IMAGE1)
-    model.add_image('aisleriot2', image)
+    model.add_image("aisleriot2", image)
 
-    assert model.repositories['aisleriot2'].images[image.digest] == image
+    assert model.repositories["aisleriot2"].images[image.digest] == image
 
 
 def test_image_nvr():
     image = ImageModel.from_json(IMAGE1)
 
-    assert image.nvr == 'baobob-master-3220200331145937.2'
+    assert image.nvr == "baobob-master-3220200331145937.2"
 
     image.labels = {}
     assert image.nvr is None
@@ -109,7 +102,7 @@ def test_image_nvr_no_koji():
 
 def test_image_build_repository():
     image = ImageBuildModel.from_json(IMAGE_BUILD)
-    assert image.repository == 'baobab'
+    assert image.repository == "baobab"
 
 
 def test_image_build_from_json():

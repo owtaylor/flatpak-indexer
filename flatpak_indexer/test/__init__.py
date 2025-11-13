@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Optional
 
-
 rootpath: Optional[Path] = None
 
 

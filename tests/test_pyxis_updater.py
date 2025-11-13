@@ -1,6 +1,6 @@
-import json
 from typing import Dict
 from unittest.mock import patch
+import json
 
 import pytest
 import requests
@@ -10,8 +10,9 @@ from flatpak_indexer.config import PyxisRegistryConfig
 from flatpak_indexer.datasource.pyxis import PyxisUpdater
 from flatpak_indexer.models import RegistryModel
 from flatpak_indexer.test.redis import mock_redis
+
 from .pyxis import _REPO_IMAGES, mock_pyxis
-from .registry import mock_registry, MockRegistry
+from .registry import MockRegistry, mock_registry
 from .utils import _KOJI_BUILDS, get_config, mock_brew, mock_odcs, setup_client_cert
 
 
@@ -64,10 +65,7 @@ indexes:
 """)
 
 
-@pytest.mark.parametrize("server_cert,client_cert",
-                         [(False, False),
-                          (True,  False),
-                          (False, True)])
+@pytest.mark.parametrize("server_cert,client_cert", [(False, False), (True, False), (False, True)])
 @mock_brew
 @mock_odcs
 @mock_pyxis
@@ -75,28 +73,32 @@ indexes:
 def test_pyxis_updater(tmp_path, server_cert, client_cert):
     config = get_config(tmp_path, CONFIG)
     if server_cert:
-        config.local_certs['pyxis.example.com'] = 'test.crt'
+        config.local_certs["pyxis.example.com"] = "test.crt"
     if client_cert:
-        registry_config = config.registries['production']
+        registry_config = config.registries["production"]
         assert isinstance(registry_config, PyxisRegistryConfig)
-        registry_config.pyxis_client_cert, registry_config.pyxis_client_key = \
-            setup_client_cert(tmp_path)
+        registry_config.pyxis_client_cert, registry_config.pyxis_client_key = setup_client_cert(
+            tmp_path
+        )
 
     updater = PyxisUpdater(config, page_size=1)
 
     registry_data = run_update(updater)
-    data = registry_data['production']
+    data = registry_data["production"]
 
     assert len(data.repositories) == 3
-    aisleriot_repository = data.repositories['el8/aisleriot']
+    aisleriot_repository = data.repositories["el8/aisleriot"]
     assert len(aisleriot_repository.images) == 1
     aisleriot_image = next(iter(aisleriot_repository.images.values()))
-    assert aisleriot_image.digest == \
-        'sha256:bo1dfacec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
-    assert aisleriot_image.labels['org.flatpak.ref'] == \
-        'app/org.gnome.Aisleriot/x86_64/stable'
-    assert aisleriot_image.labels['org.freedesktop.appstream.icon-128'] == \
-        "https://www.example.com/icons/aisleriot.png"
+    assert (
+        aisleriot_image.digest
+        == "sha256:bo1dfacec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb"
+    )
+    assert aisleriot_image.labels["org.flatpak.ref"] == "app/org.gnome.Aisleriot/x86_64/stable"
+    assert (
+        aisleriot_image.labels["org.freedesktop.appstream.icon-128"]
+        == "https://www.example.com/icons/aisleriot.png"
+    )
 
 
 @mock_brew
@@ -139,51 +141,57 @@ def test_pyxis_updater_from_registry(tmp_path, registry_mock: MockRegistry):
                     "config": {
                         "mediaType": "application/vnd.oci.image.config.v1+json",
                         "digest": config_digest,
-                        "size": config_size
-                    }
+                        "size": config_size,
+                    },
                 }
 
                 if repository.tags:
                     for tag in repository.tags or ():
-                        registry_mock.add_manifest(repository.repository, tag.name,
-                                                   json.dumps(manifest_data),
-                                                   fake_digest=container_image.image_id)
+                        registry_mock.add_manifest(
+                            repository.repository,
+                            tag.name,
+                            json.dumps(manifest_data),
+                            fake_digest=container_image.image_id,
+                        )
                 else:
-                    registry_mock.add_manifest(repository.repository, None,
-                                               json.dumps(manifest_data),
-                                               fake_digest=container_image.image_id)
+                    registry_mock.add_manifest(
+                        repository.repository,
+                        None,
+                        json.dumps(manifest_data),
+                        fake_digest=container_image.image_id,
+                    )
 
     updater = PyxisUpdater(config, page_size=1)
 
     registry_data = run_update(updater)
-    data = registry_data['production']
+    data = registry_data["production"]
 
     assert len(data.repositories) == 3
-    aisleriot_repository = data.repositories['el8/aisleriot']
+    aisleriot_repository = data.repositories["el8/aisleriot"]
     assert len(aisleriot_repository.images) == 1
     aisleriot_image = next(iter(aisleriot_repository.images.values()))
-    assert aisleriot_image.digest == \
-        'sha256:bo1dfacec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
-    assert aisleriot_image.labels['org.flatpak.ref'] == \
-        'app/org.gnome.Aisleriot/x86_64/stable'
-    assert aisleriot_image.labels['org.freedesktop.appstream.icon-128'] == \
-        "https://www.example.com/icons/aisleriot.png"
+    assert (
+        aisleriot_image.digest
+        == "sha256:bo1dfacec4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb"
+    )
+    assert aisleriot_image.labels["org.flatpak.ref"] == "app/org.gnome.Aisleriot/x86_64/stable"
+    assert (
+        aisleriot_image.labels["org.freedesktop.appstream.icon-128"]
+        == "https://www.example.com/icons/aisleriot.png"
+    )
 
 
 @mock_brew
 @mock_odcs
 @mock_pyxis
 @mock_redis
-@patch(
-    "flatpak_indexer.datasource.pyxis.updater.REPOSITORY_QUERY",
-    "Not a query"
-)
+@patch("flatpak_indexer.datasource.pyxis.updater.REPOSITORY_QUERY", "Not a query")
 def test_pyxis_updater_bad_query(tmp_path, caplog):
     config = get_config(tmp_path, CONFIG)
 
     updater = PyxisUpdater(config, page_size=1)
 
-    with pytest.raises(requests.exceptions.HTTPError, match=r'400 Client Error'):
+    with pytest.raises(requests.exceptions.HTTPError, match=r"400 Client Error"):
         run_update(updater)
 
     assert "Error querying pyxis: [{'message': \"Syntax Error:" in caplog.text
@@ -199,9 +207,10 @@ def test_pyxis_updater_bad_digests(tmp_path, caplog):
     updater = PyxisUpdater(config, page_size=1)
 
     run_update(updater)
-    assert ("No image for aisleriot-container-el8-8020020200121102609.1 "
-            "with digest sha256:deadbeef"
-            in caplog.text)
+    assert (
+        "No image for aisleriot-container-el8-8020020200121102609.1 "
+        "with digest sha256:deadbeef" in caplog.text
+    )
 
 
 @mock_brew
@@ -214,9 +223,10 @@ def test_pyxis_updater_newer_untagged_image(tmp_path, caplog):
     updater = PyxisUpdater(config, page_size=1)
 
     run_update(updater)
-    assert ("production/el8/aisleriot: "
-            "latest is not applied to the latest build, can't determine history"
-            in caplog.text)
+    assert (
+        "production/el8/aisleriot: "
+        "latest is not applied to the latest build, can't determine history" in caplog.text
+    )
 
 
 REPOSITORY_OVERRIDE_CONFIG = yaml.safe_load("""
@@ -242,13 +252,12 @@ indexes:
 @mock_pyxis
 @mock_redis
 def test_pyxis_updater_repository_override(tmp_path):
-
     config = get_config(tmp_path, REPOSITORY_OVERRIDE_CONFIG)
     updater = PyxisUpdater(config)
 
     registry_data = run_update(updater)
-    amd64_data = registry_data['production']
+    amd64_data = registry_data["production"]
 
     assert len(amd64_data.repositories) == 1
-    testrepo_repository = amd64_data.repositories['testrepo']
-    assert testrepo_repository.name == 'testrepo'
+    testrepo_repository = amd64_data.repositories["testrepo"]
+    assert testrepo_repository.name == "testrepo"

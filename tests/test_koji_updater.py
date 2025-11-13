@@ -7,6 +7,7 @@ import yaml
 from flatpak_indexer.datasource.koji import KojiUpdater
 from flatpak_indexer.models import RegistryModel
 from flatpak_indexer.test.redis import mock_redis
+
 from .pyxis import mock_pyxis
 from .utils import get_config, mock_brew, mock_odcs
 
@@ -61,22 +62,27 @@ indexes:
 def test_pyxis_updater_koji(tmp_path, inherit):
     cfg = deepcopy(KOJI_CONFIG)
     if inherit:
-        cfg['indexes']['brew-rc']['koji_tags'] = ['release-candidate-3+']
+        cfg["indexes"]["brew-rc"]["koji_tags"] = ["release-candidate-3+"]
 
     config = get_config(tmp_path, cfg)
 
     updater = KojiUpdater(config)
 
     registry_data = run_update(updater)
-    data = registry_data['brew']
+    data = registry_data["brew"]
 
     assert len(data.repositories) == 1
-    aisleriot_repository = data.repositories['rh-osbs/aisleriot']
-    assert aisleriot_repository.name == 'rh-osbs/aisleriot'
+    aisleriot_repository = data.repositories["rh-osbs/aisleriot"]
+    assert aisleriot_repository.name == "rh-osbs/aisleriot"
     assert len(aisleriot_repository.images) == 1
     aisleriot_image = next(iter(aisleriot_repository.images.values()))
-    assert aisleriot_image.digest == \
-        'sha256:fade1e55c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb'
+    assert (
+        aisleriot_image.digest
+        == "sha256:fade1e55c4d226da18ec4a6386263d8b2125fc874c8b4f4f97b31593037ea0bb"
+    )
     assert aisleriot_image.tags == [
-        'el8', 'el8-8020020200121102609.2', 'release-candidate', 'release-candidate-2'
+        "el8",
+        "el8-8020020200121102609.2",
+        "release-candidate",
+        "release-candidate-2",
     ]

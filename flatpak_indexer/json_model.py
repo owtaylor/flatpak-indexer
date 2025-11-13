@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
 from datetime import datetime
+from typing import Any, Dict, Literal, Optional, TypeVar, Union, overload
 import json
-from typing import Any, Dict, Literal, Optional, overload, TypeVar, Union
 
 from .nvr import NVR
 from .utils import format_date, parse_date, resolve_type
@@ -14,6 +14,7 @@ class Field:
     to a model class field provides extra information beyond what the class
     annotation provides.
     """
+
     def __init__(self, *, index, json_name):
         self.indexed_field = index
         self.json_name = json_name
@@ -72,7 +73,8 @@ class ScalarField(ModelField):
         if value is None:
             if not self.optional:
                 raise ValueError(
-                    f"{self.python_name} is not optional, but value is missing or null")
+                    f"{self.python_name} is not optional, but value is missing or null"
+                )
             return None
         else:
             return self.from_json(value)
@@ -148,14 +150,10 @@ class ListField(CollectionField):
     def json_value(self, instance):
         v = getattr(instance, self.python_name)
 
-        if self.item_type == str or self.item_type == NVR:
-            return [
-                str(x) for x in v
-            ]
+        if self.item_type is str or self.item_type is NVR:
+            return [str(x) for x in v]
         else:
-            return [
-                x.to_json() for x in v
-            ]
+            return [x.to_json() for x in v]
 
     def python_value(self, data):
         try:
@@ -163,18 +161,12 @@ class ListField(CollectionField):
         except KeyError:
             return []
 
-        if self.item_type == str:
-            return [
-                str(x) for x in v
-            ]
-        elif self.item_type == NVR:
-            return [
-                NVR(x) for x in v
-            ]
+        if self.item_type is str:
+            return [str(x) for x in v]
+        elif self.item_type is NVR:
+            return [NVR(x) for x in v]
         else:
-            return [
-                self.item_type.from_json(x) for x in v
-            ]
+            return [self.item_type.from_json(x) for x in v]
 
 
 class IndexedListField(CollectionField):
@@ -200,13 +192,9 @@ class IndexedListField(CollectionField):
         except KeyError:
             return {}
 
-        values = (
-            self.item_type.from_json(x) for x in raw_values
-        )
+        values = (self.item_type.from_json(x) for x in raw_values)
 
-        return {
-            getattr(x, self.indexed_field): x for x in values
-        }
+        return {getattr(x, self.indexed_field): x for x in values}
 
 
 class DictField(CollectionField):
@@ -218,14 +206,10 @@ class DictField(CollectionField):
     def json_value(self, instance):
         d = getattr(instance, self.python_name)
 
-        if self.item_type == str:
-            return {
-                str(k): str(v) for k, v in d.items()
-            }
+        if self.item_type is str:
+            return {str(k): str(v) for k, v in d.items()}
         else:
-            return {
-                str(k): v.to_json() for k, v in d.items()
-            }
+            return {str(k): v.to_json() for k, v in d.items()}
 
     def python_value(self, data):
         try:
@@ -233,14 +217,10 @@ class DictField(CollectionField):
         except KeyError:
             return {}
 
-        if self.item_type == str:
-            return {
-                str(k): str(v) for k, v in d.items()
-            }
+        if self.item_type is str:
+            return {str(k): str(v) for k, v in d.items()}
         else:
-            return {
-                str(k): self.item_type.from_json(v) for k, v in d.items()
-            }
+            return {str(k): self.item_type.from_json(v) for k, v in d.items()}
 
 
 def _make_model_field(name, type_, field_object):
@@ -251,36 +231,35 @@ def _make_model_field(name, type_, field_object):
         indexed_field = field_object.indexed_field
 
     if json_name is None:
-        json_name = ''.join(x.capitalize() for x in name.split('_'))
+        json_name = "".join(x.capitalize() for x in name.split("_"))
 
     resolved, args, optional = resolve_type(type_)
 
     if indexed_field:
-        if resolved != dict or args[0] != str:
+        if resolved is not dict or args[0] is not str:
             raise TypeError(f"{name}: field(index=<name>) can only be used with Dict[str]")
 
-        return IndexedListField(name, json_name, args[1], indexed_field,
-                                optional=optional)
+        return IndexedListField(name, json_name, args[1], indexed_field, optional=optional)
 
-    if resolved == dict:
-        if args[0] != str:
+    if resolved is dict:
+        if args[0] is not str:
             raise TypeError(f"{name}: Only Dict[str] is supported")
         return DictField(name, json_name, args[1], optional=optional)
-    elif resolved == list:
+    elif resolved is list:
         return ListField(name, json_name, args[0], optional=optional)
     elif issubclass(resolved, BaseModel):
         return ClassField(name, json_name, resolved, optional=optional)
-    elif resolved == str:
+    elif resolved is str:
         return StringField(name, json_name, optional=optional)
-    elif resolved == int:
+    elif resolved is int:
         return IntegerField(name, json_name, optional=optional)
-    elif resolved == bool:
+    elif resolved is bool:
         return BooleanField(name, json_name, optional=optional)
-    elif resolved == float:
+    elif resolved is float:
         return FloatField(name, json_name, optional=optional)
-    elif resolved == datetime:
+    elif resolved is datetime:
         return DateTimeField(name, json_name, optional=optional)
-    elif resolved == NVR:
+    elif resolved is NVR:
         return NVRField(name, json_name, optional=optional)
 
     raise TypeError(f"{name}: Unsupported type {resolved}")
@@ -289,11 +268,12 @@ def _make_model_field(name, type_, field_object):
 class BaseModelMeta(type):
     def __new__(cls, name, bases, dct):
         x = super().__new__(cls, name, bases, dct)
-        annotations = getattr(x, '__annotations__', None)
+        annotations = getattr(x, "__annotations__", None)
 
         if annotations:
-            fields = {k: _make_model_field(k, v, getattr(x, k, None))
-                      for k, v in annotations.items()}
+            fields = {
+                k: _make_model_field(k, v, getattr(x, k, None)) for k, v in annotations.items()
+            }
         else:
             fields = {}
 
@@ -301,17 +281,17 @@ class BaseModelMeta(type):
             if superclass is x:
                 continue
 
-            superfields = getattr(superclass, '__fields__', None)
+            superfields = getattr(superclass, "__fields__", None)
             if superfields:
                 for k, v in superfields.items():
                     if k not in fields:
                         fields[k] = v
 
-        setattr(x, '__fields__', fields)
+        setattr(x, "__fields__", fields)
         return x
 
 
-M = TypeVar('M', bound='BaseModel')
+M = TypeVar("M", bound="BaseModel")
 
 
 class BaseModel(metaclass=BaseModelMeta):
@@ -321,7 +301,7 @@ class BaseModel(metaclass=BaseModelMeta):
 
     @classmethod
     def _fields(cls) -> Dict[str, ModelField]:
-        return getattr(cls, '__fields__')
+        return getattr(cls, "__fields__")
 
     def to_json(self) -> Dict[str, Any]:
         return {

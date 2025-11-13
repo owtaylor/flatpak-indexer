@@ -1,15 +1,14 @@
+from typing import Any, Dict, Optional
+from unittest.mock import MagicMock, patch
 import logging
 import threading
 import time
-from typing import Any, Dict, Optional
-from unittest.mock import MagicMock, patch
 
 import pytest
-import redis
 
-from flatpak_indexer.redis_utils import do_pubsub_work, get_redis_client, RedisConfig
+from flatpak_indexer.redis_utils import RedisConfig, do_pubsub_work, get_redis_client
 from flatpak_indexer.test.redis import mock_redis
-
+import redis
 
 CONFIG = """
 redis_url: redis://localhost:6379
@@ -23,11 +22,11 @@ def config():
     return RedisConfig.from_str(CONFIG)
 
 
-@mock_redis(expect_url='redis://:BRICK%2BSPINE%2BHORSE@localhost:6379')
+@mock_redis(expect_url="redis://:BRICK%2BSPINE%2BHORSE@localhost:6379")
 def test_get_redis_client(config):
     redis_client = get_redis_client(config)
-    redis_client.set("foo", b'42')
-    assert redis_client.get("foo") == b'42'
+    redis_client.set("foo", b"42")
+    assert redis_client.get("foo") == b"42"
 
 
 class IffyPubSub(redis.client.PubSub):
@@ -41,13 +40,13 @@ class IffyPubSub(redis.client.PubSub):
 
 
 @mock_redis
-@pytest.mark.parametrize('fail_first_method', (None, 'subscribe', 'get_message'))
+@pytest.mark.parametrize("fail_first_method", (None, "subscribe", "get_message"))
 def test_do_pubsub_work(config, fail_first_method, caplog):
     def run_thread():
         redis_client = redis.Redis.from_url("redis://localhost")
 
         time.sleep(0.1)
-        redis_client.publish('test:queue', b'foo')
+        redis_client.publish("test:queue", b"foo")
 
     fill_queue_thread = threading.Thread(target=run_thread, name="fill-queue")
 
@@ -62,7 +61,7 @@ def test_do_pubsub_work(config, fail_first_method, caplog):
 
     caplog.set_level(logging.INFO)
 
-    with patch('redis.client.PubSub', get_pubsub):
+    with patch("redis.client.PubSub", get_pubsub):
         redis_client = get_redis_client(config)
 
         found_message: Optional[Dict[str, Any]] = None
@@ -71,24 +70,23 @@ def test_do_pubsub_work(config, fail_first_method, caplog):
             nonlocal found_message
             msg = pubsub.get_message()
 
-            if msg and msg['type'] == 'message':
+            if msg and msg["type"] == "message":
                 found_message = msg
 
             return found_message is None
 
         fill_queue_thread.start()
         if fail_first_method is None:
-            do_pubsub_work(redis_client, 'test:queue', do_work)
+            do_pubsub_work(redis_client, "test:queue", do_work)
         else:
-            do_pubsub_work(redis_client, 'test:queue', do_work,
-                           initial_reconnect_timeout=0.05)
+            do_pubsub_work(redis_client, "test:queue", do_work, initial_reconnect_timeout=0.05)
 
         assert found_message is not None
-        assert found_message['data'] == b'foo'
+        assert found_message["data"] == b"foo"
 
         if fail_first_method is None:
             assert "sleeping" not in caplog.text
-        elif fail_first_method == 'subscribe':
+        elif fail_first_method == "subscribe":
             assert "Failed to connect to Redis, sleeping for 0.05 seconds" in caplog.text
-        elif fail_first_method == 'get_message':
+        elif fail_first_method == "get_message":
             assert "Disconnected from Redis, sleeping for 0.05 seconds" in caplog.text

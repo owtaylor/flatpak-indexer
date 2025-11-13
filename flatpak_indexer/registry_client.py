@@ -24,24 +24,23 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from base64 import b64decode
+from typing import Optional
+from urllib.parse import urlencode, urlparse
 import json
 import logging
 import os
 import tempfile
 import time
-from typing import Optional
-from urllib.parse import urlencode, urlparse
 
 import requests
 import requests.auth
 import www_authenticate
 
-
 logger = logging.getLogger(__name__)
 
 
-MEDIA_TYPE_MANIFEST_V2 = 'application/vnd.docker.distribution.manifest.v2+json'
-MEDIA_TYPE_OCI = 'application/vnd.oci.image.manifest.v1+json'
+MEDIA_TYPE_MANIFEST_V2 = "application/vnd.docker.distribution.manifest.v2+json"
+MEDIA_TYPE_OCI = "application/vnd.oci.image.manifest.v1+json"
 
 # Layer download: chunk size
 CHUNK_SIZE = 64 * 1024
@@ -55,7 +54,7 @@ class BearerAuth(requests.auth.AuthBase):
         self.token = token
 
     def __call__(self, r):
-        r.headers['Authorization'] = 'Bearer ' + self.token
+        r.headers["Authorization"] = "Bearer " + self.token
         return r
 
 
@@ -86,7 +85,7 @@ class RegistrySession(object):
 
         self.auth = None
         if creds is not None:
-            username, password = creds.split(':', 1)
+            username, password = creds.split(":", 1)
             self.auth = requests.auth.HTTPBasicAuth(username, password)
 
         self.orig_auth = self.auth
@@ -101,7 +100,7 @@ class RegistrySession(object):
             str or None: If a path is found, it is returned. Otherwise None is returned.
         """
 
-        for d in ('/etc/containers/certs.d', '/etc/docker/certs.d'):
+        for d in ("/etc/containers/certs.d", "/etc/docker/certs.d"):
             certs_dir = os.path.join(d, self.registry_hostport)
             if os.path.isdir(certs_dir):
                 return certs_dir
@@ -129,13 +128,13 @@ class RegistrySession(object):
             return None
 
         for d in sorted(os.listdir(cert_dir)):
-            if d.endswith('.cert'):
+            if d.endswith(".cert"):
                 certpath = os.path.join(cert_dir, d)
-                keypath = certpath[:-5] + '.key'
+                keypath = certpath[:-5] + ".key"
                 if not os.path.exists(keypath):
                     raise RuntimeError("Cannot find key file for {}".format(certpath))
                 return (certpath, keypath)
-            elif d.endswith('.key'):
+            elif d.endswith(".key"):
                 # Should have found <x>.cert first
                 keypath = os.path.join(cert_dir, d)
                 raise RuntimeError("Cannot find certificate file for {}".format(keypath))
@@ -145,30 +144,29 @@ class RegistrySession(object):
     def _kwargs(self, orginal_kwargs):
         result = dict(orginal_kwargs)
 
-        result['auth'] = self.auth
-        result['cert'] = self.cert
+        result["auth"] = self.auth
+        result["cert"] = self.cert
         if self.ca_cert:
-            result['verify'] = self.ca_cert
+            result["verify"] = self.ca_cert
 
         return result
 
     def _get_token_auth(self, res, repository):
-        if 'www-authenticate' not in res.headers:
+        if "www-authenticate" not in res.headers:
             return False
 
-        parsed = www_authenticate.parse(res.headers['www-authenticate'])
-        if 'bearer' not in parsed:
+        parsed = www_authenticate.parse(res.headers["www-authenticate"])
+        if "bearer" not in parsed:
             return False
 
-        challenge = parsed['bearer']
-        realm = challenge.get('realm')
-        service = challenge.get('service')
-        scope = challenge.get('scope')
+        challenge = parsed["bearer"]
+        realm = challenge.get("realm")
+        service = challenge.get("service")
+        scope = challenge.get("scope")
         if scope is None and repository:
-            scope = f'repository:{repository}:pull'
+            scope = f"repository:{repository}:pull"
 
-        logger.info("Getting token auth, realm=%s, service=%s, scope=%s",
-                    realm, service, scope)
+        logger.info("Getting token auth, realm=%s, service=%s, scope=%s", realm, service, scope)
 
         if not realm:
             return False
@@ -177,16 +175,16 @@ class RegistrySession(object):
 
         params = []
         if service:
-            params.append(('service', service))
+            params.append(("service", service))
         if scope:
-            params.append(('scope', scope))
+            params.append(("scope", scope))
 
-        url = realm + '?' + urlencode(params)
+        url = realm + "?" + urlencode(params)
         res = self.session.get(url, **self._kwargs(dict()))
         if res.status_code != 200:
             return False
 
-        token = res.json()['token']
+        token = res.json()["token"]
         self.auth = BearerAuth(token)
 
         return True
@@ -211,7 +209,7 @@ class RegistrySession(object):
         res = f(self.registry_url + relative_url, *args, **kwargs)
         if res.status_code == requests.codes.UNAUTHORIZED:
             if self._get_token_auth(res, repository):
-                kwargs['auth'] = self.auth
+                kwargs["auth"] = self.auth
                 res = f(self.registry_url + relative_url, *args, **kwargs)
 
         return res
@@ -248,9 +246,9 @@ class RegistryClient(object):
         if creds is None:
             creds = self._find_creds(registry_url)
 
-        self.session = RegistrySession(registry_url,
-                                       creds=creds, cert_dir=cert_dir, ca_cert=ca_cert,
-                                       session=session)
+        self.session = RegistrySession(
+            registry_url, creds=creds, cert_dir=cert_dir, ca_cert=ca_cert, session=session
+        )
 
     def _find_creds(self, registry_url):
         auth_file = os.environ.get("REGISTRY_AUTH_FILE")
@@ -275,8 +273,7 @@ class RegistryClient(object):
 
         return b64decode(auth_entry["auth"]).decode("UTF-8")
 
-    def download_blob(self, repository, digest, size, blob_path,
-                      progress_callback=None):
+    def download_blob(self, repository, digest, size, blob_path, progress_callback=None):
         """
         Download a blob from the registry to a local file.
 
@@ -286,17 +283,22 @@ class RegistryClient(object):
             blob_path (str): The local path to write the blob to.
             progress_callback (function): Progress callback to call periodically during the download
         """
-        logger.info("%s: Downloading %s:%s (size=%s)",
-                    self.session.registry_hostport, repository, digest, size)
+        logger.info(
+            "%s: Downloading %s:%s (size=%s)",
+            self.session.registry_hostport,
+            repository,
+            digest,
+            size,
+        )
 
         url = "/v2/{}/blobs/{}".format(repository, digest)
         result = self.session.get(url, stream=True, repository=repository)
         result.raise_for_status()
 
         output_dir = os.path.dirname(blob_path)
-        tmpfile = tempfile.NamedTemporaryFile(delete=False,
-                                              dir=output_dir,
-                                              prefix=os.path.basename(blob_path))
+        tmpfile = tempfile.NamedTemporaryFile(
+            delete=False, dir=output_dir, prefix=os.path.basename(blob_path)
+        )
 
         success = False
         try:
@@ -330,17 +332,20 @@ class RegistryClient(object):
         Returns:
             dict: decoded JSON content of manifest
         """
-        logger.debug("%s: Retrieving manifest for %s:%s",
-                     self.session.registry_hostport, repository, ref)
+        logger.debug(
+            "%s: Retrieving manifest for %s:%s", self.session.registry_hostport, repository, ref
+        )
 
         headers = {
-            'Accept': ', '.join((
-                MEDIA_TYPE_MANIFEST_V2,
-                MEDIA_TYPE_OCI,
-            ))
+            "Accept": ", ".join(
+                (
+                    MEDIA_TYPE_MANIFEST_V2,
+                    MEDIA_TYPE_OCI,
+                )
+            )
         }
 
-        url = '/v2/{}/manifests/{}'.format(repository, ref)
+        url = "/v2/{}/manifests/{}".format(repository, ref)
         response = self.session.get(url, headers=headers, repository=repository)
         response.raise_for_status()
         return response.json()
@@ -355,18 +360,21 @@ class RegistryClient(object):
         Returns:
             dict: decoded JSON content of config
         """
-        descriptor = manifest['config']
-        logger.debug("%s: Downloading config %s:%s (size=%s)",
-                     self.session.registry_hostport, repository,
-                     descriptor['digest'], descriptor['size'])
+        descriptor = manifest["config"]
+        logger.debug(
+            "%s: Downloading config %s:%s (size=%s)",
+            self.session.registry_hostport,
+            repository,
+            descriptor["digest"],
+            descriptor["size"],
+        )
 
-        url = "/v2/{}/blobs/{}".format(repository, descriptor['digest'])
+        url = "/v2/{}/blobs/{}".format(repository, descriptor["digest"])
         result = self.session.get(url, stream=True, repository=repository)
         result.raise_for_status()
         return result.json()
 
-    def download_layer(self, repository, ref, diff_id, blob_path,
-                       progress_callback=None):
+    def download_layer(self, repository, ref, diff_id, blob_path, progress_callback=None):
         """
         Download a layer from a registry given a repository:ref and diff_id
 
@@ -381,8 +389,8 @@ class RegistryClient(object):
         manifest = self.get_manifest(repository, ref)
         config = self.get_config(repository, manifest)
 
-        diff_ids = config.get('rootfs', {}).get('diff_ids', [])
-        if len(diff_ids) != len(manifest['layers']):
+        diff_ids = config.get("rootfs", {}).get("diff_ids", [])
+        if len(diff_ids) != len(manifest["layers"]):
             raise RuntimeError(f"{repository}:{ref}: Mismatch between DiffIDs and layers")
 
         try:
@@ -390,6 +398,11 @@ class RegistryClient(object):
         except ValueError:
             raise RuntimeError(f"{repository}:{ref}: Can't find DiffID {diff_id}")
 
-        descriptor = manifest['layers'][layer_index]
-        self.download_blob(repository, descriptor['digest'], descriptor['size'], blob_path,
-                           progress_callback=progress_callback)
+        descriptor = manifest["layers"][layer_index]
+        self.download_blob(
+            repository,
+            descriptor["digest"],
+            descriptor["size"],
+            blob_path,
+            progress_callback=progress_callback,
+        )

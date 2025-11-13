@@ -1,6 +1,5 @@
-from flatpak_indexer.koji_utils import get_koji_session, KojiConfig
+from flatpak_indexer.koji_utils import KojiConfig, get_koji_session
 from flatpak_indexer.test.koji import mock_koji
-
 
 CONFIG = """
 koji_config: fedora

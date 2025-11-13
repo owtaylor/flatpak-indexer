@@ -3,17 +3,25 @@ from typing import DefaultDict, Dict, List, NamedTuple, Optional, Set
 
 import redis
 
-from .. import Updater
-from ...bodhi_query import (list_updates, refresh_all_updates,
-                            refresh_update_status, reset_update_cache)
+from ...bodhi_query import (
+    list_updates,
+    refresh_all_updates,
+    refresh_update_status,
+    reset_update_cache,
+)
 from ...config import Config
 from ...fedora_monitor import FedoraMonitor
 from ...models import (
-    BodhiUpdateModel, ImageBuildModel, ImageModel, RegistryModel,
-    TagHistoryItemModel, TagHistoryModel
+    BodhiUpdateModel,
+    ImageBuildModel,
+    ImageModel,
+    RegistryModel,
+    TagHistoryItemModel,
+    TagHistoryModel,
 )
 from ...session import Session
 from ...utils import unparse_pull_spec
+from .. import Updater
 
 
 class UpdateBuild(NamedTuple):
@@ -50,9 +58,7 @@ def _fix_pull_spec(image: ImageModel, registry_url: str, repo_name: str):
     # Replace the image pull spec which points to the candidate registry
     # to the final location of the image - this will be more robust if builds
     # are deleted from the candidate registry
-    image.pull_spec = unparse_pull_spec(registry_url,
-                                        repo_name,
-                                        image.digest)
+    image.pull_spec = unparse_pull_spec(registry_url, repo_name, image.digest)
 
 
 class FedoraUpdater(Updater):
@@ -86,10 +92,13 @@ class FedoraUpdater(Updater):
         # Now we've updated, we can remove old entries from the log
         self.change_monitor.clear_bodhi_changed(serial)
 
-        refresh_all_updates(session, content_type='flatpak')
-        updates = list_updates(session, content_type='flatpak')
-        builds = {nvr: session.build_cache.get_image_build(nvr)
-                  for update in updates for nvr in update.builds}
+        refresh_all_updates(session, content_type="flatpak")
+        updates = list_updates(session, content_type="flatpak")
+        builds = {
+            nvr: session.build_cache.get_image_build(nvr)
+            for update in updates
+            for nvr in update.builds
+        }
 
         repos: Dict[str, RepoInfo] = {}
 
@@ -110,30 +119,46 @@ class FedoraUpdater(Updater):
         for repo_name, repo in repos.items():
             # Find the current testing update - the status might be 'stable' if it's been
             # moved to stable afterwards
-            current_testing = max((update_build for update_build in repo.testing_updates
-                                   if update_build.update.status in ('testing', 'stable')),
-                                  key=lambda ub: ub.date_testing, default=None)
+            current_testing = max(
+                (
+                    update_build
+                    for update_build in repo.testing_updates
+                    if update_build.update.status in ("testing", "stable")
+                ),
+                key=lambda ub: ub.date_testing,
+                default=None,
+            )
 
             # Discard any updates that have date_testing after the current update - they
             # must have been unpushed from testing
-            repo.testing_updates = [update_build for update_build in repo.testing_updates
-                                    if (current_testing and
-                                        current_testing.date_testing >= update_build.date_testing)]
+            repo.testing_updates = [
+                update_build
+                for update_build in repo.testing_updates
+                if (current_testing and current_testing.date_testing >= update_build.date_testing)
+            ]
 
             # Sort the newest first
             repo.testing_updates.sort(key=lambda ub: ub.date_testing, reverse=True)
 
             # Now the same for stable
-            current_stable = max((update_build for update_build in repo.stable_updates
-                                  if update_build.update.status == 'stable'),
-                                 key=lambda ub: ub.date_stable, default=None)
-            repo.stable_updates = [update_build for update_build in repo.stable_updates
-                                   if (current_stable and
-                                       current_stable.date_stable >= update_build.date_stable)]
+            current_stable = max(
+                (
+                    update_build
+                    for update_build in repo.stable_updates
+                    if update_build.update.status == "stable"
+                ),
+                key=lambda ub: ub.date_stable,
+                default=None,
+            )
+            repo.stable_updates = [
+                update_build
+                for update_build in repo.stable_updates
+                if (current_stable and current_stable.date_stable >= update_build.date_stable)
+            ]
             repo.stable_updates.sort(key=lambda ub: ub.date_stable, reverse=True)
 
         registry_statuses: DefaultDict[str, Set[str]] = defaultdict(set)
-        for index_config in self.conf.get_indexes_for_datasource('fedora'):
+        for index_config in self.conf.get_indexes_for_datasource("fedora"):
             registry_name = index_config.registry
 
             assert index_config.bodhi_status  # config.py enforces this for fedora datasource
@@ -144,8 +169,8 @@ class FedoraUpdater(Updater):
             registry = RegistryModel()
             registry_url = self.conf.registries[registry_name].public_url
 
-            need_testing = 'testing' in registry_statuses[registry_name]
-            need_stable = 'stable' in registry_statuses[registry_name]
+            need_testing = "testing" in registry_statuses[registry_name]
+            need_stable = "stable" in registry_statuses[registry_name]
 
             for repo_name, repo in repos.items():
                 if repo.testing_updates:
@@ -158,8 +183,11 @@ class FedoraUpdater(Updater):
                     latest_stable_build = None
 
                 # Set the tags on images based on what is current
-                if (latest_testing_build and latest_stable_build and
-                        latest_testing_build is latest_stable_build):
+                if (
+                    latest_testing_build
+                    and latest_stable_build
+                    and latest_testing_build is latest_stable_build
+                ):
                     _set_build_image_tags(latest_testing_build, ["latest", "testing"])
                 else:
                     if latest_testing_build:
@@ -175,9 +203,11 @@ class FedoraUpdater(Updater):
                         for image in build.images:
                             _fix_pull_spec(image, registry_url, repo_name)
                             registry.add_image(repo_name, image)
-                            item = TagHistoryItemModel(architecture=image.architecture,
-                                                       date=update.date_testing,
-                                                       digest=image.digest)
+                            item = TagHistoryItemModel(
+                                architecture=image.architecture,
+                                date=update.date_testing,
+                                digest=image.digest,
+                            )
                             tag_history.items.append(item)
 
                     registry.repositories[repo_name].tag_histories["testing"] = tag_history
@@ -189,9 +219,11 @@ class FedoraUpdater(Updater):
                         for image in build.images:
                             _fix_pull_spec(image, registry_url, repo_name)
                             registry.add_image(repo_name, image)
-                            item = TagHistoryItemModel(architecture=image.architecture,
-                                                       date=update.date_stable,
-                                                       digest=image.digest)
+                            item = TagHistoryItemModel(
+                                architecture=image.architecture,
+                                date=update.date_stable,
+                                digest=image.digest,
+                            )
                             tag_history.items.append(item)
 
                     registry.repositories[repo_name].tag_histories["latest"] = tag_history

@@ -1,6 +1,6 @@
+from unittest.mock import patch
 import os
 import sys
-from unittest.mock import patch
 
 from click.testing import CliRunner
 import pytest
@@ -8,6 +8,7 @@ import yaml
 
 from flatpak_indexer.cli import cli
 from flatpak_indexer.test.redis import mock_redis
+
 from .pyxis import mock_pyxis
 from .utils import mock_brew, mock_odcs, write_config
 
@@ -53,19 +54,24 @@ def test_daemon(tmp_path):
         if sleep_count == 2:
             sys.exit(42)
 
-    with patch('time.sleep', side_effect=mock_sleep):
-        result = runner.invoke(cli, ['--config-file', config_path, 'daemon'],
-                               catch_exceptions=False)
+    with patch("time.sleep", side_effect=mock_sleep):
+        result = runner.invoke(
+            cli, ["--config-file", config_path, "daemon"], catch_exceptions=False
+        )
         assert result.exit_code == 42
 
 
 @mock_brew
 @mock_pyxis
 @mock_redis
-@pytest.mark.parametrize('where',
-                         ['flatpak_indexer.indexer.Indexer.index',
-                          'flatpak_indexer.datasource.pyxis.updater.PyxisUpdater.update',
-                          'flatpak_indexer.cleaner.Cleaner.clean'])
+@pytest.mark.parametrize(
+    "where",
+    [
+        "flatpak_indexer.indexer.Indexer.index",
+        "flatpak_indexer.datasource.pyxis.updater.PyxisUpdater.update",
+        "flatpak_indexer.cleaner.Cleaner.clean",
+    ],
+)
 def test_daemon_exception(tmp_path, where):
     config_path = write_config(tmp_path, CONFIG)
 
@@ -88,10 +94,11 @@ def test_daemon_exception(tmp_path, where):
         if sleep_count == 2:
             sys.exit(42)
 
-    with patch('time.sleep', side_effect=mock_sleep):
+    with patch("time.sleep", side_effect=mock_sleep):
         with patch(where, side_effect=mock_failure):
-            result = runner.invoke(cli, ['--config-file', config_path, 'daemon'],
-                                   catch_exceptions=False)
+            result = runner.invoke(
+                cli, ["--config-file", config_path, "daemon"], catch_exceptions=False
+            )
             assert result.exit_code == 42
             assert exception_count == 2
 
@@ -100,7 +107,7 @@ def test_daemon_exception(tmp_path, where):
 @mock_odcs
 @mock_pyxis
 @mock_redis
-@pytest.mark.parametrize('verbose', [False, True])
+@pytest.mark.parametrize("verbose", [False, True])
 def test_index(tmp_path, caplog, verbose):
     config_path = write_config(tmp_path, CONFIG)
 
@@ -108,15 +115,15 @@ def test_index(tmp_path, caplog, verbose):
     os.mkdir(tmp_path / "icons")
     os.environ["OUTPUT_DIR"] = str(tmp_path)
     runner = CliRunner()
-    args = ['--config-file', config_path, 'index']
+    args = ["--config-file", config_path, "index"]
     if verbose:
-        args.insert(0, '--verbose')
+        args.insert(0, "--verbose")
     result = runner.invoke(cli, args, catch_exceptions=False)
     os.unlink(config_path)
     if verbose:
-        assert 'Calling koji.getBuild' in caplog.text
+        assert "Calling koji.getBuild" in caplog.text
     else:
-        assert 'Calling koji.getBuild' not in caplog.text
+        assert "Calling koji.getBuild" not in caplog.text
     assert result.exit_code == 0
 
 
@@ -140,7 +147,8 @@ def test_differ(tmp_path):
     def mock_get_message(*args, **kwargs):
         sys.exit(42)
 
-    with patch('redis.client.PubSub.get_message', side_effect=mock_get_message):
-        result = runner.invoke(cli, ['--config-file', config_path, 'differ'],
-                               catch_exceptions=False)
+    with patch("redis.client.PubSub.get_message", side_effect=mock_get_message):
+        result = runner.invoke(
+            cli, ["--config-file", config_path, "differ"], catch_exceptions=False
+        )
         assert result.exit_code == 42

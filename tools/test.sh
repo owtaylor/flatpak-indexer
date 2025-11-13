@@ -10,8 +10,10 @@ unset GIT_SSL_CAINFO
 pytest --cov-fail-under=100 "$@"
 
 [ $? == 0 ] || failed="$failed pytest"
-flake8 flatpak_indexer tests tools
-[ $? == 0 ] || failed="$failed flake8"
+ruff format --check flatpak_indexer tests tools
+[ $? == 0 ] || failed="$failed ruff-format"
+ruff check flatpak_indexer tests tools
+[ $? == 0 ] || failed="$failed ruff-check"
 
 set -e +x
 
