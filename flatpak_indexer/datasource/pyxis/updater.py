@@ -1,20 +1,20 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import logging
 from typing import List, Optional
+import logging
 
-from .. import Updater
 from ...config import Config, PyxisRegistryConfig
-from ...models import (RegistryModel, TagHistoryItemModel, TagHistoryModel)
+from ...models import RegistryModel, TagHistoryItemModel, TagHistoryModel
 from ...registry_client import RegistryClient
 from ...registry_query import query_registry_image
 from ...session import Session
 from ...utils import parse_date
+from .. import Updater
 
 logger = logging.getLogger(__name__)
 
-MEDIA_TYPE_MANIFEST_V2 = 'application/vnd.docker.distribution.manifest.v2+json'
+MEDIA_TYPE_MANIFEST_V2 = "application/vnd.docker.distribution.manifest.v2+json"
 
 
 REPOSITORY_QUERY = """\
@@ -97,8 +97,9 @@ class Registry:
         self.tag_indexes = []
         self.registry = RegistryModel()
         self.image_to_build = dict()
-        self.registry_client = RegistryClient(self.config.public_url,
-                                              session=self.global_config.get_requests_session())
+        self.registry_client = RegistryClient(
+            self.config.public_url, session=self.global_config.get_requests_session()
+        )
 
         self.requests_session = global_config.get_requests_session()
         self.session = Session(global_config)
@@ -109,12 +110,10 @@ class Registry:
     def _do_pyxis_graphql_query(self, query, variables):
         body = {"query": query, "variables": variables}
 
-        kwargs = {
-        }
+        kwargs = {}
 
         if self.config.pyxis_client_cert:
-            kwargs['cert'] = (self.config.pyxis_client_cert,
-                              self.config.pyxis_client_key)
+            kwargs["cert"] = (self.config.pyxis_client_cert, self.config.pyxis_client_key)
 
         response = self.requests_session.post(self.config.pyxis_url, json=body, **kwargs)
         json = response.json()
@@ -129,18 +128,15 @@ class Registry:
         page_size = self.page_size
         page = 0
         while True:
-            paginated_variables = {
-                "page": page,
-                "page_size": page_size
-            }
+            paginated_variables = {"page": page, "page_size": page_size}
             paginated_variables.update(variables)
 
             response_json = self._do_pyxis_graphql_query(query, paginated_variables)
             for query_name, query_result in response_json["data"].items():
-                for item in query_result['data']:
+                for item in query_result["data"]:
                     yield item
 
-            if query_result['total'] <= page_size * page + len(query_result['data']):
+            if query_result["total"] <= page_size * page + len(query_result["data"]):
                 break
 
             page += 1
@@ -148,17 +144,20 @@ class Registry:
     def _get_repository_history(self, repository_name, tag_name):
         history: List[HistoryItem] = []
 
-        logger.info("%s: listing images, registry=%s, repository=%s",
-                    self.config.pyxis_url, self.config.pyxis_registry, repository_name)
-        for item in self._do_iterate_pyxis_results(REPOSITORY_IMAGE_QUERY,
-                                                   {
-                                                       "registry": self.config.pyxis_registry,
-                                                       "repository": repository_name
-                                                   }):
+        logger.info(
+            "%s: listing images, registry=%s, repository=%s",
+            self.config.pyxis_url,
+            self.config.pyxis_registry,
+            repository_name,
+        )
+        for item in self._do_iterate_pyxis_results(
+            REPOSITORY_IMAGE_QUERY,
+            {"registry": self.config.pyxis_registry, "repository": repository_name},
+        ):
             for repository in item["repositories"]:
                 if (
-                    repository["registry"] != self.config.pyxis_registry or
-                    repository["repository"] != repository_name
+                    repository["registry"] != self.config.pyxis_registry
+                    or repository["repository"] != repository_name
                 ):  # pragma: no cover
                     # Incorrectly marked uncovered for python-3.9 (fine with 3.12)
                     # https://github.com/nedbat/coveragepy/issues/198
@@ -170,20 +169,25 @@ class Registry:
                 tags = [tag["name"] for tag in tag_results]
                 brew = item.get("brew")
                 brew_build = brew.get("build") if brew else None
-                history.append(HistoryItem(
-                    start_date=parse_date(repository["push_date"]),
-                    digest=item["image_id"],
-                    brew_build=brew_build,
-                    architecture=item["architecture"],
-                    tags=tags,
-                ))
+                history.append(
+                    HistoryItem(
+                        start_date=parse_date(repository["push_date"]),
+                        digest=item["image_id"],
+                        brew_build=brew_build,
+                        architecture=item["architecture"],
+                        tags=tags,
+                    )
+                )
 
         if len(history) > 0:
             history.sort(key=lambda item: item.start_date, reverse=True)
             if tag_name not in history[0].tags:
                 logger.error(
                     "%s/%s: %s is not applied to the latest build, can't determine history",
-                    self.config.name, repository_name, tag_name)
+                    self.config.name,
+                    repository_name,
+                    tag_name,
+                )
                 return [i for i in history if tag_name in i.tags]
 
         return history
@@ -196,17 +200,17 @@ class Registry:
         logger.info("%s: listing repositories", self.config.pyxis_url)
         query = REPOSITORY_QUERY.replace("@NOW@", datetime.now(timezone.utc).isoformat())
         for item in self._do_iterate_pyxis_results(query, {}):
-            if item['registry'] == self.config.pyxis_registry:
-                yield item['repository']
+            if item["registry"] == self.config.pyxis_registry:
+                yield item["repository"]
 
     def _get_image_from_brew(self, history_item: HistoryItem):
         assert history_item.brew_build is not None
         build = self.session.build_cache.get_image_build(history_item.brew_build)
-        matched_images = [i for i in build.images
-                          if i.digest == history_item.digest]
+        matched_images = [i for i in build.images if i.digest == history_item.digest]
         if len(matched_images) == 0:
-            logger.error("No image for %s with digest %s",
-                         history_item.brew_build, history_item.digest)
+            logger.error(
+                "No image for %s with digest %s", history_item.brew_build, history_item.digest
+            )
             return None
 
         image = matched_images[0]
@@ -215,17 +219,20 @@ class Registry:
 
     def _get_image_from_registry(self, repository_name, history_item: HistoryItem):
         image = query_registry_image(
-            self.session, self.registry_client, repository_name, history_item.digest,
+            self.session,
+            self.registry_client,
+            repository_name,
+            history_item.digest,
             f"repository={repository_name}, tags={history_item.tags}, "
-            f"arch={history_item.architecture}"
+            f"arch={history_item.architecture}",
         )
 
         image.pull_spec = (
-            self.config.public_url.removeprefix('https://').removesuffix("/") +
-            "/" +
-            repository_name +
-            "@" +
-            history_item.digest
+            self.config.public_url.removeprefix("https://").removesuffix("/")
+            + "/"
+            + repository_name
+            + "@"
+            + history_item.digest
         )
         image.tags = history_item.tags
 
@@ -235,7 +242,7 @@ class Registry:
         return image
 
     def _add_build_history(
-            self, repository_name: str, tag: str, architectures, history_items: List[HistoryItem]
+        self, repository_name: str, tag: str, architectures, history_items: List[HistoryItem]
     ):
         tag_history = TagHistoryModel(name=tag)
 
@@ -259,9 +266,11 @@ class Registry:
 
                 self.registry.add_image(repository_name, image)
 
-            item = TagHistoryItemModel(architecture=history_item.architecture,
-                                       date=history_item.start_date,
-                                       digest=history_item.digest)
+            item = TagHistoryItemModel(
+                architecture=history_item.architecture,
+                date=history_item.start_date,
+                digest=history_item.digest,
+            )
             tag_history.items.append(item)
 
         if len(tag_history.items):
@@ -292,13 +301,11 @@ class PyxisUpdater(Updater):
 
     def update(self, registry_data):
         registries = {}
-        for index_config in self.conf.get_indexes_for_datasource('pyxis'):
+        for index_config in self.conf.get_indexes_for_datasource("pyxis"):
             registry_name = index_config.registry
 
             if registry_name not in registries:
-                registries[registry_name] = Registry(registry_name,
-                                                     self.conf,
-                                                     self.page_size)
+                registries[registry_name] = Registry(registry_name, self.conf, self.page_size)
 
             registry = registries[registry_name]
             registry.add_index(index_config)

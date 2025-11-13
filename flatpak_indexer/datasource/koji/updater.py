@@ -1,17 +1,22 @@
 from collections import defaultdict
 from datetime import datetime, timezone
-import logging
 from typing import Dict, List
+import logging
 
-from .. import Updater
 from ...config import Config, KojiRegistryConfig
-from ...models import (FlatpakBuildModel, ImageBuildModel, RegistryModel,
-                       TagHistoryItemModel, TagHistoryModel)
+from ...models import (
+    FlatpakBuildModel,
+    ImageBuildModel,
+    RegistryModel,
+    TagHistoryItemModel,
+    TagHistoryModel,
+)
 from ...session import Session
+from .. import Updater
 
 logger = logging.getLogger(__name__)
 
-MEDIA_TYPE_MANIFEST_V2 = 'application/vnd.docker.distribution.manifest.v2+json'
+MEDIA_TYPE_MANIFEST_V2 = "application/vnd.docker.distribution.manifest.v2+json"
 
 
 class Registry:
@@ -30,7 +35,7 @@ class Registry:
         self.koji_indexes.append(index_config)
 
     def _add_build_history(
-            self, repository_name: str, tag: str, architectures, build: ImageBuildModel
+        self, repository_name: str, tag: str, architectures, build: ImageBuildModel
     ):
         tag_history = TagHistoryModel(name=tag)
 
@@ -47,25 +52,28 @@ class Registry:
                 image.tags.append(tag)
                 self.registry.add_image(repository_name, image)
 
-            item = TagHistoryItemModel(architecture=image.architecture,
-                                       date=datetime.fromtimestamp(0, timezone.utc),
-                                       digest=image.digest)
+            item = TagHistoryItemModel(
+                architecture=image.architecture,
+                date=datetime.fromtimestamp(0, timezone.utc),
+                digest=image.digest,
+            )
             tag_history.items.append(item)
 
         if len(tag_history.items):
             self.registry.repositories[repository_name].tag_histories[tag] = tag_history
 
     def _iterate_flatpak_builds(self, koji_tag):
-        if koji_tag.endswith('+'):
+        if koji_tag.endswith("+"):
             koji_tag = koji_tag[0:-1]
             inherit = True
         else:
             inherit = False
 
-        tagged_builds = self.session.koji_session.listTagged(koji_tag, type='image',
-                                                             inherit=inherit, latest=True)
+        tagged_builds = self.session.koji_session.listTagged(
+            koji_tag, type="image", inherit=inherit, latest=True
+        )
         for tagged_build in tagged_builds:
-            build = self.session.build_cache.get_image_build(tagged_build['nvr'])
+            build = self.session.build_cache.get_image_build(tagged_build["nvr"])
             if isinstance(build, FlatpakBuildModel):
                 yield build
 
@@ -91,16 +99,13 @@ class Registry:
 
                 for build in koji_tag_builds[koji_tag]:
                     name = build.nvr.name
-                    if (name not in builds_by_name or
-                            builds_by_name[name].nvr < build.nvr):
+                    if name not in builds_by_name or builds_by_name[name].nvr < build.nvr:
                         builds_by_name[name] = build
 
             architectures = desired_architectures_koji[tag]
 
             for build in builds_by_name.values():
-                self._add_build_history(build.repository, tag,
-                                        architectures,
-                                        build)
+                self._add_build_history(build.repository, tag, architectures, build)
 
 
 class KojiUpdater(Updater):
@@ -112,12 +117,11 @@ class KojiUpdater(Updater):
 
     def update(self, registry_data):
         registries = {}
-        for index_config in self.conf.get_indexes_for_datasource('koji'):
+        for index_config in self.conf.get_indexes_for_datasource("koji"):
             registry_name = index_config.registry
 
             if registry_name not in registries:
-                registries[registry_name] = Registry(registry_name,
-                                                     self.conf)
+                registries[registry_name] = Registry(registry_name, self.conf)
 
             registry = registries[registry_name]
             registry.add_index(index_config)

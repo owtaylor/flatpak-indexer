@@ -1,9 +1,7 @@
 from typing import Dict
 
 from .koji_query import query_image_build, query_module_build, query_package_build
-from .models import (
-    ImageBuildModel, ModuleBuildModel, PackageBuildModel
-)
+from .models import ImageBuildModel, ModuleBuildModel, PackageBuildModel
 from .session import Session
 
 

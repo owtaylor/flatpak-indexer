@@ -29,7 +29,7 @@ class NVR(str):
 
     @property
     def release(self):
-        return self[self.rfind("-") + 1:]
+        return self[self.rfind("-") + 1 :]
 
     def __lt__(self, other):
         n_a, v_a, r_a = self.rsplit("-", 2)

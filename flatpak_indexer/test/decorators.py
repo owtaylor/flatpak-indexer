@@ -45,7 +45,7 @@ class WithArgDecorator:
 
             result = partial(wrapper, **{self.arg_name: None})
             update_wrapper(result, wrapper)
-            del result.__dict__['__wrapped__']
+            del result.__dict__["__wrapped__"]
 
             return result
         else:

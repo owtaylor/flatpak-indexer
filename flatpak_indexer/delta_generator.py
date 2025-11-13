@@ -1,21 +1,25 @@
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from typing import DefaultDict, Dict, List, Optional, Set, Tuple, cast
 import json
 import logging
 import time
-from typing import cast, DefaultDict, Dict, List, Optional, Set, Tuple
 
 import redis
 
 from .cleaner import Cleaner
 from .config import Config, IndexConfig
 from .models import (
-    ImageModel, RepositoryModel, TagHistoryItemModel, TagHistoryModel,
-    TardiffImageModel, TardiffResultModel, TardiffSpecModel
+    ImageModel,
+    RepositoryModel,
+    TagHistoryItemModel,
+    TagHistoryModel,
+    TardiffImageModel,
+    TardiffResultModel,
+    TardiffSpecModel,
 )
 from .redis_utils import do_pubsub_work, get_redis_client
 from .utils import atomic_writer, parse_pull_spec, path_for_digest, uri_for_digest
-
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +28,10 @@ class DeltaGenerator:
     delta_manifest_urls: Dict[str, str]
 
     def __init__(
-        self, config: Config,
-        progress_timeout_seconds: float = 60, cleaner: Optional[Cleaner] = None
+        self,
+        config: Config,
+        progress_timeout_seconds: float = 60,
+        cleaner: Optional[Cleaner] = None,
     ):
         self.config = config
         self.redis_client = get_redis_client(config)
@@ -77,8 +83,10 @@ class DeltaGenerator:
         return self.delta_manifest_urls.get(digest)
 
     def _add_delta(
-        self, repository: RepositoryModel,
-        from_item: TagHistoryItemModel, to_item: TagHistoryItemModel
+        self,
+        repository: RepositoryModel,
+        from_item: TagHistoryItemModel,
+        to_item: TagHistoryItemModel,
     ):
         if to_item.digest not in self.deltas:
             self.deltas[to_item.digest] = set()
@@ -93,9 +101,7 @@ class DeltaGenerator:
 
         registry, repository_name, ref = parse_pull_spec(image.pull_spec)
 
-        image_model = TardiffImageModel(registry=registry,
-                                        repository=repository_name,
-                                        ref=ref)
+        image_model = TardiffImageModel(registry=registry, repository=repository_name, ref=ref)
         self.image_info[history_item.digest] = (image, image_model)
 
     def _get_specs(self):
@@ -111,10 +117,12 @@ class DeltaGenerator:
                 from_diff_id = from_image.diff_ids[0]
 
                 key = f"{from_diff_id}:{to_diff_id}"
-                specs[key] = TardiffSpecModel(from_image=from_image_model,
-                                              from_diff_id=from_diff_id,
-                                              to_image=to_image_model,
-                                              to_diff_id=to_diff_id)
+                specs[key] = TardiffSpecModel(
+                    from_image=from_image_model,
+                    from_diff_id=from_diff_id,
+                    to_image=to_image_model,
+                    to_diff_id=to_diff_id,
+                )
 
         return specs
 
@@ -147,15 +155,15 @@ class DeltaGenerator:
 
         if success:
             now = datetime.now().timestamp()
-            self.redis_client.zadd('tardiff:active', {key: now for key in success}, xx=True)
+            self.redis_client.zadd("tardiff:active", {key: now for key in success}, xx=True)
 
             # Old diffs that have been cleaned up no longer appear in tardiff:active, so check
             # to see what keys we actually managed to update (xx=True means "only existing")
             # We allow some slop in case another indexer is running and updated the keys
             # with a slightly older timestamp.
 
-            updated_raw = self.redis_client.zrangebyscore('tardiff:active', now - 60, float("inf"))
-            updated = set(r.decode('utf-8') for r in updated_raw)
+            updated_raw = self.redis_client.zrangebyscore("tardiff:active", now - 60, float("inf"))
+            updated = set(r.decode("utf-8") for r in updated_raw)
             expired = set(success) - updated
             logger.info("success=%s, updated=%s, expired=%s", set(success), updated, expired)
             for key in expired:
@@ -164,15 +172,21 @@ class DeltaGenerator:
 
         if to_fetch:
             for key, spec in to_fetch.items():
-                logger.info("Requesting generation of a delta for %s/%s/%s => %s/%s/%s",
-                            spec.from_image.repository, spec.from_image.ref, spec.from_diff_id,
-                            spec.to_image.repository, spec.to_image.ref, spec.to_diff_id)
-                self.redis_client.setex(f"tardiff:spec:{key}",
-                                        timedelta(days=1),
-                                        spec.to_json_text())
-                self.redis_client.sadd('tardiff:pending', key)
+                logger.info(
+                    "Requesting generation of a delta for %s/%s/%s => %s/%s/%s",
+                    spec.from_image.repository,
+                    spec.from_image.ref,
+                    spec.from_diff_id,
+                    spec.to_image.repository,
+                    spec.to_image.ref,
+                    spec.to_diff_id,
+                )
+                self.redis_client.setex(
+                    f"tardiff:spec:{key}", timedelta(days=1), spec.to_json_text()
+                )
+                self.redis_client.sadd("tardiff:pending", key)
 
-            self.redis_client.publish('tardiff:queued', b'')
+            self.redis_client.publish("tardiff:queued", b"")
 
             last_counts = None
 
@@ -183,8 +197,9 @@ class DeltaGenerator:
                 progress_count = self.redis_client.zcard("tardiff:progress")
                 counts = (pending_count, progress_count)
                 if counts != last_counts:
-                    logger.info("Pending Tasks: %d  In Progress Tasks: %d",
-                                pending_count, progress_count)
+                    logger.info(
+                        "Pending Tasks: %d  In Progress Tasks: %d", pending_count, progress_count
+                    )
                     last_counts = counts
 
                 if pending_count == 0 and progress_count == 0:
@@ -193,30 +208,35 @@ class DeltaGenerator:
                 now = time.time()
                 next_expire = now + self.progress_timeout_seconds
                 with self.redis_client.pipeline() as pipe:
-                    pipe.watch('tardiff:progress')
+                    pipe.watch("tardiff:progress")
                     pre = cast(redis.Redis, pipe)
-                    stale = pre.zrangebyscore('tardiff:progress',
-                                              0, now - self.progress_timeout_seconds)
+                    stale = pre.zrangebyscore(
+                        "tardiff:progress", 0, now - self.progress_timeout_seconds
+                    )
                     if len(stale) > 0:
                         for key in stale:
                             logger.info("Task %s timed out, requeueing", key)
 
                         pipe.multi()
-                        pipe.zrem('tardiff:progress', *stale)
-                        pipe.sadd('tardiff:pending', *stale)
-                        pipe.publish('tardiff:queued', b'')
+                        pipe.zrem("tardiff:progress", *stale)
+                        pipe.sadd("tardiff:pending", *stale)
+                        pipe.publish("tardiff:queued", b"")
                         try:
                             pipe.execute()
                         except redis.WatchError:  # pragma: no cover
                             # progress was modified, immediately try again
                             return True
                     else:
-                        oldest: List[Tuple[bytes, float]] = \
-                            pre.zrange('tardiff:progress', 0, 0, withscores=True)
+                        oldest: List[Tuple[bytes, float]] = pre.zrange(
+                            "tardiff:progress", 0, 0, withscores=True
+                        )
                         if len(oldest) > 0:
                             next_expire = oldest[0][1] + self.progress_timeout_seconds
-                            logger.debug("Oldest task is %s, expires in %f seconds",
-                                         oldest[0][0].decode("utf-8"), next_expire - now)
+                            logger.debug(
+                                "Oldest task is %s, expires in %f seconds",
+                                oldest[0][0].decode("utf-8"),
+                                next_expire - now,
+                            )
 
                 while True:
                     timeout = max(0, next_expire - now)
@@ -226,8 +246,7 @@ class DeltaGenerator:
                     if message is None:
                         # timed out
                         break
-                    elif (message['type'] == 'message' and
-                            message['channel'] == b'tardiff:complete'):
+                    elif message["type"] == "message" and message["channel"] == b"tardiff:complete":
                         logger.debug("Got tardiff:complete message")
                         break
                     else:
@@ -245,10 +264,9 @@ class DeltaGenerator:
             for key, result_raw in zip(new_keys, new_results):
                 if result_raw is None:
                     logger.info("No result for key %s, but no longer in queue", key)
-                    failure[key] = TardiffResultModel(status="queue-error",
-                                                      digest="",
-                                                      size=0,
-                                                      message="Missing result")
+                    failure[key] = TardiffResultModel(
+                        status="queue-error", digest="", size=0, message="Missing result"
+                    )
                 else:
                     result = TardiffResultModel.from_json_text(result_raw)
                     if result.status == "success":
@@ -276,45 +294,52 @@ class DeltaGenerator:
 
                 result = results[key]
                 if result.status == "success":
-                    self.cleaner.reference(path_for_digest(self.config.deltas_dir,
-                                                           result.digest, '.tardiff'))
+                    self.cleaner.reference(
+                        path_for_digest(self.config.deltas_dir, result.digest, ".tardiff")
+                    )
 
                     assert self.config.deltas_uri is not None
-                    delta_layers.append({
-                        "mediaType": "application/vnd.redhat.tar-diff",
-                        "size": result.size,
-                        "digest": result.digest,
-                        "urls": [uri_for_digest(self.config.deltas_uri, result.digest, '.tardiff')],
-                        "annotations": {
-                            "io.github.containers.delta.from": from_diff_id,
-                            "io.github.containers.delta.to": to_diff_id
+                    delta_layers.append(
+                        {
+                            "mediaType": "application/vnd.redhat.tar-diff",
+                            "size": result.size,
+                            "digest": result.digest,
+                            "urls": [
+                                uri_for_digest(self.config.deltas_uri, result.digest, ".tardiff")
+                            ],
+                            "annotations": {
+                                "io.github.containers.delta.from": from_diff_id,
+                                "io.github.containers.delta.to": to_diff_id,
+                            },
                         }
-                    })
+                    )
 
             if len(delta_layers) > 0:
-                filename = path_for_digest(self.config.deltas_dir,
-                                           to_image.digest, '.json', create_subdir=True)
+                filename = path_for_digest(
+                    self.config.deltas_dir, to_image.digest, ".json", create_subdir=True
+                )
 
                 manifest = {
                     "schemaVersion": 1,
                     "config": {
                         "mediaType": "application/vnd.redhat.delta.config.v1+json",
                         "size": 2,
-                        "digest":
-                            ("sha256:" +
-                             "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a")
+                        "digest": (
+                            "sha256:"
+                            + "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+                        ),
                     },
                     "annotations": {
                         "io.github.containers.delta.target": to_image.digest,
                     },
-                    "layers": delta_layers
+                    "layers": delta_layers,
                 }
 
                 with atomic_writer(filename) as writer:
-                    json.dump(manifest, writer,
-                              sort_keys=True, indent=4, ensure_ascii=False)
+                    json.dump(manifest, writer, sort_keys=True, indent=4, ensure_ascii=False)
 
                 self.cleaner.reference(filename)
                 assert self.config.deltas_uri is not None
-                self.delta_manifest_urls[to_image.digest] = uri_for_digest(self.config.deltas_uri,
-                                                                           to_image.digest, '.json')
+                self.delta_manifest_urls[to_image.digest] = uri_for_digest(
+                    self.config.deltas_uri, to_image.digest, ".json"
+                )

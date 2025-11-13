@@ -1,17 +1,16 @@
-import copy
 from datetime import timedelta
-import os
-import re
 from textwrap import dedent
 from typing import Dict, List, Optional
+import copy
+import os
+import re
 
-import pytest
 from pytest import raises
+import pytest
 import yaml
 
-from flatpak_indexer.base_config import BaseConfig, ConfigError, configfield, Lookup
+from flatpak_indexer.base_config import BaseConfig, ConfigError, Lookup, configfield
 from flatpak_indexer.utils import SubstitutionError
-
 
 CONFIG = """
 str_field: foo
@@ -141,10 +140,12 @@ def test_inheritance():
     class Config3(Config1, Config2):
         pass
 
-    config = Config3.from_str(dedent("""
+    config = Config3.from_str(
+        dedent("""
         field1: foo
         field2: bar
-    """))
+    """)
+    )
 
     assert config.field1 == "foo"
     assert config.field2 == "bar"
@@ -217,8 +218,9 @@ def test_timedelta_field_invalid(config_data):
     config_data["timedelta_field"] = 100
     lookup = Lookup(config_data)
     with raises(
-            ConfigError,
-            match=r"timedelta_field should be a time interval of the form \<digits\>\[dhms\]"):
+        ConfigError,
+        match=r"timedelta_field should be a time interval of the form \<digits\>\[dhms\]",
+    ):
         Config(lookup)
 
 
@@ -252,13 +254,16 @@ def test_trailing_slash():
     assert Config(lookup).str_field == "ab/"
 
 
-@pytest.mark.parametrize('input,expected_seconds', [
-    ('1s', 1),
-    ('1m', 60),
-    ('1h', 60 * 60),
-    ('1d', 24 * 60 * 60),
-    (42, 42),
-])
+@pytest.mark.parametrize(
+    "input,expected_seconds",
+    [
+        ("1s", 1),
+        ("1m", 60),
+        ("1h", 60 * 60),
+        ("1d", 24 * 60 * 60),
+        (42, 42),
+    ],
+)
 def test_timedelta_formats(input, expected_seconds):
     class Config(BaseConfig):
         timedelta_field: timedelta = configfield(force_suffix=False)
@@ -291,9 +296,7 @@ def test_regex_list():
     class Config(BaseConfig):
         regex_list_field: List[re.Pattern]
 
-    lookup = Lookup({
-        "regex_list_field": [r"a*", r"b*"]
-    })
+    lookup = Lookup({"regex_list_field": [r"a*", r"b*"]})
     assert [v.pattern for v in Config(lookup).regex_list_field] == [r"a*", r"b*"]
 
 
@@ -301,12 +304,8 @@ def test_regex_list_invalid():
     class Config(BaseConfig):
         regex_list_field: List[re.Pattern]
 
-    lookup = Lookup({
-        "regex_list_field": 42
-    })
-    with raises(
-            ConfigError,
-            match=r"regex_list_field must be a list of regular expressions"):
+    lookup = Lookup({"regex_list_field": 42})
+    with raises(ConfigError, match=r"regex_list_field must be a list of regular expressions"):
         Config(lookup)
 
 
@@ -314,12 +313,11 @@ def test_regex_list_compile_error():
     class Config(BaseConfig):
         regex_list_field: List[re.Pattern]
 
-    lookup = Lookup({
-        "regex_list_field": ["*"]
-    })
+    lookup = Lookup({"regex_list_field": ["*"]})
     with raises(
-            ConfigError,
-            match=r"regex_list_field: '\*' is not a valid regular expression: nothing to repeat"):
+        ConfigError,
+        match=r"regex_list_field: '\*' is not a valid regular expression: nothing to repeat",
+    ):
         Config(lookup)
 
 
@@ -331,7 +329,7 @@ def test_iterate_objects_none():
 
 def test_environment_variable(config_data):
     config_data["str_field"] = "<${FOO}>"
-    os.environ["FOO"] = 'foo'
+    os.environ["FOO"] = "foo"
     lookup = Lookup(config_data)
     assert Config(lookup).str_field == "<foo>"
 
@@ -349,7 +347,7 @@ def test_environment_variable_missing(config_data):
         del os.environ["FOO"]
     config_data["str_field"] = "<${FOO}>"
     lookup = Lookup(config_data)
-    with raises(SubstitutionError, match=r'environment variable FOO is not set'):
+    with raises(SubstitutionError, match=r"environment variable FOO is not set"):
         Config(lookup)
 
 

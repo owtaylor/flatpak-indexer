@@ -1,13 +1,12 @@
-import os
 from typing import Dict
 from urllib.parse import urlparse
+import os
 
 from requests import Session
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util import Retry  # type: ignore
 
-from .base_config import BaseConfig, ConfigError, configfield, Lookup
-
+from .base_config import BaseConfig, ConfigError, Lookup, configfield
 
 _RETRY_MAX_TIMES = 3
 _RETRY_STATUSES = (
@@ -15,7 +14,7 @@ _RETRY_STATUSES = (
     500,  # Internal Server Error
     502,  # Bad Gateway
     503,  # Service Unavailable
-    504   # Gateway Timeout
+    504,  # Gateway Timeout
 )
 
 
@@ -26,7 +25,7 @@ class _FindCACertAdapter(HTTPAdapter):
         self.find_ca_cert = find_ca_cert
 
     def cert_verify(self, conn, url, verify, cert):
-        if url.lower().startswith('https') and verify and self.find_ca_cert:
+        if url.lower().startswith("https") and verify and self.find_ca_cert:
             ca_cert = self.find_ca_cert(url)
             if ca_cert is not None:
                 verify = ca_cert
@@ -49,11 +48,11 @@ class HttpConfig(BaseConfig):
     def __init__(self, lookup: Lookup):
         super().__init__(lookup)
 
-        local_certs = lookup.get_str_dict('local_certs', {})
+        local_certs = lookup.get_str_dict("local_certs", {})
         self.local_certs = {}
         for k, v in local_certs.items():
             if not os.path.isabs(v):
-                cert_dir = os.path.join(os.path.dirname(__file__), 'certs')
+                cert_dir = os.path.join(os.path.dirname(__file__), "certs")
                 v = os.path.join(cert_dir, v)
 
             if not os.path.exists(v):
@@ -87,16 +86,20 @@ class HttpConfig(BaseConfig):
         session = Session()
 
         session.mount(
-            'http://',
-            _FindCACertAdapter(max_retries=retry,
-                               default_timeout=(self.connect_timeout, self.read_timeout),
-                               find_ca_cert=self.find_local_cert)
+            "http://",
+            _FindCACertAdapter(
+                max_retries=retry,
+                default_timeout=(self.connect_timeout, self.read_timeout),
+                find_ca_cert=self.find_local_cert,
+            ),
         )
         session.mount(
-            'https://',
-            _FindCACertAdapter(max_retries=retry,
-                               default_timeout=(self.connect_timeout, self.read_timeout),
-                               find_ca_cert=self.find_local_cert)
+            "https://",
+            _FindCACertAdapter(
+                max_retries=retry,
+                default_timeout=(self.connect_timeout, self.read_timeout),
+                find_ca_cert=self.find_local_cert,
+            ),
         )
 
         return session

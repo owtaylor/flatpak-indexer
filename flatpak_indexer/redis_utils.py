@@ -1,7 +1,7 @@
-import logging
-import time
 from typing import Optional
 from urllib.parse import quote, urlparse, urlunparse
+import logging
+import time
 
 import redis
 
@@ -24,12 +24,13 @@ def get_redis_client(config: RedisConfig) -> "redis.Redis[bytes]":
     password = config.redis_password
     if password:
         parts = urlparse(url)
-        netloc = f':{quote(password)}@{parts.hostname}'
+        netloc = f":{quote(password)}@{parts.hostname}"
         if parts.port is not None:
-            netloc += f':{parts.port}'
+            netloc += f":{parts.port}"
 
-        url = urlunparse((parts.scheme, netloc,
-                          parts.path, parts.params, parts.query, parts.fragment))
+        url = urlunparse(
+            (parts.scheme, netloc, parts.path, parts.params, parts.query, parts.fragment)
+        )
 
     return redis.Redis.from_url(url, decode_responses=False)  # type: ignore
 
@@ -59,11 +60,13 @@ def do_pubsub_work(redis_client, topic, callback, initial_reconnect_timeout=None
                 reconnect_timeout = INITIAL_RECONNECT_TIMEOUT
             except redis.ConnectionError:
                 if pubsub and pubsub.connection:
-                    logger.info("Disconnected from Redis, sleeping for %g seconds",
-                                reconnect_timeout)
+                    logger.info(
+                        "Disconnected from Redis, sleeping for %g seconds", reconnect_timeout
+                    )
                 else:
-                    logger.info("Failed to connect to Redis, sleeping for %g seconds",
-                                reconnect_timeout)
+                    logger.info(
+                        "Failed to connect to Redis, sleeping for %g seconds", reconnect_timeout
+                    )
 
                 if pubsub:
                     pubsub.close()

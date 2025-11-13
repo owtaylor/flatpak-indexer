@@ -1,16 +1,16 @@
+from unittest.mock import patch
 import threading
 import time
-from unittest.mock import patch
 
 import pika.exceptions
 import pytest
-import redis
 
 from flatpak_indexer.fedora_monitor import FedoraMonitor
 from flatpak_indexer.redis_utils import RedisConfig
 from flatpak_indexer.test.redis import mock_redis
-from .fedora_messaging import mock_fedora_messaging
+import redis
 
+from .fedora_messaging import mock_fedora_messaging
 
 CONFIG = """
 redis_url: redis://localhost
@@ -48,16 +48,16 @@ def test_fedora_monitor(connection_mock, config):
 
     monitor = FedoraMonitor(config, watch_bodhi_updates=True)
 
-    connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
+    connection_mock.put_update_message("FEDORA-2018-1a0cf961a1")
     connection_mock.put_inactivity_timeout()
 
     monitor.start()
-    assert_bodhi_changes(monitor, {'FEDORA-2018-1a0cf961a1'})
+    assert_bodhi_changes(monitor, {"FEDORA-2018-1a0cf961a1"})
 
-    connection_mock.put_update_message('FEDORA-2018-5ebe0eb1f2')
+    connection_mock.put_update_message("FEDORA-2018-5ebe0eb1f2")
 
     monitor.stop()
-    assert_bodhi_changes(monitor, {'FEDORA-2018-5ebe0eb1f2'})
+    assert_bodhi_changes(monitor, {"FEDORA-2018-5ebe0eb1f2"})
     assert_bodhi_changes(monitor, set())
 
 
@@ -68,43 +68,44 @@ def test_fedora_monitor_distgit(connection_mock, config):
 
     monitor = FedoraMonitor(config, watch_distgit_changes=True)
 
-    connection_mock.put_distgit_message('rpms', 'eog')
+    connection_mock.put_distgit_message("rpms", "eog")
     connection_mock.put_inactivity_timeout()
 
     monitor.start()
     assert_distgit_changes(monitor, None)  # Queue didn't exist
 
-    connection_mock.put_distgit_message('rpms', 'glib2')
+    connection_mock.put_distgit_message("rpms", "glib2")
 
     monitor.stop()
-    assert_distgit_changes(monitor, {'rpms/glib2'})
+    assert_distgit_changes(monitor, {"rpms/glib2"})
     assert_distgit_changes(monitor, set())
 
 
 @mock_fedora_messaging(raise_on_close=False)
 @mock_redis
-@pytest.mark.parametrize('passive_behavior', ["exist", "not_exist", "exception"])
+@pytest.mark.parametrize("passive_behavior", ["exist", "not_exist", "exception"])
 def test_fedora_monitor_reuse(connection_mock, config, passive_behavior):
     connection_mock.passive_behavior = passive_behavior
     set_queue_name(config)
 
     monitor = FedoraMonitor(config, watch_bodhi_updates=True)
 
-    connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
+    connection_mock.put_update_message("FEDORA-2018-1a0cf961a1")
     connection_mock.put_inactivity_timeout()
 
     if passive_behavior == "exception":
-        with pytest.raises(RuntimeError,
-                           match=r'Failed to start connection to fedora-messaging') as exc_info:
+        with pytest.raises(
+            RuntimeError, match=r"Failed to start connection to fedora-messaging"
+        ) as exc_info:
             monitor.start()
-        assert 'everything went south' in str(exc_info.value.__cause__)
+        assert "everything went south" in str(exc_info.value.__cause__)
 
         return
 
     monitor.start()
     queue_name, changes = monitor.get_bodhi_changed()
-    if passive_behavior == 'exist':
-        assert_bodhi_changes(monitor, {'FEDORA-2018-1a0cf961a1'})
+    if passive_behavior == "exist":
+        assert_bodhi_changes(monitor, {"FEDORA-2018-1a0cf961a1"})
     else:
         assert_bodhi_changes(monitor, None)
 
@@ -119,15 +120,15 @@ def test_fedora_monitor_stop_exception(connection_mock, config):
     connection_mock.put_inactivity_timeout()
     monitor.start()
 
-    with pytest.raises(RuntimeError,
-                       match=r'Failed to stop connection to fedora-messaging') as exc_info:
+    with pytest.raises(
+        RuntimeError, match=r"Failed to stop connection to fedora-messaging"
+    ) as exc_info:
         monitor.stop()
     assert "door broken" in str(exc_info.value.__cause__)
 
 
 @patch(
-    'flatpak_indexer.fedora_monitor.FedoraMonitor.'
-    'INITIAL_RECONNECT_TIMEOUT',
+    "flatpak_indexer.fedora_monitor.FedoraMonitor.INITIAL_RECONNECT_TIMEOUT",
     0.01,
 )
 @mock_fedora_messaging(passive_behavior="exist")
@@ -146,18 +147,17 @@ def test_fedora_monitor_lost_stream(connection_mock, config):
     connection_mock.put_connection_error()
 
     # And then successful reconnection
-    connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
+    connection_mock.put_update_message("FEDORA-2018-1a0cf961a1")
     connection_mock.put_inactivity_timeout()
 
     connection_mock.wait()
-    assert_bodhi_changes(monitor, {'FEDORA-2018-1a0cf961a1'})
+    assert_bodhi_changes(monitor, {"FEDORA-2018-1a0cf961a1"})
 
     monitor.stop()
 
 
 @patch(
-    'flatpak_indexer.fedora_monitor.FedoraMonitor.'
-    'INITIAL_RECONNECT_TIMEOUT',
+    "flatpak_indexer.fedora_monitor.FedoraMonitor.INITIAL_RECONNECT_TIMEOUT",
     0.01,
 )
 @mock_fedora_messaging
@@ -172,7 +172,7 @@ def test_fedora_monitor_channel_cancelled(connection_mock, config):
     connection_mock.put_channel_cancelled()
 
     # Successful reconnection
-    connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
+    connection_mock.put_update_message("FEDORA-2018-1a0cf961a1")
     connection_mock.put_inactivity_timeout()
 
     connection_mock.wait()
@@ -190,7 +190,7 @@ def test_fedora_monitor_failure(connection_mock, config):
     monitor.start()
 
     connection_mock.put_failure()
-    connection_mock.put_update_message('FEDORA-2018-1a0cf961a1')
+    connection_mock.put_update_message("FEDORA-2018-1a0cf961a1")
 
     with pytest.raises(RuntimeError, match=r"Error communicating with fedora-messaging"):
         # Busy loop until the thread handles the exception
@@ -199,8 +199,7 @@ def test_fedora_monitor_failure(connection_mock, config):
 
 
 @patch(
-    'flatpak_indexer.fedora_monitor.FedoraMonitor.'
-    'INITIAL_RECONNECT_TIMEOUT',
+    "flatpak_indexer.fedora_monitor.FedoraMonitor.INITIAL_RECONNECT_TIMEOUT",
     0.01,
 )
 @mock_fedora_messaging
@@ -235,8 +234,7 @@ def test_fedora_monitor_stop_during_reconnect(connection_mock, config):
 
 
 @patch(
-    'flatpak_indexer.fedora_monitor.FedoraMonitor.'
-    'INITIAL_RECONNECT_TIMEOUT',
+    "flatpak_indexer.fedora_monitor.FedoraMonitor.INITIAL_RECONNECT_TIMEOUT",
     0.01,
 )
 @mock_fedora_messaging
@@ -268,8 +266,7 @@ def test_fedora_monitor_stop_during_connection_failure(connection_mock, config):
 
 
 @patch(
-    'flatpak_indexer.fedora_monitor.FedoraMonitor.'
-    'INITIAL_RECONNECT_TIMEOUT',
+    "flatpak_indexer.fedora_monitor.FedoraMonitor.INITIAL_RECONNECT_TIMEOUT",
     0.01,
 )
 @mock_fedora_messaging

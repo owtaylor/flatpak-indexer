@@ -1,26 +1,28 @@
-import base64
 from collections import defaultdict
+from typing import DefaultDict, Dict, Optional, Set, Tuple
+import base64
 import copy
 import hashlib
 import json
 import logging
 import os
-from typing import DefaultDict, Dict, Optional, Set, Tuple
 
 from .cleaner import Cleaner
 from .config import Config, IndexConfig, RegistryConfig
 from .delta_generator import DeltaGenerator
 from .models import (
-    FlatpakBuildModel, ImageModel, ModuleBuildModel, ModuleStreamContentsModel,
-    RegistryModel
+    FlatpakBuildModel,
+    ImageModel,
+    ModuleBuildModel,
+    ModuleStreamContentsModel,
+    RegistryModel,
 )
 from .session import Session
 from .utils import atomic_writer, path_for_digest, pseudo_atomic_dir_writer, uri_for_digest
 
-
 logger = logging.getLogger(__name__)
 
-DATA_URI_PREFIX = 'data:image/png;base64,'
+DATA_URI_PREFIX = "data:image/png;base64,"
 
 
 class IconStore(object):
@@ -33,18 +35,17 @@ class IconStore(object):
         if not uri.startswith(DATA_URI_PREFIX):
             return None
 
-        decoded = base64.b64decode(uri[len(DATA_URI_PREFIX):])
+        decoded = base64.b64decode(uri[len(DATA_URI_PREFIX) :])
 
         h = hashlib.sha256()
         h.update(decoded)
-        digest = 'sha256:' + h.hexdigest()
+        digest = "sha256:" + h.hexdigest()
 
-        fullpath = path_for_digest(self.icons_dir, digest, ".png",
-                                   create_subdir=True)
+        fullpath = path_for_digest(self.icons_dir, digest, ".png", create_subdir=True)
 
         if not os.path.exists(fullpath):
             logger.info("Storing icon: %s", fullpath)
-            with open(fullpath, 'wb') as f:
+            with open(fullpath, "wb") as f:
                 f.write(decoded)
 
         self.cleaner.reference(fullpath)
@@ -54,9 +55,12 @@ class IconStore(object):
 
 class IndexWriter:
     def __init__(
-        self, conf: IndexConfig, registry_config: RegistryConfig,
+        self,
+        conf: IndexConfig,
+        registry_config: RegistryConfig,
         source_registry: RegistryModel,
-        session: Session, icon_store: Optional[IconStore]
+        session: Session,
+        icon_store: Optional[IconStore],
     ):
         self.registry_config = registry_config
         self.config = conf
@@ -81,8 +85,11 @@ class IndexWriter:
             labels[key] = uri
 
     def move_flatpak_labels(self, image: ImageModel):
-        to_move = [k for k in image.labels.keys()
-                   if k.startswith('org.flatpak.') or k.startswith('org.freedesktop.')]
+        to_move = [
+            k
+            for k in image.labels.keys()
+            if k.startswith("org.flatpak.") or k.startswith("org.freedesktop.")
+        ]
 
         for k in to_move:
             image.annotations[k] = image.labels[k]
@@ -101,10 +108,10 @@ class IndexWriter:
         if self.registry_config.force_flatpak_token:
             # This string the base64-encoding GVariant holding a variant
             # holding the int32 1.
-            image.labels['org.flatpak.commit-metadata.xa.token-type'] = 'AQAAAABp'
+            image.labels["org.flatpak.commit-metadata.xa.token-type"] = "AQAAAABp"
 
-        self.extract_icon(image.labels, 'org.freedesktop.appstream.icon-64')
-        self.extract_icon(image.labels, 'org.freedesktop.appstream.icon-128')
+        self.extract_icon(image.labels, "org.freedesktop.appstream.icon-64")
+        self.extract_icon(image.labels, "org.freedesktop.appstream.icon-128")
 
         if self.config.flatpak_annotations:
             self.move_flatpak_labels(image)
@@ -112,17 +119,18 @@ class IndexWriter:
         self.registry.add_image(name, image)
 
     def find_images(self):
-        images:  Dict[Tuple[str, str], Tuple[str, Tuple[int, str], ImageModel]] = {}
+        images: Dict[Tuple[str, str], Tuple[str, Tuple[int, str], ImageModel]] = {}
         for repository in self.source_registry.repositories.values():
             if not self.config.should_include_repository(repository.name):
                 continue
 
             repository_priority_key = self.config.repository_priority_key(repository.name)
             for image in repository.images.values():
-                if (self.config.tag in image.tags and
-                    (self.config.architecture is None or
-                        image.architecture == self.config.architecture)):
-                    ref_key = (image.architecture, image.labels['org.flatpak.ref'])
+                if self.config.tag in image.tags and (
+                    self.config.architecture is None
+                    or image.architecture == self.config.architecture
+                ):
+                    ref_key = (image.architecture, image.labels["org.flatpak.ref"])
                     if ref_key in images:
                         old_repository_name, old_repository_priority_key, _ = images[ref_key]
                         if repository_priority_key >= old_repository_priority_key:
@@ -156,24 +164,22 @@ class IndexWriter:
             source_repository = self.source_registry.repositories[repository.name]
             tag_history = source_repository.tag_histories.get(self.config.tag)
             if tag_history:
-                delta_generator.add_tag_history(
-                    source_repository, tag_history, self.config
-                )
+                delta_generator.add_tag_history(source_repository, tag_history, self.config)
 
     def add_delta_urls(self, delta_generator: DeltaGenerator):
         for image in self.iter_images():
-            delta_manifest_url = \
-                delta_generator.get_delta_manifest_url(image.digest)
+            delta_manifest_url = delta_generator.get_delta_manifest_url(image.digest)
             if delta_manifest_url:
-                image.labels['io.github.containers.DeltaUrl'] = delta_manifest_url
+                image.labels["io.github.containers.DeltaUrl"] = delta_manifest_url
 
     def write_contents(self):
         contents_dir = self.config.contents
         if contents_dir is None:
             return
 
-        module_stream_contents: DefaultDict[str, ModuleStreamContentsModel] = \
-            defaultdict(ModuleStreamContentsModel)
+        module_stream_contents: DefaultDict[str, ModuleStreamContentsModel] = defaultdict(
+            ModuleStreamContentsModel
+        )
 
         for build in self.iter_image_builds():
             # We only index Flatpak builds currently
@@ -207,9 +213,7 @@ class IndexWriter:
             for name_stream, contents in module_stream_contents.items():
                 path = os.path.join(modules_dir, name_stream + ".json")
                 with open(path, "w", encoding="UTF-8") as f:
-                    json.dump(
-                        contents.to_json(), f, sort_keys=True, indent=4, ensure_ascii=False
-                    )
+                    json.dump(contents.to_json(), f, sort_keys=True, indent=4, ensure_ascii=False)
 
     def write(self):
         # We auto-create only one level and don't use os.makedirs,
@@ -222,10 +226,16 @@ class IndexWriter:
         sorted_repos = sorted(filtered_repos, key=lambda r: r.name)
 
         with atomic_writer(self.config.output) as writer:
-            json.dump({
-                'Registry': self.registry_config.public_url,
-                'Results': [r.to_json() for r in sorted_repos],
-            }, writer, sort_keys=True, indent=4, ensure_ascii=False)
+            json.dump(
+                {
+                    "Registry": self.registry_config.public_url,
+                    "Results": [r.to_json() for r in sorted_repos],
+                },
+                writer,
+                sort_keys=True,
+                indent=4,
+                ensure_ascii=False,
+            )
 
         self.write_contents()
 
@@ -254,11 +264,9 @@ class Indexer:
                 logger.debug("No queried information found for %s", registry_name)
                 continue
 
-            index_writer = IndexWriter(index_config,
-                                       registry_config,
-                                       source_registry,
-                                       session,
-                                       icon_store)
+            index_writer = IndexWriter(
+                index_config, registry_config, source_registry, session, icon_store
+            )
             index_writers[index_config.name] = index_writer
 
             index_writer.find_images()

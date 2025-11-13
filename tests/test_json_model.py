@@ -67,9 +67,9 @@ class DateTimeStuff(BaseModel):
 
 
 def test_datetime_field():
-    obj = DateTimeStuff(f1=datetime(year=2020, month=8, day=13,
-                                    hour=1, minute=2, second=3,
-                                    tzinfo=timezone.utc))
+    obj = DateTimeStuff(
+        f1=datetime(year=2020, month=8, day=13, hour=1, minute=2, second=3, tzinfo=timezone.utc)
+    )
     JSON = {"F1": "2020-08-13T01:02:03.000000+00:00"}
 
     assert obj.to_json() == JSON
@@ -99,7 +99,7 @@ class ClassStuff(BaseModel):
 
 
 def test_class_field():
-    obj = ClassStuff(f1=StringStuff(f1='foo'))
+    obj = ClassStuff(f1=StringStuff(f1="foo"))
     JSON = {"F1": {"F1": "foo"}}
 
     assert obj.to_json() == JSON
@@ -115,12 +115,7 @@ class ListStuff(BaseModel):
 
 def test_list_field():
     obj = ListStuff(f1=["foo"], f2=[StringStuff(f1="foo")])
-    JSON = {
-        "F1": ["foo"],
-        "F2": [
-            {"F1": "foo"}
-        ]
-    }
+    JSON = {"F1": ["foo"], "F2": [{"F1": "foo"}]}
 
     assert obj.to_json() == JSON
 
@@ -141,12 +136,7 @@ class IndexedListStuff(BaseModel):
 
 def test_indexed_list_field():
     obj = IndexedListStuff(f1={"foo": StringStuff(f1="foo"), "bar": StringStuff(f1="bar")})
-    JSON = {
-        "F1": [
-            {"F1": "bar"},
-            {"F1": "foo"}
-        ]
-    }
+    JSON = {"F1": [{"F1": "bar"}, {"F1": "foo"}]}
 
     assert obj.to_json() == JSON
 
@@ -162,9 +152,9 @@ def test_indexed_list_field():
 
 def test_indexed_list_mismatch_field():
     with pytest.raises(
-        TypeError,
-        match=r"f1: field\(index=<name>\) can only be used with Dict\[str\]"
+        TypeError, match=r"f1: field\(index=<name>\) can only be used with Dict\[str\]"
     ):
+
         class IndexedListMismatchStuff(BaseModel):
             f1: List[StringStuff] = field(index="f1")
 
@@ -199,10 +189,7 @@ class NameStuff(BaseModel):
 def test_field_names():
     obj = NameStuff(foo_bar="a", os="linux")
 
-    assert obj.to_json() == {
-        "FooBar": "a",
-        "OS": "linux"
-    }
+    assert obj.to_json() == {"FooBar": "a", "OS": "linux"}
 
 
 class InheritedStuff(StringStuff):
@@ -226,10 +213,10 @@ def test_optional_field():
     assert obj.to_json() == {}
 
     obj = OptionalStuff(f1=42)
-    assert obj.to_json() == {'F1': 42}
+    assert obj.to_json() == {"F1": 42}
 
     assert OptionalStuff.from_json({}).f1 is None
-    assert OptionalStuff.from_json({'F1': 42}).f1 == 42
+    assert OptionalStuff.from_json({"F1": 42}).f1 == 42
 
 
 def test_nonoptional_field():
@@ -244,18 +231,20 @@ def test_nonoptional_field():
 
 
 def test_optional_list():
-    with pytest.raises(TypeError,
-                       match=r"f: Optional\[\] cannot be used for collection fields"):
+    with pytest.raises(TypeError, match=r"f: Optional\[\] cannot be used for collection fields"):
+
         class A(BaseModel):
             f: Optional[List[int]]
 
 
 def test_unexpected_types():
     with pytest.raises(TypeError, match=r"Only Dict\[str\] is supported"):
+
         class A(BaseModel):
             f: Dict[int, int]
 
     with pytest.raises(TypeError, match=r"Unsupported type"):
+
         class B(BaseModel):
             f: set
 
@@ -266,7 +255,7 @@ def test_class_from_json():
 
         @classmethod
         def class_from_json(cls, data):
-            if 'F2' in data:
+            if "F2" in data:
                 return DerivedClassStuff
             else:
                 return BaseClassStuff
@@ -296,7 +285,7 @@ def test_class_from_json_check_current():
 
         @classmethod
         def check_json_current(cls, data):
-            return 'F1' in data and isinstance(data['F1'], str)
+            return "F1" in data and isinstance(data["F1"], str)
 
     assert Stuff.from_json_text('{"F1": 1}', check_current=True) is None
     new_obj = Stuff.from_json_text('{"F1": "foo"}', check_current=True)

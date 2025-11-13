@@ -1,21 +1,20 @@
 from functools import partial
+from typing import Optional, Set, Tuple, cast
 import json
 import logging
 import os
 import ssl
 import threading
 import time
-from typing import cast, Optional, Set, Tuple
 import uuid
 
 import pika
 import pika.credentials
 import pika.exceptions
+
 import redis
 
-
-from .redis_utils import get_redis_client, RedisConfig
-
+from .redis_utils import RedisConfig, get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +39,7 @@ class FedoraMonitor:
     methods are then used to retrieve and (after processing) retire the
     changelog entries.
     """
+
     INITIAL_RECONNECT_TIMEOUT = 1
     MAX_RECONNECT_TIMEOUT = 10 * 60
     RECONNECT_TIMEOUT_MULTIPLIER = 5
@@ -92,6 +92,7 @@ class FedoraMonitor:
             connection = self.connection
 
         if connection:
+
             def do_stop():
                 connection.close()
 
@@ -197,10 +198,10 @@ class FedoraMonitor:
             pipe.set("fedora-messaging-queue", new_queue_name)
             if self.watch_bodhi_updates:
                 pipe.delete(KEY_UPDATE_CHANGELOG)
-                pipe.zadd(KEY_UPDATE_CHANGELOG, {b'': serial})
+                pipe.zadd(KEY_UPDATE_CHANGELOG, {b"": serial})
             if self.watch_distgit_changes:
                 pipe.delete(KEY_DISTGIT_CHANGELOG)
-                pipe.zadd(KEY_DISTGIT_CHANGELOG, {b'': serial})
+                pipe.zadd(KEY_DISTGIT_CHANGELOG, {b"": serial})
         elif update_id:
             pipe.zadd(KEY_UPDATE_CHANGELOG, {update_id: serial})
         elif distgit_path:
@@ -218,12 +219,12 @@ class FedoraMonitor:
     def _update_from_message(self, routing_key, body_json):
         body = json.loads(body_json)
 
-        if routing_key == 'org.fedoraproject.prod.git.receive':
-            path = body['commit']['namespace'] + '/' + body['commit']['repo']
+        if routing_key == "org.fedoraproject.prod.git.receive":
+            path = body["commit"]["namespace"] + "/" + body["commit"]["repo"]
             logger.info("Saw commit on %s", path)
             self._add_to_distgit_log(path)
         else:
-            update_id = body['update']['alias']
+            update_id = body["update"]["alias"]
             logger.info("Saw change to Bodhi Update %s", update_id)
             self._add_to_update_log(update_id)
 
@@ -232,31 +233,34 @@ class FedoraMonitor:
             if self.stopping:
                 return
 
-        cert_dir = os.path.join(os.path.dirname(__file__), 'messaging-certs')
+        cert_dir = os.path.join(os.path.dirname(__file__), "messaging-certs")
 
         ssl_context = ssl.create_default_context(cafile=os.path.join(cert_dir, "cacert.pem"))
-        ssl_context.load_cert_chain(os.path.join(cert_dir, "fedora-cert.pem"),
-                                    os.path.join(cert_dir, "fedora-key.pem"))
+        ssl_context.load_cert_chain(
+            os.path.join(cert_dir, "fedora-cert.pem"), os.path.join(cert_dir, "fedora-key.pem")
+        )
         ssl_options = pika.SSLOptions(ssl_context, "rabbitmq.fedoraproject.org")
 
         credentials = pika.credentials.ExternalCredentials()
 
-        conn_params = pika.ConnectionParameters(host="rabbitmq.fedoraproject.org",
-                                                credentials=credentials,
-                                                ssl_options=ssl_options,
-                                                virtual_host="/public_pubsub")
+        conn_params = pika.ConnectionParameters(
+            host="rabbitmq.fedoraproject.org",
+            credentials=credentials,
+            ssl_options=ssl_options,
+            virtual_host="/public_pubsub",
+        )
 
         connection = pika.BlockingConnection(conn_params)
         channel = connection.channel()
 
-        queue_name_raw = self.thread_redis_client.get('fedora-messaging-queue')
-        queue_name = queue_name_raw.decode('utf-8') if queue_name_raw else None
+        queue_name_raw = self.thread_redis_client.get("fedora-messaging-queue")
+        queue_name = queue_name_raw.decode("utf-8") if queue_name_raw else None
 
         if queue_name:
             try:
-                channel.queue_declare(queue_name,
-                                      passive=True, durable=True, exclusive=False,
-                                      auto_delete=False)
+                channel.queue_declare(
+                    queue_name, passive=True, durable=True, exclusive=False, auto_delete=False
+                )
             except pika.exceptions.ChannelClosedByBroker as e:
                 if e.reply_code == 404:
                     queue_name = None
@@ -267,28 +271,32 @@ class FedoraMonitor:
 
         if not queue_name:
             queue_name = str(uuid.uuid4())
-            channel.queue_declare(queue_name,
-                                  passive=False, durable=True, exclusive=False,
-                                  auto_delete=False)
+            channel.queue_declare(
+                queue_name, passive=False, durable=True, exclusive=False, auto_delete=False
+            )
 
             self._reset_changelog(queue_name)
 
         logger.info(f"Connected to fedora-messaging, queue={queue_name}")
 
         if self.watch_bodhi_updates:
-            channel.queue_bind(queue_name, 'amq.topic',
-                               routing_key="org.fedoraproject.prod.bodhi.update.request.#")
-            channel.queue_bind(queue_name, 'amq.topic',
-                               routing_key="org.fedoraproject.prod.bodhi.update.complete.#")
+            channel.queue_bind(
+                queue_name, "amq.topic", routing_key="org.fedoraproject.prod.bodhi.update.request.#"
+            )
+            channel.queue_bind(
+                queue_name,
+                "amq.topic",
+                routing_key="org.fedoraproject.prod.bodhi.update.complete.#",
+            )
 
         if self.watch_distgit_changes:
-            channel.queue_bind(queue_name, 'amq.topic',
-                               routing_key="org.fedoraproject.prod.git.receive")
+            channel.queue_bind(
+                queue_name, "amq.topic", routing_key="org.fedoraproject.prod.git.receive"
+            )
 
         # We first consume messages with a timeout of zero until we block to clean
         # out anything queued
-        for method, properties, body_json in channel.consume(queue_name,
-                                                             inactivity_timeout=0):
+        for method, properties, body_json in channel.consume(queue_name, inactivity_timeout=0):
             if method is None:
                 break
             else:
@@ -309,8 +317,7 @@ class FedoraMonitor:
         self.started.set()
 
         # Then we use a timeout of None (never), until the channel is closed
-        for method, properties, body_json in channel.consume(queue_name,
-                                                             inactivity_timeout=None):
+        for method, properties, body_json in channel.consume(queue_name, inactivity_timeout=None):
             assert method is not None  # only should occur on timeout
             self._update_from_message(method.routing_key, body_json)
             channel.basic_ack(method.delivery_tag)
@@ -338,8 +345,7 @@ class FedoraMonitor:
                 # we might get from a broker restart, but also authentication
                 # failures, protocol failures, etc. Trying to parse out
                 # the exact case would be a future-compat headache.
-                logger.warning("fedora-messaging connection failure (%r)",
-                               e, exc_info=e)
+                logger.warning("fedora-messaging connection failure (%r)", e, exc_info=e)
             except Exception as e:
                 # The main loop might be in a timeout waiting for the next time
                 # to poll - we don't have an easy way to interrupt that, so just
@@ -357,5 +363,5 @@ class FedoraMonitor:
             time.sleep(self.reconnect_timeout)
             self.reconnect_timeout = min(
                 self.reconnect_timeout * self.RECONNECT_TIMEOUT_MULTIPLIER,
-                self.MAX_RECONNECT_TIMEOUT
+                self.MAX_RECONNECT_TIMEOUT,
             )

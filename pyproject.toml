@@ -24,14 +24,12 @@ dependencies = [
     # 2.22.0 contains an accidental incompatibility with python < 3.11,
     # fixed in git.
     "fakeredis!=2.22.0",
-    "flake8",
-    "flake8-import-order",
-    "flake8-pyproject>=0.9.1",
     "graphql-core",
     "iso8601",
     "pytest",
     "pytest-cov",
     "pytest-socket",
+    "ruff",
     "responses",
     "www-authenticate",
 ]
@@ -43,9 +41,6 @@ flatpak-indexer = "flatpak_indexer.cli:cli"
 # Alternative: install only dev dependencies separately
 dev = [
     "fakeredis!=2.22.0",
-    "flake8",
-    "flake8-import-order",
-    "flake8-pyproject>=0.9.1",
     "graphql-core",
     "iso8601",
     "pytest",
@@ -75,10 +70,14 @@ exclude_lines = [
 ]
 omit = ["flatpak_indexer/test/*"]
 
-[tool.flake8]
-application_import_names = ["flatpak_indexer"]
-import_order_style = "google"
-max_line_length = 100
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.ruff.lint.isort]
+from-first = true
 
 [tool.pytest]
 addopts = [

@@ -1,7 +1,7 @@
 from contextlib import contextmanager
+from unittest.mock import create_autospec, patch
 import json
 import threading
-from unittest.mock import create_autospec, patch
 
 import pika
 import pika.adapters
@@ -13,35 +13,25 @@ from flatpak_indexer.test.decorators import WithArgDecorator
 
 
 def make_bodhi_message(alias):
-    return json.dumps({
-        'update': {
-            'alias': alias
-        }
-    })
+    return json.dumps({"update": {"alias": alias}})
 
 
 def make_distgit_message(namespace, repo):
-    return json.dumps({
-        'commit': {
-            'namespace': namespace,
-            'repo': repo
-        }
-    })
+    return json.dumps({"commit": {"namespace": namespace, "repo": repo}})
 
 
 class ChannelCancelledMarker:
     pass
 
 
-class MockConnection():
-    def __init__(self, messaging: 'MockMessaging', passive_behavior: bool, raise_on_close: bool):
+class MockConnection:
+    def __init__(self, messaging: "MockMessaging", passive_behavior: bool, raise_on_close: bool):
         self.messaging = messaging
         self.passive_behavior = passive_behavior
         self.raise_on_close = raise_on_close
 
         self._closed = False
-        self._channel = \
-            create_autospec(pika.adapters.blocking_connection.BlockingChannel)  # type: ignore
+        self._channel = create_autospec(pika.adapters.blocking_connection.BlockingChannel)  # type: ignore
         self._channel.queue_declare.side_effect = self._queue_declare
         self._channel.consume.side_effect = self._consume
 
@@ -85,11 +75,9 @@ class MockConnection():
             else:
                 yield item
 
-    def _queue_declare(self, queue,
-                       passive=False,
-                       durable=False,
-                       exclusive=False,
-                       auto_delete=False):
+    def _queue_declare(
+        self, queue, passive=False, durable=False, exclusive=False, auto_delete=False
+    ):
         if passive:
             if self.passive_behavior == "not_exist":
                 raise pika.exceptions.ChannelClosedByBroker(404, f"NOT_FOUND - no queue '{queue}'")
@@ -99,10 +87,8 @@ class MockConnection():
                 raise pika.exceptions.ChannelClosedByBroker(500, "everything went south")
 
 
-class MockMessaging():
-    def __init__(self,
-                 passive_behavior="not_exist",
-                 raise_on_close=False):
+class MockMessaging:
+    def __init__(self, passive_behavior="not_exist", raise_on_close=False):
         self.passive_behavior = passive_behavior
         self.raise_on_close = raise_on_close
 
@@ -110,20 +96,24 @@ class MockMessaging():
         self.plan = []
 
     def put_update_message(self, update_alias):
-        self.plan_put((
-            pika.spec.Basic.Deliver(
-                routing_key='org.fedoraproject.prod.bodhi.update.complete.stable'
-            ),
-            'X',
-            make_bodhi_message(update_alias)
-        ))
+        self.plan_put(
+            (
+                pika.spec.Basic.Deliver(
+                    routing_key="org.fedoraproject.prod.bodhi.update.complete.stable"
+                ),
+                "X",
+                make_bodhi_message(update_alias),
+            )
+        )
 
     def put_distgit_message(self, namespace, repo):
-        self.plan_put((
-            pika.spec.Basic.Deliver(routing_key='org.fedoraproject.prod.git.receive'),
-            'X',
-            make_distgit_message(namespace, repo)
-        ))
+        self.plan_put(
+            (
+                pika.spec.Basic.Deliver(routing_key="org.fedoraproject.prod.git.receive"),
+                "X",
+                make_distgit_message(namespace, repo),
+            )
+        )
 
     def put_inactivity_timeout(self):
         self.plan_put((None, None, None))
@@ -163,10 +153,10 @@ class MockMessaging():
 
 @contextmanager
 def _setup_fedora_messaging(**kwargs):
-    with patch('pika.BlockingConnection', autospec=True) as connection_mock:
+    with patch("pika.BlockingConnection", autospec=True) as connection_mock:
         mock_messaging = MockMessaging(**kwargs)
         connection_mock.side_effect = mock_messaging.create_connection
         yield mock_messaging
 
 
-mock_fedora_messaging = WithArgDecorator('connection_mock', _setup_fedora_messaging)
+mock_fedora_messaging = WithArgDecorator("connection_mock", _setup_fedora_messaging)

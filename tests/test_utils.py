@@ -1,11 +1,13 @@
+from typing import List, Optional
 import datetime
 import os
-from typing import List, Optional
 
-import pytest
 from pytest import raises
+import pytest
 
 from flatpak_indexer.utils import (
+    SubstitutionError,
+    TemporaryPathname,
     atomic_writer,
     format_date,
     parse_date,
@@ -15,31 +17,34 @@ from flatpak_indexer.utils import (
     resolve_type,
     run_with_stats,
     substitute_env_vars,
-    SubstitutionError,
-    TemporaryPathname,
     unparse_pull_spec,
-    uri_for_digest
+    uri_for_digest,
 )
+
 from .utils import timeout_first_popen_wait
 
 
-@pytest.mark.parametrize('val, expected, exception',
-                         [('foo', 'foo', None),
-                          ('foo${SET}foo', 'foosetfoo', None),
-                          ('foo${UNSET}foo', None, 'environment variable UNSET is not set'),
-                          ('foo${UNSET:xxx}foo', 'fooxxxfoo', None),
-                          ('foo${UNSET:${SET}}foo', 'foosetfoo', None),
-                          ('$SET', '$SET', None),
-                          ('${@}', None, 'at position 2 in field: expected variable name'),
-                          ('${@}', None, 'at position 2 in field: expected variable name'),
-                          ('${A@}', None, 'at position 3 in field: expected : or }'),
-                          ('${', None, 'unclosed variable reference'),
-                          ('${A', None, 'unclosed variable reference'),
-                          ('${A:', None, 'unclosed variable reference')])
+@pytest.mark.parametrize(
+    "val, expected, exception",
+    [
+        ("foo", "foo", None),
+        ("foo${SET}foo", "foosetfoo", None),
+        ("foo${UNSET}foo", None, "environment variable UNSET is not set"),
+        ("foo${UNSET:xxx}foo", "fooxxxfoo", None),
+        ("foo${UNSET:${SET}}foo", "foosetfoo", None),
+        ("$SET", "$SET", None),
+        ("${@}", None, "at position 2 in field: expected variable name"),
+        ("${@}", None, "at position 2 in field: expected variable name"),
+        ("${A@}", None, "at position 3 in field: expected : or }"),
+        ("${", None, "unclosed variable reference"),
+        ("${A", None, "unclosed variable reference"),
+        ("${A:", None, "unclosed variable reference"),
+    ],
+)
 def test_substitute_env_vars(val, expected, exception):
-    os.environ['SET'] = 'set'
-    if 'UNSET' in os.environ:
-        del os.environ['UNSET']
+    os.environ["SET"] = "set"
+    if "UNSET" in os.environ:
+        del os.environ["UNSET"]
 
     if exception is None:
         result = substitute_env_vars(val)
@@ -50,7 +55,7 @@ def test_substitute_env_vars(val, expected, exception):
 
 
 def test_atomic_writer_basic(tmp_path):
-    output_path = str(tmp_path / 'out.json')
+    output_path = str(tmp_path / "out.json")
 
     def expect(val):
         with open(output_path, "rb") as f:
@@ -72,7 +77,7 @@ def test_atomic_writer_basic(tmp_path):
 
 
 def test_atomic_writer_write_failure(tmp_path):
-    output_path = str(tmp_path / 'out.json')
+    output_path = str(tmp_path / "out.json")
 
     with pytest.raises(IOError):
         with atomic_writer(output_path) as writer:
@@ -83,7 +88,7 @@ def test_atomic_writer_write_failure(tmp_path):
 
 
 def test_pseudo_atomic_dir_writer(tmp_path):
-    output_path = str(tmp_path / 'out')
+    output_path = str(tmp_path / "out")
     with pseudo_atomic_dir_writer(output_path) as tempdir:
         with open(os.path.join(tempdir, "a"), "w") as f:
             print("Hello", file=f)
@@ -106,7 +111,7 @@ def test_pseudo_atomic_dir_writer(tmp_path):
     assert os.listdir(output_path) == ["b"]
 
 
-@pytest.mark.parametrize('steal', (True, False))
+@pytest.mark.parametrize("steal", (True, False))
 def test_temporary_pathname(tmp_path, steal):
     with TemporaryPathname(dir=tmp_path, prefix="foo-", suffix=".txt") as path:
         assert os.path.dirname(path.name) == str(tmp_path)
@@ -123,22 +128,22 @@ def test_temporary_pathname(tmp_path, steal):
 
 
 def test_format_date():
-    dt = datetime.datetime.fromtimestamp(1596212782,
-                                         datetime.timezone.utc)
-    assert format_date(dt) == '2020-07-31T16:26:22.000000+00:00'
+    dt = datetime.datetime.fromtimestamp(1596212782, datetime.timezone.utc)
+    assert format_date(dt) == "2020-07-31T16:26:22.000000+00:00"
 
-    dt = datetime.datetime.fromtimestamp(1596212782,
-                                         datetime.timezone(datetime.timedelta(hours=-4)))
-    assert format_date(dt) == '2020-07-31T16:26:22.000000+00:00'
+    dt = datetime.datetime.fromtimestamp(
+        1596212782, datetime.timezone(datetime.timedelta(hours=-4))
+    )
+    assert format_date(dt) == "2020-07-31T16:26:22.000000+00:00"
 
     # Naive timestamps are assumed to represent local time (this test will blindly succeed
     # if TZ=utc)
     dt = datetime.datetime.fromtimestamp(1596212782)
-    assert format_date(dt) == '2020-07-31T16:26:22.000000+00:00'
+    assert format_date(dt) == "2020-07-31T16:26:22.000000+00:00"
 
 
 def test_parse_date():
-    dt = parse_date('2020-07-31T16:26:22.123456+00:00')
+    dt = parse_date("2020-07-31T16:26:22.123456+00:00")
     assert round(dt.timestamp() * 1000000) == 1596212782123456
     assert dt.year == 2020
     assert dt.month == 7
@@ -150,54 +155,66 @@ def test_parse_date():
     assert dt.tzinfo is not None
     assert dt.tzinfo.utcoffset(None) == datetime.timedelta(0)
 
-    dt = parse_date('2020-07-31T16:26:22+00:00')
+    dt = parse_date("2020-07-31T16:26:22+00:00")
     assert dt.timestamp() == 1596212782
     assert dt.second == 22
     assert dt.microsecond == 0
 
 
 def test_parse_pull_spec():
-    assert parse_pull_spec('registry.example.com/some/repo:latest') == (
-        'https://registry.example.com', 'some/repo', 'latest'
+    assert parse_pull_spec("registry.example.com/some/repo:latest") == (
+        "https://registry.example.com",
+        "some/repo",
+        "latest",
     )
-    assert parse_pull_spec('registry.example.com/some/repo@sha256:12345') == (
-        'https://registry.example.com', 'some/repo', 'sha256:12345'
+    assert parse_pull_spec("registry.example.com/some/repo@sha256:12345") == (
+        "https://registry.example.com",
+        "some/repo",
+        "sha256:12345",
     )
 
 
 def test_unparse_pull_spec():
-    assert (unparse_pull_spec('https://registry.example.com', 'some/repo', 'latest') ==
-            'registry.example.com/some/repo:latest')
-    assert (unparse_pull_spec('https://registry.example.com/', 'some/repo', 'latest') ==
-            'registry.example.com/some/repo:latest')
-    assert (unparse_pull_spec('https://registry.example.com', 'some/repo', 'sha256:12345') ==
-            'registry.example.com/some/repo@sha256:12345')
+    assert (
+        unparse_pull_spec("https://registry.example.com", "some/repo", "latest")
+        == "registry.example.com/some/repo:latest"
+    )
+    assert (
+        unparse_pull_spec("https://registry.example.com/", "some/repo", "latest")
+        == "registry.example.com/some/repo:latest"
+    )
+    assert (
+        unparse_pull_spec("https://registry.example.com", "some/repo", "sha256:12345")
+        == "registry.example.com/some/repo@sha256:12345"
+    )
 
 
 def test_path_for_digest(tmp_path):
-    assert (path_for_digest(str(tmp_path), 'sha256:abcd', '.png') ==
-            str(tmp_path / "ab/cd.png"))
+    assert path_for_digest(str(tmp_path), "sha256:abcd", ".png") == str(tmp_path / "ab/cd.png")
     assert not (tmp_path / "ab").exists()
 
-    assert (path_for_digest(str(tmp_path), 'sha256:abcd', '.png', create_subdir=True) ==
-            str(tmp_path / "ab/cd.png"))
+    assert path_for_digest(str(tmp_path), "sha256:abcd", ".png", create_subdir=True) == str(
+        tmp_path / "ab/cd.png"
+    )
     assert (tmp_path / "ab").exists()
 
 
 def test_uri_for_digest():
-    assert (uri_for_digest('https://example.com/files/', 'sha256:abcd', '.png') ==
-            "https://example.com/files/ab/cd.png")
+    assert (
+        uri_for_digest("https://example.com/files/", "sha256:abcd", ".png")
+        == "https://example.com/files/ab/cd.png"
+    )
 
 
 def test_run_with_stats():
-    res, stats = run_with_stats(['/bin/true'])
+    res, stats = run_with_stats(["/bin/true"])
     assert res == 0
     assert stats.max_mem_kib > 0
     assert type(stats.elapsed_time_s) is float
     assert type(stats.system_time_s) is float
     assert type(stats.user_time_s) is float
 
-    res, stats = run_with_stats(['/bin/false'])
+    res, stats = run_with_stats(["/bin/false"])
     assert res != 0
     assert stats is not None
 
@@ -208,7 +225,7 @@ def test_run_with_stats():
             nonlocal progress_called
             progress_called = True
 
-        res, stats = run_with_stats(['/bin/true'], progress_callback=progress)
+        res, stats = run_with_stats(["/bin/true"], progress_callback=progress)
         assert res == 0
         assert stats is not None
         assert progress_called
@@ -221,6 +238,6 @@ def test_resolve_type():
         c: List[str]
 
     annotations = X.__annotations__
-    assert resolve_type(annotations['a']) == (int, (), False)
-    assert resolve_type(annotations['b']) == (str, (), True)
-    assert resolve_type(annotations['c']) == (list, (str,), False)
+    assert resolve_type(annotations["a"]) == (int, (), False)
+    assert resolve_type(annotations["b"]) == (str, (), True)
+    assert resolve_type(annotations["c"]) == (list, (str,), False)

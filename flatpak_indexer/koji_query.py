@@ -1,18 +1,23 @@
 from datetime import datetime, timedelta, timezone
 from functools import partial
+from typing import List, TypeVar, cast
 import logging
-from typing import cast, List, TypeVar
 
 import koji
 
-from .models import (BinaryPackage, FlatpakBuildModel,
-                     ImageBuildModel, ImageModel, KojiBuildModel,
-                     ModuleBuildModel, PackageBuildModel)
+from .models import (
+    BinaryPackage,
+    FlatpakBuildModel,
+    ImageBuildModel,
+    ImageModel,
+    KojiBuildModel,
+    ModuleBuildModel,
+    PackageBuildModel,
+)
 from .nvr import NVR
 from .odcs_query import composes_to_modules
 from .session import Session
 from .utils import format_date, parse_date
-
 
 logger = logging.getLogger(__name__)
 
@@ -29,52 +34,54 @@ TIMESTAMP_FUZZ = timedelta(minutes=1)
 
 
 # build:<nvr> - json representation of the build
-KEY_PREFIX_BUILD = 'build:'
+KEY_PREFIX_BUILD = "build:"
 # hash of <build id> => <nvr>
-KEY_BUILD_ID_TO_NVR = 'build-id-to-nvr'
+KEY_BUILD_ID_TO_NVR = "build-id-to-nvr"
 # hash of <flatpak name> => last queried timestamp string (as per utils.format_date())
 # all builds older than this query time will be in build-by-entity:flatpak
-KEY_BUILD_CACHE_FLATPAK = 'build-cache:flatpak'
+KEY_BUILD_CACHE_FLATPAK = "build-cache:flatpak"
 # sorted set of <n>:<v>-<r> of flatpaks (scores are all zero, lexical ordering used)
 # build:<nvr> keys are created along with these, so will typically exist, though
 # the code will backfill as necessary for missing keys or ones invalidated by
 # schema evolution
-KEY_BUILDS_BY_ENTITY_FLATPAK = 'builds-by-entity:flatpak'
+KEY_BUILDS_BY_ENTITY_FLATPAK = "builds-by-entity:flatpak"
 # sorted set of <tag>:<n>:<v>-<r> with the latest builds tagged into <tag>
 # build:<nvr> keys do *not* necessarily exist for these builds
-KEY_BUILDS_BY_TAG = 'builds-by-tag'
+KEY_BUILDS_BY_TAG = "builds-by-tag"
 # hash of <package/module/flatpak name> => koji package ID
-KEY_ENTITY_NAME_TO_PACKAGE_ID = 'entity-name-to-package-id'
+KEY_ENTITY_NAME_TO_PACKAGE_ID = "entity-name-to-package-id"
 # hash from old-style module NVR (<name>-<stream>-<version>) to newer
 # <name>-<stream>-<version>.context
-KEY_MODULE_NVR_TO_NVRC = 'module-nvr-to-nvrc'
+KEY_MODULE_NVR_TO_NVRC = "module-nvr-to-nvrc"
 # hash of <tag> => event id. This is the koji event ID corresponding to the current
 # state of <tag> in builds-by-tag
-KEY_TAG_BUILD_CACHE = 'tag-build-cache'
+KEY_TAG_BUILD_CACHE = "tag-build-cache"
 
 
 B = TypeVar("B", bound="KojiBuildModel")
 
 
 def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
-    completion_time = datetime.fromtimestamp(build_info['completion_ts'], tz=timezone.utc)
+    completion_time = datetime.fromtimestamp(build_info["completion_ts"], tz=timezone.utc)
 
-    kwargs = dict(name=build_info['name'],
-                  build_id=str(build_info['build_id']),
-                  nvr=NVR(build_info['nvr']),
-                  source=build_info['source'],
-                  user_name=build_info['owner_name'],
-                  completion_time=completion_time)
+    kwargs = dict(
+        name=build_info["name"],
+        build_id=str(build_info["build_id"]),
+        nvr=NVR(build_info["nvr"]),
+        source=build_info["source"],
+        user_name=build_info["owner_name"],
+        completion_time=completion_time,
+    )
 
     is_flatpak = False
     if build_cls == ImageBuildModel:
-        extra = build_info.get('extra')
+        extra = build_info.get("extra")
         if extra:
-            image_extra = extra.get('image')
-            if image_extra and image_extra.get('flatpak', False):
+            image_extra = extra.get("image")
+            if image_extra and image_extra.get("flatpak", False):
                 is_flatpak = True
     elif build_cls == ModuleBuildModel:
-        kwargs['modulemd'] = build_info['extra']['typeinfo']['module']['modulemd_str']
+        kwargs["modulemd"] = build_info["extra"]["typeinfo"]["module"]["modulemd_str"]
 
     if is_flatpak:
         build = cast(B, FlatpakBuildModel(**kwargs))
@@ -82,67 +89,72 @@ def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
         build = build_cls(**kwargs)
 
     if isinstance(build, ImageBuildModel):
-        logger.info("Calling koji.listArchives(%s); nvr=%s",
-                    build_info['build_id'], build_info['nvr'])
-        archives = session.koji_session.listArchives(build_info['build_id'])
+        logger.info(
+            "Calling koji.listArchives(%s); nvr=%s", build_info["build_id"], build_info["nvr"]
+        )
+        archives = session.koji_session.listArchives(build_info["build_id"])
 
         for archive in archives:
             if isinstance(build, FlatpakBuildModel):
-                if archive['btype'] == 'image' and archive['extra']['image']['arch'] == 'x86_64':
+                if archive["btype"] == "image" and archive["extra"]["image"]["arch"] == "x86_64":
                     # Archives should differ only in architecture,
                     # use the x86 build to get the package list
-                    logger.info("Calling koji.listRPMs(%s)", archive['id'])
-                    components = session.koji_session.listRPMs(imageID=archive['id'])
+                    logger.info("Calling koji.listRPMs(%s)", archive["id"])
+                    components = session.koji_session.listRPMs(imageID=archive["id"])
 
                     package_builds = {}
                     for c in components:
-                        package_build = package_builds.get(c['build_id'])
+                        package_build = package_builds.get(c["build_id"])
                         if package_build is None:
-                            package_build = _query_package_build_by_id(
-                                session, c['build_id']
-                            )
-                            package_builds[c['build_id']] = package_build
+                            package_build = _query_package_build_by_id(session, c["build_id"])
+                            package_builds[c["build_id"]] = package_build
                         build.package_builds.append(
-                            BinaryPackage(nvr=NVR(c['nvr']), source_nvr=package_build.nvr)
+                            BinaryPackage(nvr=NVR(c["nvr"]), source_nvr=package_build.nvr)
                         )
 
             docker_info = None
-            archive_extra = archive.get('extra')
+            archive_extra = archive.get("extra")
             if archive_extra:
-                docker_info = archive_extra.get('docker')
+                docker_info = archive_extra.get("docker")
             if not docker_info:
                 continue
 
-            config = docker_info['config']
-            digests = docker_info['digests']
+            config = docker_info["config"]
+            digests = docker_info["digests"]
 
-            for media_type in ('application/vnd.oci.image.manifest.v1+json',
-                               'application/vnd.docker.distribution.manifest.v2+json'):
+            for media_type in (
+                "application/vnd.oci.image.manifest.v1+json",
+                "application/vnd.docker.distribution.manifest.v2+json",
+            ):
                 digest = digests.get(media_type)
                 if digest:
                     break
             else:
                 raise RuntimeError("Can't find OCI or docker digest in image")
 
-            pull_spec = docker_info['repositories'][0]
+            pull_spec = docker_info["repositories"][0]
 
             # Now make the image
-            build.images.append(ImageModel(digest=digest,
-                                           media_type=media_type,
-                                           os=config['os'],
-                                           architecture=config['architecture'],
-                                           labels=config['config'].get('Labels', {}),
-                                           diff_ids=config['rootfs']['diff_ids'],
-                                           pull_spec=pull_spec))
+            build.images.append(
+                ImageModel(
+                    digest=digest,
+                    media_type=media_type,
+                    os=config["os"],
+                    architecture=config["architecture"],
+                    labels=config["config"].get("Labels", {}),
+                    diff_ids=config["rootfs"]["diff_ids"],
+                    pull_spec=pull_spec,
+                )
+            )
 
         if isinstance(build, FlatpakBuildModel):
-            compose_ids = build_info['extra']['image'].get('odcs', {}).get('compose_ids')
+            compose_ids = build_info["extra"]["image"].get("odcs", {}).get("compose_ids")
             if compose_ids is not None:
                 for nsvc in composes_to_modules(session, compose_ids):
                     n, s, v, c = nsvc.split(":")
                     build.module_builds.append(NVR(f"{n}-{s}-{v}.{c}"))
             else:
-                for m in build_info['extra']['image'].get('modules', []):
+                for m in build_info["extra"]["image"].get("modules", []):
                     module_build = query_module_build(session, m)
                     build.module_builds.append(module_build.nvr)
 
@@ -150,26 +162,27 @@ def _get_build(session: Session, build_info, build_cls: type[B]) -> B:
             build.package_builds.sort(key=lambda pb: pb.nvr)
 
     elif isinstance(build, ModuleBuildModel):
-        logger.info("Calling koji.listArchives(%s); nvr=%s",
-                    build_info['build_id'], build_info['nvr'])
-        archives = session.koji_session.listArchives(build_info['build_id'])
+        logger.info(
+            "Calling koji.listArchives(%s); nvr=%s", build_info["build_id"], build_info["nvr"]
+        )
+        archives = session.koji_session.listArchives(build_info["build_id"])
         # The RPM list for the 'modulemd.txt' archive has all the RPMs, recent
         # versions of MBS also write upload 'modulemd.<arch>.txt' archives with
         # architecture subsets.
-        archives = [a for a in archives if a['filename'] == 'modulemd.txt']
+        archives = [a for a in archives if a["filename"] == "modulemd.txt"]
         assert len(archives) == 1
-        logger.info("Calling koji.listRPMs(%s)", archives[0]['id'])
-        components = session.koji_session.listRPMs(imageID=archives[0]['id'])
+        logger.info("Calling koji.listRPMs(%s)", archives[0]["id"])
+        components = session.koji_session.listRPMs(imageID=archives[0]["id"])
 
         package_builds = {}
         for c in components:
-            package_build = package_builds.get(c['build_id'])
+            package_build = package_builds.get(c["build_id"])
             if package_build is None:
-                package_build = _query_package_build_by_id(session, c['build_id'])
-                package_builds[c['build_id']] = package_build
+                package_build = _query_package_build_by_id(session, c["build_id"])
+                package_builds[c["build_id"]] = package_build
 
-            build.package_builds.append(BinaryPackage(
-                nvr=NVR(c['nvr']), source_nvr=package_build.nvr)
+            build.package_builds.append(
+                BinaryPackage(nvr=NVR(c["nvr"]), source_nvr=package_build.nvr)
             )
 
         build.package_builds.sort(key=lambda pb: pb.nvr)
@@ -185,23 +198,20 @@ def _query_flatpak_builds(
 ):
     result: List[FlatpakBuildModel] = []
 
-    kwargs = {
-        'type': 'image',
-        'state': koji.BUILD_STATES['COMPLETE']
-    }
+    kwargs = {"type": "image", "state": koji.BUILD_STATES["COMPLETE"]}
 
     if flatpak_name is not None:
-        kwargs['packageID'] = get_package_id(session, flatpak_name)
+        kwargs["packageID"] = get_package_id(session, flatpak_name)
     if complete_after is not None:
-        kwargs['completeAfter'] = complete_after.replace(tzinfo=timezone.utc).timestamp()
+        kwargs["completeAfter"] = complete_after.replace(tzinfo=timezone.utc).timestamp()
 
     logger.info("Calling koji.listBuilds(%s)", kwargs)
     builds = session.koji_session.listBuilds(**kwargs)
     for build_info in builds:
-        if include_only is not None and not build_info['name'] in include_only:
+        if include_only is not None and build_info["name"] not in include_only:
             continue
 
-        if not session.redis_client.exists(KEY_PREFIX_BUILD + build_info['nvr']):
+        if not session.redis_client.exists(KEY_PREFIX_BUILD + build_info["nvr"]):
             result.append(_get_build(session, build_info, FlatpakBuildModel))
 
     return result
@@ -227,8 +237,9 @@ def refresh_flatpak_builds(session: Session, flatpaks):
     results: List[FlatpakBuildModel] = []
     if len(to_refresh) > 0:
         assert refresh_ts is not None
-        results += _query_flatpak_builds(session, include_only=to_refresh,
-                                         complete_after=refresh_ts - TIMESTAMP_FUZZ)
+        results += _query_flatpak_builds(
+            session, include_only=to_refresh, complete_after=refresh_ts - TIMESTAMP_FUZZ
+        )
 
     for flatpak_name in to_query:
         results += _query_flatpak_builds(session, flatpak_name=flatpak_name)
@@ -236,26 +247,25 @@ def refresh_flatpak_builds(session: Session, flatpaks):
     with session.redis_client.pipeline() as pipe:
         pipe.multi()
         if results:
-            pipe.zadd(KEY_BUILDS_BY_ENTITY_FLATPAK, {
-                f"{b.nvr.name}:{b.nvr.version}-{b.nvr.release}": 0 for b in results
-            })
+            pipe.zadd(
+                KEY_BUILDS_BY_ENTITY_FLATPAK,
+                {f"{b.nvr.name}:{b.nvr.version}-{b.nvr.release}": 0 for b in results},
+            )
 
         formatted_current_ts = format_date(current_ts)
-        pipe.hset(KEY_BUILD_CACHE_FLATPAK, mapping={
-            n: formatted_current_ts for n in flatpaks
-        })
+        pipe.hset(KEY_BUILD_CACHE_FLATPAK, mapping={n: formatted_current_ts for n in flatpaks})
         pipe.execute()
 
 
 def list_flatpak_builds(session: Session, flatpak: str):
     matches = session.redis_client.zrangebylex(
-        KEY_BUILDS_BY_ENTITY_FLATPAK, '[' + flatpak + ':', '(' + flatpak + ';'
+        KEY_BUILDS_BY_ENTITY_FLATPAK, "[" + flatpak + ":", "(" + flatpak + ";"
     )
 
     def matches_to_keys():
         for m in matches:
             name, vr = m.decode("utf-8").split(":")
-            yield KEY_PREFIX_BUILD + name + '-' + vr
+            yield KEY_PREFIX_BUILD + name + "-" + vr
 
     result_json = session.redis_client.mget(matches_to_keys())
     result: List[FlatpakBuildModel] = []
@@ -269,7 +279,7 @@ def list_flatpak_builds(session: Session, flatpak: str):
             result.append(flatpak_build)
         else:
             name, vr = matches[i].decode("utf-8").split(":")
-            image_build = query_image_build(session, name + '-' + vr)
+            image_build = query_image_build(session, name + "-" + vr)
             assert isinstance(image_build, FlatpakBuildModel)
             result.append(image_build)
 
@@ -313,9 +323,9 @@ def _query_module_build_no_context(session: Session, nvr):
 
     package_id = get_package_id(session, NVR(nvr).name)
     logger.info("Calling koji.listBuilds(%s, type='module')", package_id)
-    builds = session.koji_session.listBuilds(package_id, type='module')
+    builds = session.koji_session.listBuilds(package_id, type="module")
 
-    builds = [b for b in builds if b['nvr'].startswith(nvr)]
+    builds = [b for b in builds if b["nvr"].startswith(nvr)]
     if len(builds) == 0:
         raise RuntimeError(f"Could not look up {nvr} in Koji")
     elif len(builds) > 1:
@@ -325,7 +335,7 @@ def _query_module_build_no_context(session: Session, nvr):
         # better thing would be to avoid this situation and always use the full NSVC to
         # look up a build.
         logger.warning(f"More than one context for {nvr}, using most recent!")
-        builds.sort(key=lambda b: b['creation_ts'], reverse=True)
+        builds.sort(key=lambda b: b["creation_ts"], reverse=True)
 
     module_build = _get_build(session, builds[0], ModuleBuildModel)
     session.redis_client.hset(KEY_MODULE_NVR_TO_NVRC, nvr, module_build.nvr)
@@ -351,7 +361,7 @@ def query_image_build(session: Session, nvr):
 
 
 def query_module_build(session: Session, nvr) -> ModuleBuildModel:
-    if '.' not in NVR(nvr).release:
+    if "." not in NVR(nvr).release:
         return _query_module_build_no_context(session, nvr)
     else:
         return _query_build(session, nvr, ModuleBuildModel)
@@ -367,29 +377,28 @@ def _refresh_tag_builds(session: Session, tag, pipe):
     latest_event_raw = pipe.hget(KEY_TAG_BUILD_CACHE, tag)
     latest_event = int(latest_event_raw) if latest_event_raw is not None else None
 
-    old_keys = set(pipe.zrangebylex(KEY_BUILDS_BY_TAG,
-                                    '[' + tag + ':', '(' + tag + ';'))
+    old_keys = set(pipe.zrangebylex(KEY_BUILDS_BY_TAG, "[" + tag + ":", "(" + tag + ";"))
     new_keys = set(old_keys)
 
     kwargs = {
-        'tables': ['tag_listing'],
-        'tag': tag,
+        "tables": ["tag_listing"],
+        "tag": tag,
     }
     if latest_event is not None:
-        kwargs['afterEvent'] = latest_event
+        kwargs["afterEvent"] = latest_event
 
     logger.info("Calling koji.queryHistory(%s)", kwargs)
-    result = session.koji_session.queryHistory(**kwargs)['tag_listing']
+    result = session.koji_session.queryHistory(**kwargs)["tag_listing"]
     for r in result:
-        create_event = r.get('create_event', None)
-        revoke_event = r.get('revoke_event', None)
+        create_event = r.get("create_event", None)
+        revoke_event = r.get("revoke_event", None)
 
         if latest_event is None or create_event > latest_event:
             latest_event = create_event
         if latest_event is None or (revoke_event and revoke_event > latest_event):
             latest_event = revoke_event
 
-        key = (tag + ":" + r['name'] + ":" + r['version'] + '-' + r['release']).encode("utf-8")
+        key = (tag + ":" + r["name"] + ":" + r["version"] + "-" + r["release"]).encode("utf-8")
         if revoke_event:
             new_keys.discard(key)
         else:
@@ -412,14 +421,12 @@ def refresh_tag_builds(session: Session, tag):
 
 
 def query_tag_builds(session: Session, tag, entity_name):
-    key = tag + ':' + entity_name
-    matches = session.redis_client.zrangebylex(
-        KEY_BUILDS_BY_TAG, '[' + key + ':', '(' + key + ';'
-    )
+    key = tag + ":" + entity_name
+    matches = session.redis_client.zrangebylex(KEY_BUILDS_BY_TAG, "[" + key + ":", "(" + key + ";")
 
     def matches_to_nvr():
         for m in matches:
             _, name, vr = m.decode("utf-8").split(":")
-            yield NVR(name + '-' + vr)
+            yield NVR(name + "-" + vr)
 
     return list(matches_to_nvr())
