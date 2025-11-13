@@ -2,6 +2,7 @@
 /.test-data
 /dist
 /out/*
+/uv.lock
 /tls-secrets/*
 /work/*
 /flatpak_indexer/certs/RH-IT-Root-CA.crt
