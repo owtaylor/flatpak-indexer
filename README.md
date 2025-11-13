@@ -85,22 +85,13 @@ Development setup (general)
 ---------------------------
 
 ``` sh
-# DO ONCE
-
-pipenv --three
-pipenv install --dev
-
-# ENTER YOUR DEVELOPMENT SETUP
-
-pipenv shell
-
 # TEST-DRIVEN WORKFLOW
 
 # To run tests and check style
-./tools/test.sh
+uv run ./tools/test.sh
 
 # To run a specific test
-pytest tests -k test_config_basic
+uv run pytest -k test_config_basic
 
 # TESTING WITH REAL DATA
 
@@ -111,11 +102,14 @@ pytest tests -k test_config_basic
 ./tools/run-redis.sh
 
 # Run a differ in another terminal
-flatpak-indexer -v -c config-[redhat|fedora].yaml differ
+uv run flatpak-indexer -v -c config-[redhat|fedora].yaml differ
 
 # And try indexing in a third terminal
-flatpak-indexer -v -c config-[redhat|fedora].yaml index
+uv run flatpak-indexer -v -c config-[redhat|fedora].yaml index
 ```
+
+If you'd prefer to skip the `uv run` commands, you can run `uv sync` and
+`. .venv/bin/activate`.
 
 Development standards
 ---------------------

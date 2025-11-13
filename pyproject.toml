@@ -1,0 +1,89 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flatpak-indexer"
+version = "0.1"
+description = "Service to index Flatpak containers"
+authors = [
+    {name = "Owen Taylor", email = "otaylor@redhat.com"}
+]
+license = {text = "MIT"}
+requires-python = ">=3.6"
+dependencies = [
+    "click",
+    "koji",
+    "redis>=4.0.0",
+    "pika",
+    "requests",
+    "PyYAML",
+    "version_utils>=0.3.2",
+    # Dev requirements - listed in main dependencies to make the image
+    # self-contained for testing.
+    # 2.22.0 contains an accidental incompatibility with python < 3.11,
+    # fixed in git.
+    "fakeredis!=2.22.0",
+    "flake8",
+    "flake8-import-order",
+    "flake8-pyproject>=0.9.1",
+    "graphql-core",
+    "iso8601",
+    "pytest",
+    "pytest-cov",
+    "pytest-socket",
+    "responses",
+    "www-authenticate",
+]
+
+[project.scripts]
+flatpak-indexer = "flatpak_indexer.cli:cli"
+
+[project.optional-dependencies]
+# Alternative: install only dev dependencies separately
+dev = [
+    "fakeredis!=2.22.0",
+    "flake8",
+    "flake8-import-order",
+    "flake8-pyproject>=0.9.1",
+    "graphql-core",
+    "iso8601",
+    "pytest",
+    "pytest-cov",
+    "pytest-socket",
+    "responses",
+    "www-authenticate",
+]
+
+[tool.setuptools.packages.find]
+include = [
+    "flatpak_indexer*",
+]
+
+[tool.setuptools.package-data]
+flatpak_indexer = [
+    "certs/*.cert",
+    "certs/*.crt",
+    "certs/.dummy",
+    "messaging-certs/*.pem",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+]
+omit = ["flatpak_indexer/test/*"]
+
+[tool.flake8]
+application_import_names = ["flatpak_indexer"]
+import_order_style = "google"
+max_line_length = 100
+
+[tool.pytest]
+addopts = [
+    "--cov=flatpak_indexer",
+    "--cov-report=term-missing",
+    "--disable-socket"
+]
+testpaths = ["tests"]
