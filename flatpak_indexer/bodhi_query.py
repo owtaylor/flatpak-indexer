@@ -207,7 +207,7 @@ def _refresh_updates(session: Session, content_type, entities, pipe, rows_per_pa
     to_query = set(entities)
     to_refresh = set()
 
-    current_ts = datetime.utcnow().replace(tzinfo=timezone.utc)
+    current_ts = datetime.now(tz=timezone.utc)
 
     queried_ts = pipe.hmget("update-cache:" + content_type, *entities)
     parsed_ts = [parse_date(ts.decode("utf-8")) if ts else None for ts in queried_ts]
@@ -269,7 +269,7 @@ def _refresh_all_updates(session: Session, content_type, pipe, rows_per_page=10)
     assert isinstance(session.config, HttpConfig)
     requests_session = session.config.get_requests_session()
 
-    current_ts = datetime.utcnow()
+    current_ts = datetime.now(tz=timezone.utc)
 
     cache_ts = pipe.hget("update-cache:" + content_type, "@ALL@")
     if cache_ts:
@@ -415,7 +415,7 @@ def query_releases(session: Session):
             elif state == "archived":
                 status = ReleaseStatus.EOL
             else:
-                logger.warn("Unknown state for release %s: %s", name, state)
+                logger.warning("Unknown state for release %s: %s", name, state)
                 continue
 
             result.append(Release(name=name, branch=branch, tag=name.lower(), status=status))
