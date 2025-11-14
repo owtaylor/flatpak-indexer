@@ -85,6 +85,9 @@ Development setup (general)
 ---------------------------
 
 ``` sh
+# Set up pre-commit hooks to check and format source code
+uv run pre-commit install
+
 # TEST-DRIVEN WORKFLOW
 
 # To run tests and check style
