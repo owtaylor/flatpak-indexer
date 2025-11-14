@@ -19,7 +19,7 @@ dependencies = [
     "requests",
     "PyYAML",
     "version_utils>=0.3.2",
-    # Dev requirements - listed in main dependencies to make the image
+    # Test requirements - listed in main dependencies to make the image
     # self-contained for testing.
     # 2.22.0 contains an accidental incompatibility with python < 3.11,
     # fixed in git.
@@ -29,7 +29,6 @@ dependencies = [
     "pytest",
     "pytest-cov",
     "pytest-socket",
-    "ruff",
     "responses",
     "www-authenticate",
 ]
@@ -37,17 +36,9 @@ dependencies = [
 [project.scripts]
 flatpak-indexer = "flatpak_indexer.cli:cli"
 
-[project.optional-dependencies]
-# Alternative: install only dev dependencies separately
+[dependency-groups]
 dev = [
-    "fakeredis!=2.22.0",
-    "graphql-core",
-    "iso8601",
-    "pytest",
-    "pytest-cov",
-    "pytest-socket",
-    "responses",
-    "www-authenticate",
+    "ruff",
 ]
 
 [tool.setuptools.packages.find]

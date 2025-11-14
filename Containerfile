@@ -37,7 +37,7 @@ COPY --from=tar-diff-builder /opt/app-root/bin/tar-diff /opt/app-root/bin/
 COPY --from=builder /opt/app-root /opt/app-root
 
 # Run tests
-RUN $APP_ROOT/src/tools/test.sh
+RUN $APP_ROOT/src/tools/test.sh --pytest
 
 # Set the default command for the resulting image
 CMD /usr/libexec/s2i/run

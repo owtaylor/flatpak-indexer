@@ -1,0 +1,50 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  run-tests-in-container:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Build container image with podman
+        run: |
+          podman build \
+              -f Containerfile \
+              -t flatpak-indexer:latest \
+              --build-arg=FLATPAK_INDEXER_UPDATE_TEST_DATA=1 \
+              .
+
+  source-code-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install python3.12-dev gcc libkrb5-dev
+          pip install uv
+          uv sync
+
+      - name: Check source code
+        run: |
+            uv run tools/test.sh --ruff-format --ruff-check
