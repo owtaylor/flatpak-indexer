@@ -47,4 +47,4 @@ jobs:
 
       - name: Check source code
         run: |
-            uv run tools/test.sh --ruff-format --ruff-check
+            uv run tools/test.sh --ruff-format --ruff-check --pyright
