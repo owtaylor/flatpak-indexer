@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import DefaultDict, Dict, List, Optional, Set, Tuple, cast
+from typing import DefaultDict, Dict, List, Optional, Set, Tuple
 import json
 import logging
 import time
@@ -209,8 +209,7 @@ class DeltaGenerator:
                 next_expire = now + self.progress_timeout_seconds
                 with self.redis_client.pipeline() as pipe:
                     pipe.watch("tardiff:progress")
-                    pre = cast(redis.Redis, pipe)
-                    stale = pre.zrangebyscore(
+                    stale = pipe.zrangebyscore(
                         "tardiff:progress", 0, now - self.progress_timeout_seconds
                     )
                     if len(stale) > 0:
@@ -227,7 +226,7 @@ class DeltaGenerator:
                             # progress was modified, immediately try again
                             return True
                     else:
-                        oldest: List[Tuple[bytes, float]] = pre.zrange(
+                        oldest: List[Tuple[bytes, float]] = pipe.zrange(
                             "tardiff:progress", 0, 0, withscores=True
                         )
                         if len(oldest) > 0:

@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Optional, Set, Tuple, cast
+from typing import Optional, Set, Tuple
 import json
 import logging
 import os
@@ -12,9 +12,7 @@ import pika
 import pika.credentials
 import pika.exceptions
 
-import redis
-
-from .redis_utils import RedisConfig, get_redis_client
+from .redis_utils import RedisConfig, TypedPipeline, get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -180,17 +178,14 @@ class FedoraMonitor:
             if self.failure:
                 raise RuntimeError(msg) from self.failure
 
-    def _do_add_to_log(
-        self, new_queue_name, update_id, distgit_path, pipe: "redis.client.Pipeline[bytes]"
-    ):
+    def _do_add_to_log(self, new_queue_name, update_id, distgit_path, pipe: TypedPipeline):
         pipe.watch(KEY_SERIAL)
         if self.watch_bodhi_updates and (new_queue_name or update_id):
             pipe.watch(KEY_UPDATE_CHANGELOG)
         if self.watch_distgit_changes and (new_queue_name or distgit_path):
             pipe.watch(KEY_DISTGIT_CHANGELOG)
 
-        pre = cast("redis.Redis[bytes]", pipe)
-        serial = 1 + int(pre.get("updatequeue:serial") or 0)
+        serial = 1 + int(pipe.get("updatequeue:serial") or 0)
 
         pipe.multi()
         pipe.set(KEY_SERIAL, serial)
