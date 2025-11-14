@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import cast
 import hashlib
 import json
 import logging
@@ -11,6 +12,7 @@ import yaml
 from flatpak_indexer.cleaner import Cleaner
 from flatpak_indexer.delta_generator import DeltaGenerator
 from flatpak_indexer.models import RepositoryModel, TardiffResultModel, TardiffSpecModel
+from flatpak_indexer.redis_utils import TypedRedis
 from flatpak_indexer.test.redis import mock_redis
 from flatpak_indexer.utils import path_for_digest
 import redis
@@ -375,7 +377,7 @@ def test_delta_generator_expire(tmp_path):
         generator.generate()
 
         # Expire the deltas we just generated
-        redis_client = redis.Redis.from_url(config.redis_url)
+        redis_client = cast(TypedRedis, redis.Redis.from_url(config.redis_url))
         all_tardiffs_raw = redis_client.zrangebyscore("tardiff:active", 0, float("inf"))
         all_tardiffs = (k.decode("utf-8") for k in all_tardiffs_raw)
         for result_raw in redis_client.mget(*(f"tardiff:result:{k}" for k in all_tardiffs)):

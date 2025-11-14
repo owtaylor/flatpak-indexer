@@ -5,6 +5,7 @@ import threading
 import time
 
 import pytest
+import redis.client
 
 from flatpak_indexer.redis_utils import RedisConfig, do_pubsub_work, get_redis_client
 from flatpak_indexer.test.redis import mock_redis

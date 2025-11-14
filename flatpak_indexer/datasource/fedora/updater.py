@@ -1,8 +1,6 @@
 from collections import defaultdict
 from typing import DefaultDict, Dict, List, NamedTuple, Optional, Set
 
-import redis
-
 from ...bodhi_query import (
     list_updates,
     refresh_all_updates,
@@ -62,7 +60,6 @@ def _fix_pull_spec(image: ImageModel, registry_url: str, repo_name: str):
 
 
 class FedoraUpdater(Updater):
-    redis_client: "redis.Redis[bytes]"
     change_monitor: Optional[FedoraMonitor]
 
     def __init__(self, config: Config):

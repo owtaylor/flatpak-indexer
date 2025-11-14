@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Union
 import logging
 import re
 
+from flatpak_indexer.redis_utils import TypedPipeline
+
 from .http_utils import HttpConfig
 from .models import BodhiUpdateModel
 from .nvr import NVR
@@ -198,7 +200,9 @@ def _query_updates(
         _run_query(requests_session, content_type, url, params, save_entities, results)
 
 
-def _refresh_updates(session: Session, content_type, entities, pipe, rows_per_page=None):
+def _refresh_updates(
+    session: Session, content_type, entities, pipe: TypedPipeline, *, rows_per_page: int
+):
     pipe.watch("updates-by-entity:" + content_type)
 
     assert isinstance(session.config, HttpConfig)
@@ -263,7 +267,9 @@ def refresh_updates(session: Session, content_type, entities, rows_per_page=10):
     )
 
 
-def _refresh_all_updates(session: Session, content_type, pipe, rows_per_page=10):
+def _refresh_all_updates(
+    session: Session, content_type, pipe: TypedPipeline, *, rows_per_page: int
+):
     pipe.watch("updates-by-entity:" + content_type)
 
     assert isinstance(session.config, HttpConfig)

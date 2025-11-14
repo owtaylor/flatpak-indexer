@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import cast
 import logging
 import os
 import subprocess
@@ -42,12 +41,11 @@ class Differ:
     def _get_task(self):
         with self.redis_client.pipeline() as pipe:
             pipe.watch("tardiff:pending")
-            pre = cast("redis.Redis[bytes]", pipe)
-            task_raw = pre.srandmember("tardiff:pending")
+            task_raw = pipe.srandmember("tardiff:pending")
             if task_raw is None:
                 return None
 
-            task = cast(bytes, task_raw).decode("utf-8")
+            task = task_raw.decode("utf-8")
 
             pipe.multi()
             pipe.srem("tardiff:pending", task)

@@ -1,3 +1,4 @@
+from typing import cast
 import os
 import threading
 import time
@@ -7,6 +8,7 @@ import yaml
 
 from flatpak_indexer.differ import Differ
 from flatpak_indexer.models import TardiffImageModel, TardiffResultModel, TardiffSpecModel
+from flatpak_indexer.redis_utils import TypedRedis
 from flatpak_indexer.test.redis import mock_redis
 import redis
 
@@ -60,7 +62,7 @@ def queue_task(from_ref, from_diff_id, to_ref, to_diff_id, redis_client=None, sk
 
 
 def check_success(key, old_layer, new_layer):
-    redis_client = redis.Redis.from_url("redis://localhost")
+    redis_client = cast(TypedRedis, redis.Redis.from_url("redis://localhost"))
 
     assert redis_client.scard("tardiff:pending") == 0
     assert redis_client.zscore("tardiff:progress", key) is None
@@ -83,7 +85,7 @@ def check_success(key, old_layer, new_layer):
 
 
 def check_failure(key, status, message):
-    redis_client = redis.Redis.from_url("redis://localhost")
+    redis_client = cast(TypedRedis, redis.Redis.from_url("redis://localhost"))
 
     assert redis_client.scard("tardiff:pending") == 0
     assert redis_client.zscore("tardiff:progress", key) is None
