@@ -132,12 +132,12 @@ class MockBodhi:
         # The ghost_update flags emulates the problem in
         # https://github.com/fedora-infra/bodhi/issues/4130 where deduplication happens
         # after paging.
-        if "ghost_updates" in self.flags:
+        if "duplicated_updates" in self.flags or "ghost_updates" in self.flags:
             duplicated_update = matched_updates[rows_per_page - 1]
             matched_updates[rows_per_page - 1 : 0] = [duplicated_update] * 3
 
         # Sort in descending order by date_submitted
-        matched_updates.sort(key=lambda x: parse_date_value(update["date_submitted"]), reverse=True)
+        matched_updates.sort(key=lambda x: parse_date_value(x["date_submitted"]), reverse=True)
 
         pages = (len(matched_updates) + rows_per_page - 1) // rows_per_page
         paged_updates = matched_updates[(page - 1) * rows_per_page : page * rows_per_page]

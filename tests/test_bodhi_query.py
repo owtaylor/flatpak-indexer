@@ -160,6 +160,7 @@ def test_bodhi_query_flatpak_updates(session):
     [
         [],
         ["bad_total"],
+        ["duplicated_updates"],
         ["ghost_updates"],
     ],
 )
