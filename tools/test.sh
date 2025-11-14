@@ -49,6 +49,7 @@ run() {
 run pytest pytest "${pytest_args[@]}"
 run ruff-format ruff format --check flatpak_indexer tests tools
 run ruff-check ruff check flatpak_indexer tests tools
+run pyright pyright flatpak_indexer tests tools
 
 if [[ "$failed" != "" ]] ; then
     if [[ -t 1 ]] ; then

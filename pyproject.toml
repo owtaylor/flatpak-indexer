@@ -39,6 +39,7 @@ flatpak-indexer = "flatpak_indexer.cli:cli"
 [dependency-groups]
 dev = [
     "pre-commit>=2.1.1",
+    "pyright>=0.0.13.post0",
     "ruff",
 ]
 
