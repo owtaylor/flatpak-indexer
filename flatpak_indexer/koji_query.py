@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from functools import partial
-from typing import List, TypeVar, cast
+from typing import List, Sequence, TypeVar, cast
 import logging
 
 import koji
@@ -217,13 +217,13 @@ def _query_flatpak_builds(
     return result
 
 
-def refresh_flatpak_builds(session: Session, flatpaks):
+def refresh_flatpak_builds(session: Session, flatpaks: Sequence[str]):
     to_query = set(flatpaks)
     to_refresh = set()
 
     current_ts = datetime.utcnow().replace(tzinfo=timezone.utc)
 
-    queried_ts = session.redis_client.hmget(KEY_BUILD_CACHE_FLATPAK, *flatpaks)
+    queried_ts = session.redis_client.hmget(KEY_BUILD_CACHE_FLATPAK, flatpaks)
     parsed_ts = [parse_date(ts.decode("utf-8")) if ts else None for ts in queried_ts]
 
     refresh_ts = max((ts for ts in parsed_ts if ts is not None), default=None)

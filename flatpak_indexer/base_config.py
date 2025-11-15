@@ -1,6 +1,6 @@
 from datetime import timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union
 import os
 import re
 
@@ -49,7 +49,7 @@ class Defaults(Enum):
 
 
 class ConfigField:
-    def __init__(self, *, skip, default, extra):
+    def __init__(self, *, skip: bool, default, extra: dict[str, Any]):
         self.skip = skip
         self.default = default
         self.extra = extra
@@ -200,6 +200,9 @@ class Lookup:
         )
 
 
+T = TypeVar("T", bound="BaseConfig")
+
+
 class BaseConfig:
     def _init_from_class(self, cls, lookup: Lookup):
         if not issubclass(cls, BaseConfig):
@@ -210,6 +213,7 @@ class BaseConfig:
             for name, v in annotations.items():
                 resolved, args, optional = resolve_type(v)
                 classval = getattr(self, name, Defaults.REQUIRED)
+                kwargs: Dict[str, Any]
                 if isinstance(classval, ConfigField):
                     if classval.skip:
                         continue
@@ -244,7 +248,7 @@ class BaseConfig:
             self._init_from_class(cls, lookup)
 
     @classmethod
-    def from_path(cls, path: str):
+    def from_path(cls: type[T], path: str) -> T:
         with open(path, "r") as f:
             yml = yaml.safe_load(f)
 
@@ -256,7 +260,7 @@ class BaseConfig:
         return cls(Lookup(yml))
 
     @classmethod
-    def from_str(cls, config_str: str):
+    def from_str(cls: type[T], config_str: str) -> T:
         yml = yaml.safe_load(config_str)
 
         if yml is None:
