@@ -1,7 +1,9 @@
 #!/usr/bin/python
 
+from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Dict, Literal, Optional, TypeVar, Union, overload
+from typing import Any, Dict, Generic, Literal, Optional, TypeVar, Union, overload
 import json
 
 from .nvr import NVR
@@ -24,35 +26,36 @@ def field(index=None, json_name=None) -> Any:
     return Field(index=index, json_name=json_name)
 
 
-class ModelField:
-    def __init__(self, python_name, json_name, *, optional=False):
+T = TypeVar("T")
+
+
+class ModelField(ABC, Generic[T]):
+    def __init__(self, python_name: str, json_name: str, *, optional=False):
         self.python_name = python_name
         self.json_name = json_name
         self.optional = optional
 
-    # This is a workaround to allow to_json/from_json to either be
-    # a method or a type like 'int' without creating type warnings
-    def _unimplemented(self, value):
-        raise NotImplementedError()
+    @abstractmethod
+    def init_value(self, kwargs) -> T: ...
 
-    to_json: Any = _unimplemented
-    from_json: Any = _unimplemented
+    @abstractmethod
+    def json_include(self, instance) -> bool: ...
 
-    def init_value(self, kwargs):
-        raise NotImplementedError()
+    @abstractmethod
+    def json_value(self, instance) -> Any: ...
 
-    def json_include(self, instance):
-        raise NotImplementedError()
-
-    def json_value(self, instance):
-        raise NotImplementedError()
-
-    def python_value(self, data):
-        raise NotImplementedError()
+    @abstractmethod
+    def python_value(self, data) -> T | None: ...
 
 
-class ScalarField(ModelField):
-    def init_value(self, kwargs):
+class ScalarField(ModelField[T]):
+    @abstractmethod
+    def to_json(self, value: T) -> Any: ...
+
+    @abstractmethod
+    def from_json(self, value: Any) -> T: ...
+
+    def init_value(self, kwargs) -> T:
         value = kwargs.get(self.python_name)
         if value is None and not self.optional:
             raise AttributeError(f"{self.json_name} must be specified")
@@ -80,49 +83,46 @@ class ScalarField(ModelField):
             return self.from_json(value)
 
 
-class ClassField(ScalarField):
-    def __init__(self, python_name, json_name, item_type, *, optional=False):
+C = TypeVar("C", bound="BaseModel")
+
+
+class ClassField(ScalarField[C]):
+    def __init__(self, python_name: str, json_name: str, item_type: type[C], *, optional=False):
         super().__init__(python_name, json_name, optional=optional)
         self.item_type = item_type
 
-    def to_json(self, value):
+    def to_json(self, value: C) -> Any:
         return value.to_json()
 
-    def from_json(self, value):
+    def from_json(self, value: Any) -> C:
         return self.item_type.from_json(value)
 
 
-class IntegerField(ScalarField):
-    to_json = int
-    from_json = int
+def _make_field_type(
+    to_json: Callable[[T], Any], from_json: Callable[[Any], T]
+) -> type[ScalarField[T]]:
+    # pyright does not like an inner class using a TypeVar
+    # from the outer class, so we relax typing here and use ScalarField
+    # rather than ScalarField[T]
+    class _NewField(ScalarField):
+        def to_json(self, value: T) -> Any:
+            return to_json(value)
+
+        def from_json(self, value: Any) -> T:
+            return from_json(value)
+
+    return _NewField
 
 
-class FloatField(ScalarField):
-    to_json = float
-    from_json = float
+IntegerField = _make_field_type(int, int)
+FloatField = _make_field_type(float, float)
+StringField = _make_field_type(str, str)
+BooleanField = _make_field_type(bool, bool)
+DateTimeField = _make_field_type(format_date, parse_date)
+NVRField = _make_field_type(str, NVR)
 
 
-class StringField(ScalarField):
-    to_json = str
-    from_json = str
-
-
-class BooleanField(ScalarField):
-    to_json = bool
-    from_json = bool
-
-
-class DateTimeField(ScalarField):
-    to_json = staticmethod(format_date)
-    from_json = staticmethod(parse_date)
-
-
-class NVRField(ScalarField):
-    to_json = str
-    from_json = NVR
-
-
-class CollectionField(ModelField):
+class CollectionField(ModelField[T]):
     def __init__(self, python_name, json_name, item_type, *, optional=False):
         if optional:
             raise TypeError(f"{python_name}: Optional[] cannot be used for collection fields")
@@ -130,22 +130,22 @@ class CollectionField(ModelField):
         super().__init__(python_name, json_name)
         self.item_type = item_type
 
-    @staticmethod
-    def collection_type():
-        raise NotImplementedError()
+    @abstractmethod
+    def make_empty_collection(self) -> T: ...
 
-    def init_value(self, kwargs):
+    def init_value(self, kwargs) -> T:
         try:
             return kwargs[self.python_name]
         except KeyError:
-            return self.collection_type()
+            return self.make_empty_collection()
 
     def json_include(self, instance):
         return bool(getattr(instance, self.python_name))
 
 
-class ListField(CollectionField):
-    collection_type = list
+class ListField(CollectionField[list]):
+    def make_empty_collection(self) -> list:
+        return list()
 
     def json_value(self, instance):
         v = getattr(instance, self.python_name)
@@ -169,12 +169,13 @@ class ListField(CollectionField):
             return [self.item_type.from_json(x) for x in v]
 
 
-class IndexedListField(CollectionField):
-    collection_type = dict
-
+class IndexedListField(CollectionField[dict]):
     def __init__(self, python_name, json_name, item_type, indexed_field, *, optional=False):
         super().__init__(python_name, json_name, item_type, optional=optional)
         self.indexed_field = indexed_field
+
+    def make_empty_collection(self) -> dict:
+        return dict()
 
     def json_include(self, instance):
         return bool(getattr(instance, self.python_name))
@@ -197,8 +198,9 @@ class IndexedListField(CollectionField):
         return {getattr(x, self.indexed_field): x for x in values}
 
 
-class DictField(CollectionField):
-    collection_type = dict
+class DictField(CollectionField[dict]):
+    def make_empty_collection(self) -> dict:
+        return dict()
 
     def json_include(self, instance):
         return bool(getattr(instance, self.python_name))
@@ -338,15 +340,11 @@ class BaseModel(metaclass=BaseModelMeta):
 
     @overload
     @classmethod
-    def from_json(cls: type[M], data: Any) -> M: ...
+    def from_json(cls: type[M], data: Any, check_current: Literal[True]) -> Optional[M]: ...
 
     @overload
     @classmethod
-    def from_json(cls: type[M], data: Any, check_current: Literal[True] = ...) -> Optional[M]: ...
-
-    @overload
-    @classmethod
-    def from_json(cls: type[M], data: Any, check_current: Literal[False] = ...) -> M: ...
+    def from_json(cls: type[M], data: Any, check_current: Literal[False] = False) -> M: ...
 
     @classmethod
     def from_json(cls: type[M], data, check_current: bool = False) -> Optional[M]:
@@ -363,18 +361,14 @@ class BaseModel(metaclass=BaseModelMeta):
 
     @overload
     @classmethod
-    def from_json_text(cls: type[M], text: Union[str, bytes]) -> M: ...
-
-    @overload
-    @classmethod
     def from_json_text(
-        cls: type[M], text: Union[str, bytes], check_current: Literal[True] = ...
+        cls: type[M], text: Union[str, bytes], check_current: Literal[True]
     ) -> Optional[M]: ...
 
     @overload
     @classmethod
     def from_json_text(
-        cls: type[M], text: Union[str, bytes], check_current: Literal[False] = ...
+        cls: type[M], text: Union[str, bytes], check_current: Literal[False] = False
     ) -> M: ...
 
     @classmethod
