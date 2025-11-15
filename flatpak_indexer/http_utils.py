@@ -32,12 +32,12 @@ class _FindCACertAdapter(HTTPAdapter):
 
         return super().cert_verify(conn, url, verify, cert)
 
-    def send(self, request, **kwargs):
+    def send(self, request, *args, **kwargs):
         arg_timeout = kwargs.get("timeout")
         if arg_timeout is None:
             kwargs["timeout"] = self.default_timeout
 
-        return super().send(request, **kwargs)
+        return super().send(request, *args, **kwargs)
 
 
 class HttpConfig(BaseConfig):

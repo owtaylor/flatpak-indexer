@@ -1,6 +1,6 @@
 from copy import deepcopy
 from functools import wraps
-from typing import Dict, List
+from typing import Any, Callable, Dict, List
 from unittest.mock import DEFAULT, Mock, create_autospec, patch
 import gzip
 import json
@@ -37,7 +37,13 @@ def _load_tags():
 
 
 class MockKojiContext:
-    def __init__(self, filter_archives=None, filter_build=None, tag_query_timestamp=None):
+    def __init__(
+        self,
+        filter_archives: Callable[[dict[str, Any], List[dict[str, Any]]], List[dict[str, Any]]]
+        | None = None,
+        filter_build: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        tag_query_timestamp=None,
+    ):
         self.filter_archives = filter_archives
         self.filter_build = filter_build
         self.tag_query_timestamp = tag_query_timestamp
@@ -88,7 +94,7 @@ class MockKojiContext:
     def list_builds(self, packageID=None, type=None, state=None, completeAfter=None):
         result = []
         for b in _load_builds():
-            if self.filter_build is not None:
+            if self.filter_build:
                 b = self.filter_build(b)
                 if b is None:
                     continue

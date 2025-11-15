@@ -55,9 +55,9 @@ class FedoraMonitor:
         self.started = threading.Event()
 
         self.lock = threading.Lock()
-        self.failure = None
+        self.failure: Exception | None = None
         self.stopping = False
-        self.connection = None
+        self.connection: pika.BlockingConnection | None = None
 
         self.reconnect_timeout = self.INITIAL_RECONNECT_TIMEOUT
 

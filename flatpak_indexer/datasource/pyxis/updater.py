@@ -110,12 +110,12 @@ class Registry:
     def _do_pyxis_graphql_query(self, query, variables):
         body = {"query": query, "variables": variables}
 
-        kwargs = {}
+        if self.config.pyxis_client_cert and self.config.pyxis_client_key:
+            cert = (self.config.pyxis_client_cert, self.config.pyxis_client_key)
+        else:
+            cert = None
 
-        if self.config.pyxis_client_cert:
-            kwargs["cert"] = (self.config.pyxis_client_cert, self.config.pyxis_client_key)
-
-        response = self.requests_session.post(self.config.pyxis_url, json=body, **kwargs)
+        response = self.requests_session.post(self.config.pyxis_url, json=body, cert=cert)
         json = response.json()
 
         if "errors" in json:

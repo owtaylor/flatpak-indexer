@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from typing import Literal
 from unittest.mock import create_autospec, patch
 import json
 import threading
@@ -24,8 +25,13 @@ class ChannelCancelledMarker:
     pass
 
 
+type PassiveBehavior = Literal["not_exist"] | Literal["exist"] | None
+
+
 class MockConnection:
-    def __init__(self, messaging: "MockMessaging", passive_behavior: bool, raise_on_close: bool):
+    def __init__(
+        self, messaging: "MockMessaging", passive_behavior: PassiveBehavior, raise_on_close: bool
+    ):
         self.messaging = messaging
         self.passive_behavior = passive_behavior
         self.raise_on_close = raise_on_close
@@ -88,8 +94,8 @@ class MockConnection:
 
 
 class MockMessaging:
-    def __init__(self, passive_behavior="not_exist", raise_on_close=False):
-        self.passive_behavior = passive_behavior
+    def __init__(self, passive_behavior: PassiveBehavior = "not_exist", raise_on_close=False):
+        self.passive_behavior: PassiveBehavior = passive_behavior
         self.raise_on_close = raise_on_close
 
         self.condition: threading.Condition = threading.Condition()

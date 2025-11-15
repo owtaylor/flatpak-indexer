@@ -1,4 +1,5 @@
 from copy import deepcopy
+from typing import Any
 
 from flatpak_indexer.models import FlatpakBuildModel, ImageBuildModel, ImageModel, RegistryModel
 
@@ -116,6 +117,6 @@ def test_image_build_from_json():
 def test_koji_build_model_is_json_current():
     assert FlatpakBuildModel.from_json(FLATPAK_BUILD, check_current=True) is not None
 
-    json = deepcopy(FLATPAK_BUILD)
+    json: dict[str, Any] = deepcopy(FLATPAK_BUILD)
     json["PackageBuilds"] = [pb["Nvr"] for pb in json["PackageBuilds"]]
     assert FlatpakBuildModel.from_json(json, check_current=True) is None

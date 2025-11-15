@@ -24,7 +24,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 from base64 import b64decode
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlencode, urlparse
 import json
 import logging
@@ -141,7 +141,7 @@ class RegistrySession(object):
 
         return None
 
-    def _kwargs(self, orginal_kwargs):
+    def _kwargs(self, orginal_kwargs: dict[str, Any]) -> dict[str, Any]:
         result = dict(orginal_kwargs)
 
         result["auth"] = self.auth

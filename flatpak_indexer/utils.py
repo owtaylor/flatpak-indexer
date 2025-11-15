@@ -156,7 +156,7 @@ def substitute_env_vars(val: str) -> str:
     return _substitute_env_vars(_ENV_VAR_TOKEN_RE.finditer(val))
 
 
-def format_date(dt):
+def format_date(dt: datetime) -> str:
     """Format date into the format that parse_date() understands.
 
     Naive (no-timezone) dates are interpreted as the local timezone
@@ -165,7 +165,7 @@ def format_date(dt):
     return utc_dt.strftime("%Y-%m-%dT%H:%M:%S.%f+00:00")
 
 
-def parse_date(date_str):
+def parse_date(date_str: str) -> datetime:
     """Parse date from a fixed format.
 
     This format is the format that Pyxis writes, but we also use it for
