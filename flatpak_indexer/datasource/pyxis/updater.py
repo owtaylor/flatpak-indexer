@@ -132,9 +132,11 @@ class Registry:
             paginated_variables.update(variables)
 
             response_json = self._do_pyxis_graphql_query(query, paginated_variables)
-            for query_name, query_result in response_json["data"].items():
-                for item in query_result["data"]:
-                    yield item
+            assert len(response_json["data"]) == 1, "Cannot paginate multiple queries at once"
+            query_result = next(iter(response_json["data"].values()))
+
+            for item in query_result["data"]:
+                yield item
 
             if query_result["total"] <= page_size * page + len(query_result["data"]):
                 break
