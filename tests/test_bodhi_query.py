@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from textwrap import dedent
 import copy
 import logging
@@ -91,7 +91,9 @@ def test_bodhi_query_update_changed(bodhi_mock, session):
             update_copy["builds"] = [
                 b for b in update_copy["builds"] if not b["nvr"].startswith("sushi-")
             ]
-            update_copy["date_modified"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            update_copy["date_modified"] = datetime.now(tz=timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
 
             return update_copy
         else:

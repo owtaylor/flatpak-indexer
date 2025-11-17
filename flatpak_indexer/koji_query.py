@@ -221,7 +221,7 @@ def refresh_flatpak_builds(session: Session, flatpaks: Sequence[str]):
     to_query = set(flatpaks)
     to_refresh = set()
 
-    current_ts = datetime.utcnow().replace(tzinfo=timezone.utc)
+    current_ts = datetime.now(tz=timezone.utc)
 
     queried_ts = session.redis_client.hmget(KEY_BUILD_CACHE_FLATPAK, flatpaks)
     parsed_ts = [parse_date(ts.decode("utf-8")) if ts else None for ts in queried_ts]
