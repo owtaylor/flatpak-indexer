@@ -656,17 +656,15 @@ def mock_odcs(f):
 class ImpatientPopen(subprocess.Popen):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._fail_once = True
 
-        self._orig_wait = self.wait
-        self.wait = MagicMock(wraps=self.wait)
-        self.wait.side_effect = self.fail_first_wait
+    def wait(self, timeout=None):
+        if self._fail_once and timeout is not None:
+            self._fail_once = False
+            raise subprocess.TimeoutExpired(self.args, timeout)
 
-    def fail_first_wait(self, timeout=None):
-        if timeout is not None:
-            self.wait.side_effect = None
-            raise subprocess.TimeoutExpired(str(self.args), timeout)
-        else:
-            self._orig_wait()
+        # normal behavior
+        return super().wait(timeout)
 
 
 @contextmanager
