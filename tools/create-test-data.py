@@ -43,7 +43,7 @@ class Downloader:
         self.base = base
         self.base_update_info = {}
         self.update_info = {}
-        self.build_id_to_nvr = {}
+        self.build_id_to_nvr: dict[str, str] = {}
         self.module_nvr_short_to_nvr = {}
         self.image_packages = set()
 
@@ -99,11 +99,11 @@ class Downloader:
         os.mkdir(os.path.join(self.output, "builds"))
         os.mkdir(os.path.join(self.output, "git"))
 
-    def download_build(self, *, nvr=None, build_id=None, indent=0):
-        if nvr is None and build_id is None:
-            raise RuntimeError("nvr or build_id must be specified")
-
+    def download_build(self, *, nvr: str | None = None, build_id=None, indent=0) -> str:
         if nvr is None:
+            if build_id is None:
+                raise RuntimeError("nvr or build_id must be specified")
+
             nvr = self.build_id_to_nvr.get(build_id)
 
         build = None
@@ -124,6 +124,10 @@ class Downloader:
 
             nvr = build["nvr"]
             show(f"{nvr}: downloaded", indent)
+        else:
+            nvr = build["nvr"]
+
+        assert isinstance(nvr, str)
 
         output_file = os.path.join(self.output, f"builds/{nvr}.json.gz")
         self.build_id_to_nvr[build["build_id"]] = build["nvr"]
@@ -161,9 +165,9 @@ class Downloader:
                 for c in archive["components"]:
                     if c["build_id"] not in seen:
                         seen.add(c["build_id"])
-                        nvr = self.download_build(build_id=c["build_id"], indent=indent)
+                        referenced_nvr = self.download_build(build_id=c["build_id"], indent=indent)
                         if btype == "image":
-                            self.image_packages.add(nvr.rsplit("-", 2)[0])
+                            self.image_packages.add(referenced_nvr.rsplit("-", 2)[0])
 
         if btype == "image":
             for m in build["extra"]["image"]["modules"]:
