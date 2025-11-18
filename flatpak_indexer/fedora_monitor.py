@@ -90,11 +90,12 @@ class FedoraMonitor:
             connection = self.connection
 
         if connection:
+            stop_connection = connection
 
             def do_stop():
-                connection.close()
+                stop_connection.close()
 
-            connection.add_callback_threadsafe(do_stop)
+            stop_connection.add_callback_threadsafe(do_stop)
 
         self.thread.join()
 

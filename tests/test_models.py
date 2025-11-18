@@ -90,7 +90,7 @@ def test_image_nvr():
 
     assert image.nvr == "baobob-master-3220200331145937.2"
 
-    image.labels = {}
+    image.labels.clear()
     assert image.nvr is None
 
 
