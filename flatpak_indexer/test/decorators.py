@@ -28,6 +28,7 @@ class WithArgDecorator:
                 if need_arg:
                     kwargs[self.arg_name] = arg_object
 
+                assert f is not None  # pyrefly needs this
                 return f(*args, **kwargs)
 
         update_wrapper(wrapper, f)

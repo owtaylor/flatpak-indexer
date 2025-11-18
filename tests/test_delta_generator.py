@@ -315,6 +315,7 @@ def test_delta_generator(tmp_path, iterations, task_destiny, layer_counts):
             cleaner.clean()
             cleaner.reset()
 
+    assert isinstance(IMAGE3["Digest"], str)
     url = generator.get_delta_manifest_url(IMAGE3["Digest"])
     assert url is not None
     assert url.startswith("https://flatpaks.fedoraproject.org/deltas/")

@@ -238,7 +238,7 @@ class DeltaGenerator:
                             )
 
                 while True:
-                    timeout = max(0, next_expire - now)
+                    timeout = max(0.0, next_expire - now)
                     logger.debug("Waiting for a message for %f seconds", timeout)
 
                     message = pubsub.get_message(timeout=timeout)
