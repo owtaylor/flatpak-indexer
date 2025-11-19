@@ -1,4 +1,8 @@
-FROM registry.access.redhat.com/ubi9/go-toolset as tar-diff-builder
+ARG GO_TOOLSET_IMAGE=registry.access.redhat.com/ubi9/go-toolset:latest
+ARG PYTHON_IMAGE=registry.access.redhat.com/ubi9/python-312:latest
+ARG PYTHON_MINIMAL_IMAGE=registry.access.redhat.com/ubi9/python-312-minimal:latest
+
+FROM ${GO_TOOLSET_IMAGE} as tar-diff-builder
 
 USER root
 ADD tar-diff /tmp/src
@@ -9,7 +13,7 @@ USER 1001
 # We need to pass -buildvcs=false because we only copy part of the git checkout
 RUN cd /tmp/src && go build -buildvcs=false -o /opt/app-root/bin/tar-diff ./cmd/tar-diff
 
-FROM registry.access.redhat.com/ubi9/python-312 as builder
+FROM ${PYTHON_IMAGE} as builder
 
 ARG FLATPAK_INDEXER_UPDATE_TEST_DATA=false
 ENV FLATPAK_INDEXER_UPDATE_TEST_DATA=${FLATPAK_INDEXER_UPDATE_TEST_DATA}
@@ -24,7 +28,7 @@ USER 1001
 # Install the application's dependencies from PyPI
 RUN /bin/sh /tmp/src/.s2i/bin/assemble
 
-FROM registry.access.redhat.com/ubi9/python-312-minimal
+FROM ${PYTHON_MINIMAL_IMAGE}
 
 USER 0
 RUN microdnf -y install time && microdnf clean all
