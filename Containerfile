@@ -15,7 +15,7 @@ RUN cd /tmp/src && go build -buildvcs=false -o /opt/app-root/bin/tar-diff ./cmd/
 
 FROM ${PYTHON_IMAGE} as builder
 
-ARG FLATPAK_INDEXER_UPDATE_TEST_DATA=false
+ARG FLATPAK_INDEXER_UPDATE_TEST_DATA=
 ENV FLATPAK_INDEXER_UPDATE_TEST_DATA=${FLATPAK_INDEXER_UPDATE_TEST_DATA}
 
 USER 0

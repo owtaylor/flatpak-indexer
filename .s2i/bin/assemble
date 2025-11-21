@@ -9,5 +9,8 @@ fi
 
 if [ "${FLATPAK_INDEXER_UPDATE_TEST_DATA:+set}" = set ] ; then
    cd /opt/app-root/src
+   # When building in openshift, the repo files are writable, but
+   # owned by a different user; tell git this is OK.
+   git config --global --add safe.directory /opt/app-root/src
    exec ./tools/update-test-data.sh --from-cache
 fi
