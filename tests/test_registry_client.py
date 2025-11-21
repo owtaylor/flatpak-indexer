@@ -355,3 +355,132 @@ def test_download_layer_bad_diff_ids(registry_mock, tmp_path):
         registry_client.download_layer(
             "repo2", manifest_digest, layer.diff_id, str(tmp_path / "layer")
         )
+
+
+@mock_registry
+def test_fetch_manifests_by_architecture_single(registry_mock):
+    """
+    Test fetch_manifests_by_architecture with a single architecture manifest
+    """
+    config_data = {
+        "architecture": "amd64",
+        "os": "linux",
+        "created": "2024-01-15T10:00:00Z",
+        "config": {"Labels": {"test": "label"}},
+        "rootfs": {"diff_ids": ["sha256:layer1"]},
+    }
+
+    config_digest, _ = registry_mock.add_blob("test/repo", json.dumps(config_data))
+
+    manifest_data = {
+        "schemaVersion": 2,
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "config": {
+            "mediaType": "application/vnd.oci.image.config.v1+json",
+            "digest": config_digest,
+            "size": len(json.dumps(config_data)),
+        },
+        "layers": [],
+    }
+
+    registry_mock.add_manifest("test/repo", "latest", json.dumps(manifest_data))
+
+    registry_client = RegistryClient("https://registry.example.com")
+    results = registry_client.fetch_manifests_by_architecture("test/repo", "latest")
+
+    assert len(results) == 1
+    assert "amd64" in results
+    digest, manifest, config = results["amd64"]
+    assert manifest["schemaVersion"] == 2
+    assert config["architecture"] == "amd64"
+
+
+@mock_registry
+def test_fetch_manifests_by_architecture_multiarch(registry_mock):
+    """
+    Test fetch_manifests_by_architecture with a manifest list (multi-arch)
+    """
+    # Create amd64 config and manifest
+    amd64_config = {
+        "architecture": "amd64",
+        "os": "linux",
+        "created": "2024-01-15T10:00:00Z",
+        "config": {"Labels": {"test": "amd64"}},
+        "rootfs": {"diff_ids": ["sha256:layer1"]},
+    }
+    amd64_config_digest, _ = registry_mock.add_blob("test/multiarch", json.dumps(amd64_config))
+
+    amd64_manifest = {
+        "schemaVersion": 2,
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "config": {
+            "mediaType": "application/vnd.oci.image.config.v1+json",
+            "digest": amd64_config_digest,
+            "size": len(json.dumps(amd64_config)),
+        },
+        "layers": [],
+    }
+    amd64_manifest_digest = registry_mock.add_manifest(
+        "test/multiarch", None, json.dumps(amd64_manifest)
+    )
+
+    # Create arm64 config and manifest
+    arm64_config = {
+        "architecture": "arm64",
+        "os": "linux",
+        "created": "2024-01-15T10:00:00Z",
+        "config": {"Labels": {"test": "arm64"}},
+        "rootfs": {"diff_ids": ["sha256:layer2"]},
+    }
+    arm64_config_digest, _ = registry_mock.add_blob("test/multiarch", json.dumps(arm64_config))
+
+    arm64_manifest = {
+        "schemaVersion": 2,
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "config": {
+            "mediaType": "application/vnd.oci.image.config.v1+json",
+            "digest": arm64_config_digest,
+            "size": len(json.dumps(arm64_config)),
+        },
+        "layers": [],
+    }
+    arm64_manifest_digest = registry_mock.add_manifest(
+        "test/multiarch", None, json.dumps(arm64_manifest)
+    )
+
+    # Create manifest list
+    manifest_list = {
+        "schemaVersion": 2,
+        "mediaType": "application/vnd.oci.image.index.v1+json",
+        "manifests": [
+            {
+                "mediaType": "application/vnd.oci.image.manifest.v1+json",
+                "digest": amd64_manifest_digest,
+                "size": len(json.dumps(amd64_manifest)),
+                "platform": {"architecture": "amd64", "os": "linux"},
+            },
+            {
+                "mediaType": "application/vnd.oci.image.manifest.v1+json",
+                "digest": arm64_manifest_digest,
+                "size": len(json.dumps(arm64_manifest)),
+                "platform": {"architecture": "arm64", "os": "linux"},
+            },
+        ],
+    }
+
+    registry_mock.add_manifest("test/multiarch", "latest", json.dumps(manifest_list))
+
+    registry_client = RegistryClient("https://registry.example.com")
+    results = registry_client.fetch_manifests_by_architecture("test/multiarch", "latest")
+
+    assert len(results) == 2
+    assert "amd64" in results
+    assert "arm64" in results
+
+    amd64_digest, amd64_manifest_result, amd64_config_result = results["amd64"]
+    assert amd64_digest == amd64_manifest_digest
+    assert amd64_config_result["architecture"] == "amd64"
+
+    arm64_digest, arm64_manifest_result, arm64_config_result = results["arm64"]
+    assert arm64_digest == arm64_manifest_digest
+    assert arm64_config_result["architecture"] == "arm64"

@@ -163,7 +163,8 @@ def test_datasource_invalid(tmp_path):
     config_data = deepcopy(BASIC_CONFIG)
     config_data["registries"]["production"]["datasource"] = "INVALID"
     with raises(
-        ConfigError, match=("registry/production: datasource must be 'pyxis', 'koji', or 'fedora'")
+        ConfigError,
+        match=("registry/production: datasource must be 'pyxis', 'koji', 'fedora', or 'direct'"),
     ):
         get_config(tmp_path, config_data)
 

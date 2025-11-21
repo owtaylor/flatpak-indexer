@@ -43,4 +43,9 @@ def load_updaters(config) -> List[Updater]:
 
         updaters.append(PyxisUpdater(config))
 
+    if "direct" in datasources:
+        from .direct import DirectUpdater
+
+        updaters.append(DirectUpdater(config))
+
     return updaters

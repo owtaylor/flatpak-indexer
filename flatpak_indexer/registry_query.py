@@ -1,3 +1,4 @@
+from typing import Any
 import logging
 
 from .models import ImageModel
@@ -41,7 +42,31 @@ def query_registry_image(
     logger.info("Fetching manifest and config for %s", log_as)
     manifest = registry_client.get_manifest(repository_name, digest)
     config = registry_client.get_config(repository_name, manifest)
-    image = ImageModel(
+    image = make_registry_image(manifest, config, digest)
+
+    session.redis_client.set(KEY_PREFIX_REGISTRY_IMAGE + digest, image.to_json_text())
+
+    return image
+
+
+def make_registry_image(
+    manifest: dict[str, Any],
+    config: dict[str, Any],
+    digest: str,
+) -> ImageModel:
+    """
+    Create an image from manifest and config
+
+    Args:
+       manifest: the decoded JSON manifest for the image
+       config: the decoded JSON config for the image
+       digest: the image digest (hash of the JSON manifest)
+    Returns:
+       ImageModel: the retrieved image. Note that the tags and pull_spec fields
+          are unset since they can depend on our config and shouldn't be cached.
+    """
+
+    return ImageModel(
         digest=digest,
         media_type=manifest["mediaType"],
         os=config["os"],
@@ -51,7 +76,3 @@ def query_registry_image(
         tags=[],
         diff_ids=config["rootfs"]["diff_ids"],
     )
-
-    session.redis_client.set(KEY_PREFIX_REGISTRY_IMAGE + digest, image.to_json_text())
-
-    return image

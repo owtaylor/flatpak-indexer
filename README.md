@@ -5,8 +5,9 @@ This is a service that reads container data from and writes out an
 index in the format that the Flatpak client expects, so that Flatpaks
 can be installed from the command line and browsed through GNOME
 Software. Depending on the configuration, the backend data source can
-either be Fedora's Bodhi update service and Koji build service, or
-it can be the Red Hat Container API, Pyxis.
+be Fedora's Bodhi update service and Koji build service, the Red Hat
+Container API (Pyxis), or a direct registry query without external
+metadata sources.
 
 Its deployed with the following components
 
