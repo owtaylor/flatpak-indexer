@@ -44,6 +44,10 @@ RUN microdnf -y install time && microdnf clean all
 # Add custom CA certificates
 COPY --from=builder /etc/pki/ca-trust/ /etc/pki/ca-trust/
 ENV REQUESTS_CA_BUNDLE=/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt
+
+# Index output location; referenced from app.sh and application supplied configs
+ENV OUTPUT_DIR=/var/www/flatpaks
+RUN mkdir -p ${OUTPUT_DIR} && chown 1001:0 ${OUTPUT_DIR}
 USER 1001
 
 # Copy the tar-diff binary from the tar-diff-builder image
