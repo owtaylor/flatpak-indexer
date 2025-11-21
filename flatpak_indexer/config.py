@@ -74,6 +74,25 @@ class KojiRegistryConfig(RegistryConfig):
     pass
 
 
+class DirectRegistryConfig(RegistryConfig):
+    repositories: List[str] = []
+
+    def __init__(self, name: str, lookup: Lookup):
+        super().__init__(name, lookup)
+
+        if not self.repositories:
+            raise ConfigError(
+                f"registries/{name}: repositories list must contain at least one repository"
+            )
+
+        for repo in self.repositories:
+            if ":" in repo:
+                raise ConfigError(
+                    f"registries/{name}: repository '{repo}' must not contain ':' character. "
+                    "Use the 'tag' field in IndexConfig to specify the tag."
+                )
+
+
 class IndexConfig(BaseConfig):
     name: str
     output: str
@@ -184,9 +203,13 @@ class Config(KojiConfig, OdcsConfig, RedisConfig):
                 registry_config = KojiRegistryConfig(name, sublookup)
             elif datasource == "fedora":
                 registry_config = FedoraRegistryConfig(name, sublookup)
+            elif datasource == "direct":
+                registry_config = DirectRegistryConfig(name, sublookup)
             else:
                 raise ConfigError(
-                    "registry/{}: datasource must be 'pyxis', 'koji', or 'fedora'".format(name)
+                    "registry/{}: datasource must be 'pyxis', 'koji', 'fedora', or 'direct'".format(
+                        name
+                    )
                 )
 
             self.registries[name] = registry_config

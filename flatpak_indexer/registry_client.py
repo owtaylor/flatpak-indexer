@@ -40,7 +40,9 @@ logger = logging.getLogger(__name__)
 
 
 MEDIA_TYPE_MANIFEST_V2 = "application/vnd.docker.distribution.manifest.v2+json"
-MEDIA_TYPE_OCI = "application/vnd.oci.image.manifest.v1+json"
+MEDIA_TYPE_MANIFEST_LIST_V2 = "application/vnd.docker.distribution.manifest.list.v2+json"
+MEDIA_TYPE_OCI_IMAGE_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
+MEDIA_TYPE_OCI_IMAGE_INDEX = "application/vnd.oci.image.index.v1+json"
 
 # Layer download: chunk size
 CHUNK_SIZE = 64 * 1024
@@ -340,7 +342,7 @@ class RegistryClient(object):
             "Accept": ", ".join(
                 (
                     MEDIA_TYPE_MANIFEST_V2,
-                    MEDIA_TYPE_OCI,
+                    MEDIA_TYPE_OCI_IMAGE_MANIFEST,
                 )
             )
         }
@@ -349,6 +351,61 @@ class RegistryClient(object):
         response = self.session.get(url, headers=headers, repository=repository)
         response.raise_for_status()
         return response.json()
+
+    def fetch_manifests_by_architecture(self, repository, ref):
+        """
+        Args:
+            repository (str): The repository to download from.
+            ref (str): A digest, or a tag.
+        Returns:
+            dict[str, tuple[str, Any, Any]]: tuple of digest, and decoded JSON content
+                of manifest and config, keyed by architecture
+        """
+        logger.debug(
+            "%s: Retrieving manifests for %s:%s",
+            self.session.registry_hostport,
+            repository,
+            ref,
+        )
+
+        headers = {
+            "Accept": ", ".join(
+                (
+                    MEDIA_TYPE_MANIFEST_LIST_V2,
+                    MEDIA_TYPE_OCI_IMAGE_INDEX,
+                    MEDIA_TYPE_MANIFEST_V2,
+                    MEDIA_TYPE_OCI_IMAGE_MANIFEST,
+                )
+            )
+        }
+
+        url = "/v2/{}/manifests/{}".format(repository, ref)
+        logger.debug("Fetching manifests from URL: %s headers=%s", url, headers)
+        response = self.session.get(url, headers=headers, repository=repository)
+        response.raise_for_status()
+
+        results: dict[str, tuple[str, Any, Any]] = {}
+
+        if MEDIA_TYPE_MANIFEST_LIST_V2 in response.headers.get(
+            "Content-Type", ""
+        ) or MEDIA_TYPE_OCI_IMAGE_INDEX in response.headers.get("Content-Type", ""):
+            logger.debug("Processing image index")
+            for descriptor in response.json().get("manifests", []):
+                arch = descriptor.get("platform", {}).get("architecture")
+                if arch:
+                    manifest = self.get_manifest(repository, descriptor["digest"])
+                    config = self.get_config(repository, manifest)
+                    results[arch] = (descriptor["digest"], manifest, config)
+        else:
+            logger.debug("Processing single manifest")
+            manifest = response.json()
+            config = self.get_config(repository, manifest)
+            arch = config.get("architecture")
+            if arch:
+                digest = response.headers["Docker-Content-Digest"]
+                results[arch] = (digest, manifest, config)
+
+        return results
 
     def get_config(self, repository, manifest):
         """

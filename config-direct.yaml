@@ -1,0 +1,36 @@
+# name of a Koji config section
+koji_config: brew
+# URL to a local Redis index for caching and queuing
+redis_url: ${REDIS_URL:redis://localhost:6379}
+redis_password: abc123
+# Optional password to connect to Redis
+# redis_password: BRICK_SPINE_HORSE
+deltas_dir: ${OUTPUT_DIR:out}/deltas/
+deltas_uri: https://flatpaks.local.fishsoup.net:8443/deltas/
+# When extract_icons is set for an index, icons are saved to icons_dir and labels are
+# rewritten in the index from a data: URL to an URL formed from icons_uri
+icons_dir: ${OUTPUT_DIR:out}/icons/
+icons_uri: https://flatpaks.local.fishsoup.net:8443/app-icons/
+# How long to wait after icons and deltas are no longer used before deleting them
+clean_files_after: 1d
+daemon:
+        # How often to query Bodhi
+        update_interval: 3m
+registries:
+        staging:
+                # Written into the index
+                public_url: https://flatpaks.registry.stage.redhat.io/
+                datasource: direct
+                repositories: ["rhel10/firefox-flatpak", "rhel10/flatpak-runtime"]
+                force_flatpak_token: true
+indexes:
+        rhel10@-ARCH@:
+                output: ${OUTPUT_DIR:out}/staging-auth/flatpak-rhel-10@-ARCH@.json
+                registry: staging
+                # architecture_expand allows you to define multiple indexes
+                # with a single config entry. "" means all architectures.
+                # @ARCH@ and "@-ARCH" expand in the name and output.
+                # @-ARCH is "-<arch>" but "" rather than "-"
+                architecture_expand: ["", "amd64", "arm64", "ppc64le", "s390x"]
+                tag: latest
+                extract_icons: False
