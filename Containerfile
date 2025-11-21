@@ -55,5 +55,8 @@ COPY --from=builder /opt/app-root /opt/app-root
 # Run tests
 RUN $APP_ROOT/src/tools/test.sh --pytest
 
+# Index output location; referenced from app.sh and application supplied configs
+ENV OUTPUT_DIR=/var/www/flatpaks
+
 # Set the default command for the resulting image
 CMD /usr/libexec/s2i/run
