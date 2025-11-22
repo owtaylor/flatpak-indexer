@@ -331,3 +331,50 @@ def test_query_releases_corner_cases(session, bodhi_mock, caplog):
     assert not any(r.name == "F92" for r in releases)
 
     assert "Unknown state for release F99: weird" in caplog.text
+
+
+@mock_koji
+@mock_redis
+@mock_bodhi
+@pytest.mark.parametrize(
+    "content_type,update_id,entity",
+    [
+        ("flatpak", "FEDORA-FLATPAK-2022-274a792493", "eog"),
+        ("rpm", "FEDORA-2021-511edcde29", "gnome-weather"),
+    ],
+)
+def test_bodhi_refresh_update_status_null_content_type(
+    session, bodhi_mock, content_type, update_id, entity
+):
+    """Test handling of updates with content_type: null (no builds)"""
+
+    # First, add the update normally with builds
+    refresh_updates(session, content_type, entities=[entity])
+
+    # Verify the update exists with builds
+    update_raw = session.redis_client.get("update:" + update_id)
+    update = BodhiUpdateModel.from_json_text(update_raw)
+    assert len(update.builds) > 0
+
+    # Now simulate the update being unpushed - no builds, content_type: null
+    def modify_update(update):
+        if update["updateid"] == update_id:
+            update_copy = copy.deepcopy(update)
+            update_copy["builds"] = []
+            update_copy["content_type"] = None
+            update_copy["date_modified"] = datetime.now(tz=timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            return update_copy
+        else:
+            return update
+
+    bodhi_mock.modify = modify_update
+
+    # This should not crash with TypeError
+    refresh_update_status(session, update_id)
+
+    # Verify the update was updated and builds removed
+    update_raw = session.redis_client.get("update:" + update_id)
+    update = BodhiUpdateModel.from_json_text(update_raw)
+    assert len(update.builds) == 0
