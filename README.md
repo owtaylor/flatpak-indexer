@@ -32,7 +32,7 @@ Configuration
 -------------
 
 The indexer service is configured via a YAML file (typically provided as a kubernetes
-config map). You can find examples in [config-fedora.yaml](config-local.yaml) and
+config map). You can find examples in [config-fedora.yaml](config-fedora.yaml) and
 [config-redhat.yaml](config-redhat.yaml).
 
 Content index
