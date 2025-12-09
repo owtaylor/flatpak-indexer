@@ -23,13 +23,13 @@ from flatpak_indexer.test.koji import make_koji_session, mock_koji
 from flatpak_indexer.test.redis import make_redis_client, mock_redis
 
 
-class TestConfig(KojiConfig, RedisConfig):
+class ConfigTest(KojiConfig, RedisConfig):
     pass
 
 
 @fixture
 def session():
-    config = TestConfig.from_str(
+    config = ConfigTest.from_str(
         dedent("""
         koji_config: fedora
         redis_url: redis://localhost
