@@ -5,7 +5,7 @@
             "name": "flatpak-indexer: index (fedora)",
             "type": "debugpy",
             "request": "launch",
-            "module": "flatpak_indexer.cli",
+            "program": "${workspaceFolder}/.venv/bin/flatpak-indexer",
             "args": [
                 "-c",
                 "config-fedora.yaml",
@@ -13,13 +13,13 @@
                 "index"
             ],
             "console": "integratedTerminal",
-            "justMyCode": false,
+            "justMyCode": false
         },
         {
             "name": "flatpak-indexer: differ (fedora)",
             "type": "debugpy",
             "request": "launch",
-            "module": "flatpak_indexer.cli",
+            "program": "${workspaceFolder}/.venv/bin/flatpak-indexer",
             "args": [
                 "-c",
                 "config-fedora.yaml",
@@ -27,13 +27,13 @@
                 "differ"
             ],
             "console": "integratedTerminal",
-            "justMyCode": false,
+            "justMyCode": false
         },
         {
             "name": "flatpak-indexer: daemon (fedora)",
             "type": "debugpy",
             "request": "launch",
-            "module": "flatpak_indexer.cli",
+            "program": "${workspaceFolder}/.venv/bin/flatpak-indexer",
             "args": [
                 "-c",
                 "config-fedora.yaml",
@@ -41,8 +41,7 @@
                 "daemon"
             ],
             "console": "integratedTerminal",
-            "justMyCode": false,
+            "justMyCode": false
         }
     ]
 }
-
