@@ -107,7 +107,3 @@ def index(ctx):
         finally:
             updater.stop()
     indexer.index(registry_data)
-
-
-if __name__ == "__main__":
-    cli()
