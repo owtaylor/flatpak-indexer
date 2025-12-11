@@ -28,6 +28,20 @@
             ],
             "console": "integratedTerminal",
             "justMyCode": false,
+        },
+        {
+            "name": "flatpak-indexer: daemon (fedora)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flatpak_indexer.cli",
+            "args": [
+                "-c",
+                "config-fedora.yaml",
+                "-v",
+                "daemon"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
         }
     ]
 }
