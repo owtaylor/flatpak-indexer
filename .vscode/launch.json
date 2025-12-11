@@ -2,46 +2,37 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "flatpak-indexer: index (fedora)",
+            "name": "flatpak-indexer",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/.venv/bin/flatpak-indexer",
             "args": [
                 "-c",
-                "config-fedora.yaml",
+                "${input:configFile}",
                 "-v",
-                "index"
+                "${input:subcommand}"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
-        },
+        }
+    ],
+    "inputs": [
         {
-            "name": "flatpak-indexer: differ (fedora)",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/.venv/bin/flatpak-indexer",
-            "args": [
-                "-c",
-                "config-fedora.yaml",
-                "-v",
-                "differ"
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-        },
-        {
-            "name": "flatpak-indexer: daemon (fedora)",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/.venv/bin/flatpak-indexer",
-            "args": [
-                "-c",
-                "config-fedora.yaml",
-                "-v",
+            "id": "subcommand",
+            "type": "pickString",
+            "description": "Select the subcommand to run",
+            "options": [
+                "index",
+                "differ",
                 "daemon"
             ],
-            "console": "integratedTerminal",
-            "justMyCode": false
+            "default": "index"
+        },
+        {
+            "id": "configFile",
+            "type": "promptString",
+            "description": "Path to config file",
+            "default": "config-fedora.yaml"
         }
     ]
 }
