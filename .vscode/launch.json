@@ -1,0 +1,34 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "flatpak-indexer: index (fedora)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flatpak_indexer.cli",
+            "args": [
+                "-c",
+                "config-fedora.yaml",
+                "-v",
+                "index"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+        },
+        {
+            "name": "flatpak-indexer: differ (fedora)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flatpak_indexer.cli",
+            "args": [
+                "-c",
+                "config-fedora.yaml",
+                "-v",
+                "differ"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+        }
+    ]
+}
+
