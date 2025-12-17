@@ -5,7 +5,7 @@
             "name": "flatpak-indexer",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/.venv/bin/flatpak-indexer",
+            "module": "flatpak_indexer.cli",
             "args": [
                 "-c",
                 "${input:configFile}",
