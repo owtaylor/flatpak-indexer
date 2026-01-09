@@ -3,7 +3,8 @@ FROM fedora:latest
 RUN dnf -y update && dnf install -y valkey && dnf clean all
 
 RUN chmod 0770 /etc/valkey
-RUN mkdir /run/valkey && chown valkey:valkey /run/valkey
+RUN mkdir /run/valkey && chown valkey:0 /run/valkey
+RUN chmod 0770 /run/valkey
 
 RUN mkdir -m 0770 /data && chown valkey:0 /data
 VOLUME /data
