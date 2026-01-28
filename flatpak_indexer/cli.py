@@ -17,8 +17,9 @@ logger = logging.getLogger(__name__)
 @click.group()
 @click.pass_context
 @click.option("--config-file", "-c", required=True, help="Config file")
-@click.option("-v", "--verbose", is_flag=True, help="Show verbose debugging output")
-def cli(ctx, config_file, verbose):
+@click.option("-v", "--verbose", is_flag=True, help="Show verbose info output")
+@click.option("-vv", "--verbose-debug", is_flag=True, help="Show verbose debugging output")
+def cli(ctx, config_file, verbose, verbose_debug):
     cfg = Config.from_path(config_file)
 
     ctx.obj = {
@@ -29,6 +30,8 @@ def cli(ctx, config_file, verbose):
     logging.basicConfig(level=logging.WARNING, format=FORMAT)
     if verbose:
         logging.getLogger("flatpak_indexer").setLevel(logging.INFO)
+    if verbose_debug:
+        logging.getLogger("flatpak_indexer").setLevel(logging.DEBUG)
 
 
 @cli.command(name="daemon")
