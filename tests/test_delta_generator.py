@@ -157,9 +157,12 @@ class FakeDiffer:
         self.thread = threading.Thread(target=self.run, name="fake-differ")
         self.logger = logging.getLogger(FakeDiffer.__qualname__)
         self.task_destinies = task_destinies
+        self._subscribed = threading.Event()
 
     def __enter__(self):
         self.start()
+        if not self._subscribed.wait(timeout=10.0):
+            raise RuntimeError("FakeDiffer did not subscribe to Redis in time")
 
         return self
 
@@ -271,6 +274,7 @@ class FakeDiffer:
             pubsub = redis_client.pubsub()
             pubsub.subscribe("fake-differ-exit")
             pubsub.subscribe("tardiff:queued")
+            self._subscribed.set()
 
             self._run(redis_client, pubsub)
         except Exception:
