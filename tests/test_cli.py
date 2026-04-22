@@ -62,6 +62,7 @@ def test_daemon(tmp_path):
 
 
 @mock_brew
+@mock_odcs
 @mock_pyxis
 @mock_redis
 @pytest.mark.parametrize(
