@@ -1,0 +1,38 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "flatpak-indexer",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flatpak_indexer.cli",
+            "args": [
+                "-c",
+                "${input:configFile}",
+                "-v",
+                "${input:subcommand}"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ],
+    "inputs": [
+        {
+            "id": "subcommand",
+            "type": "pickString",
+            "description": "Select the subcommand to run",
+            "options": [
+                "index",
+                "differ",
+                "daemon"
+            ],
+            "default": "index"
+        },
+        {
+            "id": "configFile",
+            "type": "promptString",
+            "description": "Path to config file",
+            "default": "config-fedora.yaml"
+        }
+    ]
+}
