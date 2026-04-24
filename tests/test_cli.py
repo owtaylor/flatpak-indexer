@@ -107,7 +107,7 @@ def test_daemon_exception(tmp_path, where):
 @mock_odcs
 @mock_pyxis
 @mock_redis
-@pytest.mark.parametrize("verbose", [False, True])
+@pytest.mark.parametrize("verbose", [0, 1, 2])
 def test_index(tmp_path, caplog, verbose):
     config_path = write_config(tmp_path, CONFIG)
 
@@ -116,8 +116,10 @@ def test_index(tmp_path, caplog, verbose):
     os.environ["OUTPUT_DIR"] = str(tmp_path)
     runner = CliRunner()
     args = ["--config-file", config_path, "index"]
-    if verbose:
+    if verbose == 1:
         args.insert(0, "--verbose")
+    elif verbose == 2:
+        args.insert(0, "-vv")
     result = runner.invoke(cli, args, catch_exceptions=False)
     os.unlink(config_path)
     if verbose:
