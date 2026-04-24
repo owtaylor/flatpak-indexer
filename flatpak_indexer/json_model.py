@@ -36,7 +36,7 @@ class ModelField(ABC, Generic[T]):
         self.optional = optional
 
     @abstractmethod
-    def init_value(self, kwargs) -> T: ...
+    def init_value(self, kwargs) -> T | None: ...
 
     @abstractmethod
     def json_include(self, instance) -> bool: ...
@@ -55,7 +55,7 @@ class ScalarField(ModelField[T]):
     @abstractmethod
     def from_json(self, value: Any) -> T: ...
 
-    def init_value(self, kwargs) -> T:
+    def init_value(self, kwargs) -> T | None:
         value = kwargs.get(self.python_name)
         if value is None and not self.optional:
             raise AttributeError(f"{self.json_name} must be specified")
