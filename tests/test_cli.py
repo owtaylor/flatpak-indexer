@@ -62,6 +62,7 @@ def test_daemon(tmp_path):
 
 
 @mock_brew
+@mock_odcs
 @mock_pyxis
 @mock_redis
 @pytest.mark.parametrize(
@@ -101,6 +102,41 @@ def test_daemon_exception(tmp_path, where):
             )
             assert result.exit_code == 42
             assert exception_count == 2
+
+
+def test_daemon_skip_indexing_and_cleanup_on_updater_exception(tmp_path, caplog):
+    config_path = write_config(tmp_path, CONFIG)
+    os.environ["OUTPUT_DIR"] = str(tmp_path)
+
+    sleep_count = 0
+
+    def mock_sleep(secs):
+        nonlocal sleep_count
+        sleep_count += 1
+        if sleep_count == 2:
+            sys.exit(42)
+
+    runner = CliRunner()
+
+    with (
+        patch("flatpak_indexer.cli.time.sleep", side_effect=mock_sleep),
+        patch(
+            "flatpak_indexer.datasource.pyxis.updater.PyxisUpdater.update",
+            side_effect=Exception("Failed to update data source!"),
+        ) as mock_update,
+        patch("flatpak_indexer.indexer.Indexer.index") as mock_index,
+        patch("flatpak_indexer.cleaner.Cleaner.clean") as mock_clean,
+    ):
+        result = runner.invoke(
+            cli, ["--config-file", config_path, "daemon"], catch_exceptions=False
+        )
+
+        mock_update.assert_called()
+        mock_index.assert_not_called()
+        mock_clean.assert_not_called()
+        assert "Skipping both indexing and cleanup due to failed updaters" in caplog.text
+
+        assert result.exit_code == 42
 
 
 @mock_brew

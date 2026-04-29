@@ -59,11 +59,18 @@ def daemon(ctx):
             last_update_time = time.time()
 
             registry_data: Dict[str, RegistryModel] = {}
+            update_failed = False
             for updater in updaters:
                 try:
                     updater.update(registry_data)
                 except Exception:
-                    logger.exception("Failed to update data sources")
+                    logger.exception("Failed to update data source: %s", type(updater).__name__)
+                    update_failed = True
+                    break
+
+            if update_failed:
+                logger.exception("Skipping both indexing and cleanup due to failed updaters")
+                continue
 
             cleaner.reset()
 
