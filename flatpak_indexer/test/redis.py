@@ -48,7 +48,15 @@ def mock_redis(
 
             return fakeredis.FakeStrictRedis(server=server)  # type: ignore
 
-        with patch("redis.Redis.from_url", side_effect=from_url):
+        with (
+            patch("redis.Redis.from_url", side_effect=from_url),
+            # redis-py 8+ tries to resolve the host via socket.getaddrinfo() during
+            # the maintenance notifications handshake, which is blocked by the
+            # --disable-socket pytest flag, raising SocketBlockedError.
+            patch(
+                "redis.connection.Connection.activate_maint_notifications_handling_if_enabled",
+            ),
+        ):
             return f(*args, **kwargs)
 
     return wrapper
