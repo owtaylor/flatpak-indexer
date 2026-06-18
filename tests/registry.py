@@ -8,7 +8,7 @@ import json
 import re
 import tarfile
 
-import requests
+from requests import PreparedRequest
 import responses
 
 from flatpak_indexer.test.decorators import WithArgDecorator
@@ -145,23 +145,23 @@ class MockRegistry:
                     ok = True
 
             if not ok:
-                return (requests.codes.UNAUTHORIZED, {}, "")
+                return (401, {}, "")
 
     def _check_bearer_auth(self, req, repo):
         if "bearer_auth" in self.flags:
             authorization = req.headers.get("Authorization")
             if authorization != f"Bearer GOLDEN_LLAMA_{repo}":
                 if "bearer_auth_unknown_type" in self.flags:
-                    return (requests.codes.UNAUTHORIZED, {"WWW-Authenticate": "FeeFiFoFum"}, "")
+                    return (401, {"WWW-Authenticate": "FeeFiFoFum"}, "")
                 elif "bearer_auth_no_realm" in self.flags:
                     return (
-                        requests.codes.UNAUTHORIZED,
+                        401,
                         {"WWW-Authenticate": 'Bearer service="registry.example.com"'},
                         "",
                     )
                 else:
                     return (
-                        requests.codes.UNAUTHORIZED,
+                        401,
                         {
                             "WWW-Authenticate": (
                                 'Bearer realm="https://registry.example.com/token",'
@@ -175,7 +175,7 @@ class MockRegistry:
         url = "https://" + self.hostname
         pat = re.compile("^" + url + pattern + "$")
 
-        def do_it(req):
+        def do_it(req: PreparedRequest) -> tuple[int, dict[str, str], str | bytes]:
             auth_response = self._check_creds(req)
             if auth_response:
                 return auth_response
@@ -200,12 +200,12 @@ class MockRegistry:
             try:
                 ref = repo["tags"][ref]
             except KeyError:
-                return (requests.codes.NOT_FOUND, {}, json_bytes({"error": "NOT_FOUND"}))
+                return (404, {}, json_bytes({"error": "NOT_FOUND"}))
 
         try:
             blob = repo["manifests"][ref]
         except KeyError:
-            return (requests.codes.NOT_FOUND, {}, json_bytes({"error": "NOT_FOUND"}))
+            return (404, {}, json_bytes({"error": "NOT_FOUND"}))
 
         decoded = json.loads(blob)
         content_type = decoded.get("mediaType")
@@ -237,7 +237,7 @@ class MockRegistry:
         try:
             blob = repo["blobs"][digest]
         except KeyError:
-            return (requests.codes.NOT_FOUND, {}, json_bytes({"error": "NOT_FOUND"}))
+            return (404, {}, json_bytes({"error": "NOT_FOUND"}))
 
         headers = {
             "Docker-Content-Digest": digest,
